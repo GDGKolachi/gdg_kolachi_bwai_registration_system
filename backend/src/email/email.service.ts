@@ -6,7 +6,7 @@ import * as QRCode from 'qrcode';
 export class EmailService {
   private resend: Resend;
   private readonly logger = new Logger(EmailService.name);
-  private readonly from = 'GDG Kolachi <noreply@gdgkolachi.com>';
+  private readonly from = 'GDG Kolachi <hello@gdgkolachi.com>';
 
   constructor() {
     const apiKey = process.env.RESEND_API_KEY;

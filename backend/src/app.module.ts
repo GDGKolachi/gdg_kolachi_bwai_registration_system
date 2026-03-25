@@ -29,7 +29,7 @@ import { ExceptionRequest } from './entities/exception-request.entity';
       host: process.env.DATABASE_URL ? undefined : (process.env.DB_HOST || 'localhost'),
       port: process.env.DATABASE_URL ? undefined : Number(process.env.DB_PORT || 5432),
       username: process.env.DATABASE_URL ? undefined : (process.env.DB_USER || 'postgres'),
-      password: process.env.DATABASE_URL ? undefined : (process.env.DB_PASSWORD || 'postgres'),
+      password: process.env.DATABASE_URL ? undefined : (process.env.DB_PASSWORD || 'munim343'),
       database: process.env.DATABASE_URL ? undefined : (process.env.DB_NAME || 'gdg_bwai'),
       entities: [Admin, Workshop, Attendee, Registration, ExceptionRequest],
       synchronize: true,
