@@ -12,6 +12,8 @@ import WorkshopCrud from './features/admin/workshop-management/views/workshop-cr
 import RegistrationsViewer from './features/admin/registrations/views/registrations-viewer';
 import ExceptionQueue from './features/admin/exception-review/views/exception-queue';
 import CheckinView from './features/admin/checkin/views/checkin-view';
+import QrScanView from './features/admin/qr-scan/views/qr-scan-view';
+import UsersManagement from './features/admin/users/views/users-management';
 
 function App() {
   return (
@@ -30,6 +32,8 @@ function App() {
         <Route path="registrations" element={<RegistrationsViewer />} />
         <Route path="exceptions" element={<ExceptionQueue />} />
         <Route path="checkin" element={<CheckinView />} />
+        <Route path="qr-scan" element={<QrScanView />} />
+        <Route path="users" element={<UsersManagement />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

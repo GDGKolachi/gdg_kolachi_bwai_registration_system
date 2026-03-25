@@ -16,8 +16,11 @@ export function prepareRegistrationPayload(formData) {
     email: formData.email,
     phone: formData.phone,
     university_org: formData.universityOrg,
-    github_linkedin: formData.githubLinkedin,
+    github: formData.github || undefined,
+    linkedin: formData.linkedin,
     cnic: formData.cnic,
+    gender: formData.gender,
+    defines_you_best: formData.definesYouBest,
     workshop_id: formData.workshopId,
     motivation: formData.motivation,
   };

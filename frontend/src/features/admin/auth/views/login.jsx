@@ -26,31 +26,28 @@ export default function Login() {
   };
 
   return (
-    <div style={{
-      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'var(--gdg-dark)',
-    }}>
-      <div className="card" style={{ width: 400, padding: 40 }}>
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 4, marginBottom: 12 }}>
-            <span style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--gdg-blue)' }} />
-            <span style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--gdg-red)' }} />
-            <span style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--gdg-yellow)' }} />
-            <span style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--gdg-green)' }} />
+    <div className="min-h-screen flex items-center justify-center bg-gdg-dark">
+      <div className="bg-white rounded-xl p-10 border border-gdg-border w-96">
+        <div className="text-center mb-8">
+          <div className="flex justify-center gap-1 mb-3">
+            <span className="w-2.5 h-2.5 rounded-full bg-gdg-blue" />
+            <span className="w-2.5 h-2.5 rounded-full bg-gdg-red" />
+            <span className="w-2.5 h-2.5 rounded-full bg-gdg-yellow" />
+            <span className="w-2.5 h-2.5 rounded-full bg-gdg-green" />
           </div>
-          <h1 style={{ fontSize: 24, fontWeight: 700 }}>Admin Login</h1>
-          <p style={{ color: 'var(--gdg-gray)', fontSize: 14, marginTop: 4 }}>GDG Kolachi - Build with AI</p>
+          <h1 className="text-2xl font-bold">Admin Login</h1>
+          <p className="text-gdg-gray text-sm mt-1">GDG Kolachi - Build with AI</p>
         </div>
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>Email</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required />
+          <div className="mb-5">
+            <label className="block mb-1.5 font-medium text-sm text-gdg-dark">Email</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-3.5 py-2.5 border border-gdg-border rounded-lg text-sm focus:outline-none focus:border-gdg-blue focus:ring-2 focus:ring-gdg-blue/15" />
           </div>
-          <div className="form-group">
-            <label>Password</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required />
+          <div className="mb-5">
+            <label className="block mb-1.5 font-medium text-sm text-gdg-dark">Password</label>
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required className="w-full px-3.5 py-2.5 border border-gdg-border rounded-lg text-sm focus:outline-none focus:border-gdg-blue focus:ring-2 focus:ring-gdg-blue/15" />
           </div>
-          <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
+          <button type="submit" className="w-full py-2.5 px-6 bg-gdg-blue text-white rounded-lg font-semibold text-sm hover:bg-blue-600 disabled:opacity-60" disabled={loading}>
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>

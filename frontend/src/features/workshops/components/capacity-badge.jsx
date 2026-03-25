@@ -3,25 +3,17 @@ import { getCapacityPercentage, isWorkshopFull } from '../workshop-service';
 export default function CapacityBadge({ workshop }) {
   const percentage = getCapacityPercentage(workshop);
   const full = isWorkshopFull(workshop);
+  const barColor = full ? 'bg-gdg-red' : percentage > 80 ? 'bg-gdg-yellow' : 'bg-gdg-green';
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <div style={{
-        flex: 1,
-        height: 6,
-        background: 'var(--gdg-light-gray)',
-        borderRadius: 3,
-        overflow: 'hidden',
-      }}>
-        <div style={{
-          width: `${Math.min(percentage, 100)}%`,
-          height: '100%',
-          background: full ? 'var(--gdg-red)' : percentage > 80 ? 'var(--gdg-yellow)' : 'var(--gdg-green)',
-          borderRadius: 3,
-          transition: 'width 0.3s',
-        }} />
+    <div className="flex items-center gap-2">
+      <div className="flex-1 h-1.5 bg-gdg-light-gray rounded-full overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all duration-300 ${barColor}`}
+          style={{ width: `${Math.min(percentage, 100)}%` }}
+        />
       </div>
-      <span style={{ fontSize: 12, color: 'var(--gdg-gray)', whiteSpace: 'nowrap' }}>
+      <span className="text-xs text-gdg-gray whitespace-nowrap">
         {workshop.registeredCount}/{workshop.maxCapacity}
       </span>
     </div>
