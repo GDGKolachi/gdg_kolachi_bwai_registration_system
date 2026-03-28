@@ -53,16 +53,28 @@ export class AdminController {
   @Get('registrations')
   getRegistrations(
     @Query('workshop_id') workshopId: string,
-    @Query('search') search?: string,
+    @Query('name') name?: string,
+    @Query('email') email?: string,
+    @Query('phone') phone?: string,
+    @Query('cnic') cnic?: string,
     @Query('status') status?: string,
     @Query('defines_you_best') definesYouBest?: string,
+    @Query('gender') gender?: string,
+    @Query('university_org') universityOrg?: string,
+    @Query('checked_in') checkedIn?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
     return this.adminService.getRegistrations(workshopId, {
-      search,
+      name,
+      email,
+      phone,
+      cnic,
       status,
       defines_you_best: definesYouBest,
+      gender,
+      university_org: universityOrg,
+      checked_in: checkedIn !== undefined && checkedIn !== '' ? checkedIn === 'true' : undefined,
       page: page ? parseInt(page) : 1,
       limit: limit ? parseInt(limit) : 20,
     });
