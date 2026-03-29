@@ -89,6 +89,14 @@ export class AdminController {
   }
 
   // Status transitions
+  @Patch('registrations/status')
+  updateRegistrationsStatus(
+    @Body('ids') ids: string[],
+    @Body('status') status: string,
+  ) {
+    return this.adminService.bulkUpdateStatus(ids, status);
+  }
+
   @Patch('registrations/:id/status')
   updateRegistrationStatus(
     @Param('id') id: string,
