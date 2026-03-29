@@ -250,14 +250,6 @@ export default function RegistrationsViewer() {
               <label className={labelCls}>University / Org</label>
               <input className={inputCls} placeholder="Search organization..." value={draftFilters.university_org} onChange={e => setDraftFilter('university_org', e.target.value)} />
             </div>
-            <div>
-              <label className={labelCls}>Check-in</label>
-              <select className={inputCls} value={draftFilters.checked_in} onChange={e => setDraftFilter('checked_in', e.target.value)}>
-                <option value="">All</option>
-                <option value="true">Checked In</option>
-                <option value="false">Not Checked In</option>
-              </select>
-            </div>
           </div>
 
           <div className="flex items-center gap-3">
