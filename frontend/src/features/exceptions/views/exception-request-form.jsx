@@ -33,67 +33,66 @@ export default function ExceptionRequestForm() {
     }
   };
 
-  if (isLoading) return <div className="loading">Loading...</div>;
+  if (isLoading) return <div className="flex justify-center items-center py-16 text-gdg-gray">Loading...</div>;
 
   if (submitted) {
     return (
-      <div style={{ maxWidth: 500, margin: '0 auto', textAlign: 'center' }}>
-        <div className="card" style={{ padding: 40 }}>
-          <div style={{
-            width: 64, height: 64, borderRadius: '50%', background: '#FEF7E0',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 20px', fontSize: 28,
-          }}>
+      <div className="max-w-md mx-auto text-center">
+        <div className="bg-white rounded-xl p-10 border border-gdg-border">
+          <div className="w-16 h-16 rounded-full bg-yellow-100 flex items-center justify-center mx-auto mb-5 text-3xl">
             &#9202;
           </div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 12 }}>Exception Request Submitted</h1>
-          <p style={{ color: 'var(--gdg-gray)', marginBottom: 24 }}>
+          <h1 className="text-2xl font-bold mb-3">Exception Request Submitted</h1>
+          <p className="text-gdg-gray mb-6">
             Your request to attend <strong>{workshop?.title}</strong> is pending admin review.
             You will be notified by email once it is processed.
           </p>
-          <Link to="/" className="btn btn-primary">Back to Workshops</Link>
+          <Link to="/" className="inline-flex items-center justify-center px-6 py-2.5 bg-gdg-blue text-white rounded-lg font-semibold text-sm hover:bg-blue-600 no-underline">
+            Back to Workshops
+          </Link>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: 600, margin: '0 auto' }}>
-      <Link to={`/workshops/${workshopId}`} style={{ fontSize: 14, color: 'var(--gdg-gray)', marginBottom: 16, display: 'inline-block' }}>
+    <div className="max-w-xl mx-auto">
+      <Link to={`/workshops/${workshopId}`} className="text-sm text-gdg-gray mb-4 inline-block hover:text-gdg-blue">
         &larr; Back to {workshop?.title}
       </Link>
 
-      <div className="card" style={{ marginTop: 8 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 4 }}>Exception Request</h1>
-        <p style={{ color: 'var(--gdg-gray)', marginBottom: 24 }}>
+      <div className="bg-white rounded-xl p-6 border border-gdg-border mt-2">
+        <h1 className="text-2xl font-bold mb-1">Exception Request</h1>
+        <p className="text-gdg-gray mb-6">
           Already registered for another workshop? Submit an exception request to also attend <strong>{workshop?.title}</strong>.
         </p>
 
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>Your Registered Email *</label>
+          <div className="mb-5">
+            <label className="block mb-1.5 font-medium text-sm text-gdg-dark">Your Registered Email *</label>
             <input
               type="email"
               value={formData.email}
               onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
               placeholder="The email you used to register"
+              className="w-full px-3.5 py-2.5 border border-gdg-border rounded-lg text-sm focus:outline-none focus:border-gdg-blue focus:ring-2 focus:ring-gdg-blue/15"
             />
-            {errors.email && <div className="form-error">{errors.email}</div>}
+            {errors.email && <div className="text-gdg-red text-xs mt-1">{errors.email}</div>}
           </div>
-          <div className="form-group">
-            <label>Why do you need to attend this additional workshop? *</label>
+          <div className="mb-5">
+            <label className="block mb-1.5 font-medium text-sm text-gdg-dark">Why do you need to attend this additional workshop? *</label>
             <textarea
               value={formData.reason}
               onChange={(e) => setFormData(prev => ({ ...prev, reason: e.target.value }))}
               placeholder="Please explain why you need to attend this additional workshop..."
               rows={5}
+              className="w-full px-3.5 py-2.5 border border-gdg-border rounded-lg text-sm focus:outline-none focus:border-gdg-blue focus:ring-2 focus:ring-gdg-blue/15 resize-y min-h-24"
             />
-            {errors.reason && <div className="form-error">{errors.reason}</div>}
+            {errors.reason && <div className="text-gdg-red text-xs mt-1">{errors.reason}</div>}
           </div>
           <button
             type="submit"
-            className="btn btn-primary"
-            style={{ width: '100%' }}
+            className="w-full py-2.5 px-6 bg-gdg-blue text-white rounded-lg font-semibold text-sm hover:bg-blue-600 disabled:opacity-60 disabled:cursor-not-allowed"
             disabled={submitMutation.isPending}
           >
             {submitMutation.isPending ? 'Submitting...' : 'Submit Exception Request'}

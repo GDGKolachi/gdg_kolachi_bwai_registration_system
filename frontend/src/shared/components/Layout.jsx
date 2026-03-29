@@ -3,40 +3,29 @@ import { Outlet, Link } from 'react-router-dom';
 export default function Layout() {
   return (
     <div>
-      <header style={{
-        background: 'white',
-        borderBottom: '1px solid var(--gdg-border)',
-        padding: '16px 0',
-        position: 'sticky',
-        top: 0,
-        zIndex: 100,
-      }}>
-        <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none' }}>
-            <div style={{ display: 'flex', gap: 4 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--gdg-blue)' }} />
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--gdg-red)' }} />
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--gdg-yellow)' }} />
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--gdg-green)' }} />
+      <header className="bg-white border-b border-gdg-border py-4 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-3 no-underline">
+            <div className="flex gap-1">
+              <span className="w-2 h-2 rounded-full bg-gdg-blue" />
+              <span className="w-2 h-2 rounded-full bg-gdg-red" />
+              <span className="w-2 h-2 rounded-full bg-gdg-yellow" />
+              <span className="w-2 h-2 rounded-full bg-gdg-green" />
             </div>
-            <span style={{ fontWeight: 700, fontSize: 18, color: 'var(--gdg-dark)' }}>
-              GDG Kolachi
-            </span>
-            <span style={{ fontSize: 14, color: 'var(--gdg-gray)' }}>
-              Build with AI
-            </span>
+            <span className="font-bold text-lg text-gdg-dark">GDG Kolachi</span>
+            <span className="text-sm text-gdg-gray">Build with AI</span>
           </Link>
-          <nav style={{ display: 'flex', gap: 24, alignItems: 'center' }}>
-            <Link to="/" style={{ fontWeight: 500, color: 'var(--gdg-gray)', fontSize: 14 }}>Workshops</Link>
+          <nav className="flex gap-6 items-center">
+            <Link to="/" className="font-medium text-gdg-gray text-sm hover:text-gdg-blue">Workshops</Link>
           </nav>
         </div>
       </header>
-      <main style={{ minHeight: 'calc(100vh - 130px)', padding: '32px 0' }}>
-        <div className="container">
+      <main className="min-h-[calc(100vh-130px)] py-8">
+        <div className="max-w-7xl mx-auto px-6">
           <Outlet />
         </div>
       </main>
-      <footer style={{ textAlign: 'center', padding: '24px', color: 'var(--gdg-gray)', fontSize: 13 }}>
+      <footer className="text-center py-6 text-gdg-gray text-sm">
         GDG Kolachi &mdash; Build with AI Workshop Series
       </footer>
     </div>
