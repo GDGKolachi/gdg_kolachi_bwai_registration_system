@@ -9,10 +9,12 @@ export function useAdminRegistrations(workshopId, params = {}) {
   });
 }
 
+// Unified hook — works for a single ID or an array of IDs
 export function useUpdateRegistrationStatus() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, status }) => adminRegistrationApi.updateStatus(id, status),
+    mutationFn: ({ id, ids, status }) =>
+      adminRegistrationApi.updateStatus(ids ?? id, status),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-registrations'] });
       qc.invalidateQueries({ queryKey: ['admin-stats'] });
@@ -20,10 +22,11 @@ export function useUpdateRegistrationStatus() {
   });
 }
 
+// Alias kept so existing import { useBulkUpdateStatus } in the viewer still works
 export function useBulkUpdateStatus() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ ids, status }) => adminRegistrationApi.bulkUpdateStatus(ids, status),
+    mutationFn: ({ ids, status }) => adminRegistrationApi.updateStatus(ids, status),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-registrations'] });
       qc.invalidateQueries({ queryKey: ['admin-stats'] });

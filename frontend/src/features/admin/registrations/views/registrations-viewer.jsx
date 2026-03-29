@@ -3,37 +3,23 @@ import toast from 'react-hot-toast';
 import { useAdminWorkshops } from '../../workshop-management/admin-workshop-repository';
 import { useAdminRegistrations, useUpdateRegistrationStatus, useBulkUpdateStatus } from '../admin-registration-repository';
 import { adminRegistrationApi } from '../admin-registration-api';
+import {
+  STATUS_COLORS,
+  STATUS_BUTTON_COLORS,
+  STATUS_LABELS,
+  STATUS_FILTER_OPTIONS,
+  BULK_STATUSES,
+  ALL_STATUSES,
+} from '../../../../shared/constants/registration-status';
+import { formatDate } from '../../../../shared/utils/formatDate';
 
-const STATUS_COLORS = {
-  // current
-  pending:     'bg-yellow-100 text-amber-600',
-  confirm:     'bg-blue-100 text-gdg-blue',
-  shortlist:   'bg-purple-100 text-purple-700',
-  reject:      'bg-red-100 text-gdg-red',
-  'check-in':  'bg-green-100 text-gdg-green',
-  // legacy (old DB values)
-  shortlisted: 'bg-purple-100 text-purple-700',
-  attended:    'bg-green-100 text-gdg-green',
-  rejected:    'bg-red-100 text-gdg-red',
-};
-
-const STATUS_BUTTON_COLORS = {
-  confirm:   'bg-gdg-blue text-white hover:bg-blue-600',
-  shortlist: 'bg-purple-600 text-white hover:bg-purple-700',
-  'check-in':'bg-gdg-green text-white hover:bg-green-600',
-  reject:    'bg-gdg-red text-white hover:bg-red-600',
-};
-
-const STATUS_TRANSITIONS = {
-  // current
-  pending:   ['confirm', 'shortlist', 'reject'],
-  confirm:   ['check-in'],
-  shortlist: ['check-in', 'reject'],
-  // legacy (old DB values)
-  shortlisted: ['check-in', 'reject'],
-};
-
-const BULK_STATUSES = ['confirm', 'shortlist', 'reject', 'check-in'];
+function ExternalLinkIcon() {
+  return (
+    <svg className="w-3 h-3 inline-block ml-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+    </svg>
+  );
+}
 
 const INITIAL_FILTERS = {
   name: '',
@@ -233,11 +219,9 @@ export default function RegistrationsViewer() {
               <label className={labelCls}>Status</label>
               <select className={inputCls} value={draftFilters.status} onChange={e => setDraftFilter('status', e.target.value)}>
                 <option value="">All Statuses</option>
-                <option value="pending">Pending</option>
-                <option value="confirm">Confirm</option>
-                <option value="shortlist">Shortlist</option>
-                <option value="reject">Reject</option>
-                <option value="check-in">Check-in</option>
+                {STATUS_FILTER_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
               </select>
             </div>
             <div>
@@ -302,9 +286,9 @@ export default function RegistrationsViewer() {
               key={s}
               onClick={() => handleBulkUpdate(s)}
               disabled={bulkUpdateMutation.isPending}
-              className={`px-3 py-1 rounded-lg text-xs font-semibold capitalize disabled:opacity-50 ${STATUS_BUTTON_COLORS[s]}`}
+              className={`px-3 py-1 rounded-lg text-xs font-semibold disabled:opacity-50 ${STATUS_BUTTON_COLORS[s]}`}
             >
-              {s}
+              {STATUS_LABELS[s] ?? s}
             </button>
           ))}
           <button
@@ -331,10 +315,10 @@ export default function RegistrationsViewer() {
           </div>
 
           <div className="bg-white rounded-xl border border-gdg-border overflow-x-auto">
-            <table className="w-full border-collapse">
+            <table className="w-full border-collapse text-sm">
               <thead>
-                <tr>
-                  <th className="py-3 px-4 border-b border-gdg-border w-10">
+                <tr className="bg-gdg-light-gray">
+                  <th className="py-3 px-3 border-b border-gdg-border w-10">
                     <input
                       type="checkbox"
                       checked={allSelected}
@@ -343,22 +327,30 @@ export default function RegistrationsViewer() {
                       className="w-4 h-4 rounded cursor-pointer accent-gdg-blue"
                     />
                   </th>
-                  <th className="text-left py-3 px-4 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide">Name</th>
-                  <th className="text-left py-3 px-4 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide">Email</th>
-                  <th className="text-left py-3 px-4 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide">Phone</th>
-                  <th className="text-left py-3 px-4 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide">CNIC</th>
-                  <th className="text-left py-3 px-4 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide">Profile</th>
-                  <th className="text-left py-3 px-4 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide">Status</th>
-                  <th className="text-left py-3 px-4 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide">Actions</th>
+                  <th className="text-left py-3 px-3 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide whitespace-nowrap">#</th>
+                  <th className="text-left py-3 px-3 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide whitespace-nowrap">Name</th>
+                  <th className="text-left py-3 px-3 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide whitespace-nowrap">Email</th>
+                  <th className="text-left py-3 px-3 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide whitespace-nowrap">Phone</th>
+                  <th className="text-left py-3 px-3 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide whitespace-nowrap">CNIC</th>
+                  <th className="text-left py-3 px-3 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide whitespace-nowrap">Gender</th>
+                  <th className="text-left py-3 px-3 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide whitespace-nowrap">University / Org</th>
+                  <th className="text-left py-3 px-3 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide whitespace-nowrap">GitHub</th>
+                  <th className="text-left py-3 px-3 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide whitespace-nowrap">LinkedIn</th>
+                  <th className="text-left py-3 px-3 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide whitespace-nowrap">Motivation</th>
+                  <th className="text-left py-3 px-3 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide whitespace-nowrap">Registered</th>
+                  <th className="text-left py-3 px-3 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide whitespace-nowrap">Status</th>
                 </tr>
               </thead>
               <tbody>
-                {registrations.map(r => {
-                  const allowed    = STATUS_TRANSITIONS[r.status] || [];
+                {registrations.map((r, idx) => {
+                  const allowed    = ALL_STATUSES.filter(s => s !== r.status);
                   const isSelected = selectedIds.has(r.id);
+                  const a          = r.attendee || {};
                   return (
                     <tr key={r.id} className={`hover:bg-gdg-light-gray ${isSelected ? 'bg-blue-50' : ''}`}>
-                      <td className="py-3 px-4 border-b border-gdg-border">
+
+                      {/* Checkbox */}
+                      <td className="py-2.5 px-3 border-b border-gdg-border">
                         <input
                           type="checkbox"
                           checked={isSelected}
@@ -366,37 +358,82 @@ export default function RegistrationsViewer() {
                           className="w-4 h-4 rounded cursor-pointer accent-gdg-blue"
                         />
                       </td>
-                      <td className="py-3 px-4 border-b border-gdg-border font-medium">{r.attendee?.name}</td>
-                      <td className="py-3 px-4 border-b border-gdg-border text-sm">{r.attendee?.email}</td>
-                      <td className="py-3 px-4 border-b border-gdg-border text-sm">{r.attendee?.phone}</td>
-                      <td className="py-3 px-4 border-b border-gdg-border text-sm">{r.attendee?.cnic}</td>
-                      <td className="py-3 px-4 border-b border-gdg-border text-sm">{r.attendee?.defines_you_best || '-'}</td>
-                      <td className="py-3 px-4 border-b border-gdg-border">
-                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold capitalize ${STATUS_COLORS[r.status] || 'bg-gray-100 text-gray-500'}`}>
-                          {r.status}
-                        </span>
+
+                      {/* Row number */}
+                      <td className="py-2.5 px-3 border-b border-gdg-border text-gdg-gray whitespace-nowrap">
+                        {(page - 1) * 20 + idx + 1}
                       </td>
-                      <td className="py-3 px-4 border-b border-gdg-border">
-                        <div className="flex gap-1.5 flex-wrap">
-                          {allowed.map(next => (
-                            <button
-                              key={next}
-                              onClick={() => handleStatusChange(r.id, next)}
-                              disabled={updateStatusMutation.isPending}
-                              className={`px-3 py-1 rounded-lg text-xs font-semibold capitalize disabled:opacity-50 ${STATUS_BUTTON_COLORS[next] || 'bg-gray-200 text-gray-700'}`}
-                            >
-                              {next}
-                            </button>
-                          ))}
-                          {allowed.length === 0 && <span className="text-xs text-gdg-gray">—</span>}
-                        </div>
+
+                      {/* Name */}
+                      <td className="py-2.5 px-3 border-b border-gdg-border font-medium whitespace-nowrap">{a.name || '—'}</td>
+
+                      {/* Email */}
+                      <td className="py-2.5 px-3 border-b border-gdg-border whitespace-nowrap">{a.email || '—'}</td>
+
+                      {/* Phone */}
+                      <td className="py-2.5 px-3 border-b border-gdg-border whitespace-nowrap">{a.phone || '—'}</td>
+
+                      {/* CNIC */}
+                      <td className="py-2.5 px-3 border-b border-gdg-border whitespace-nowrap">{a.cnic || '—'}</td>
+
+                      {/* Gender */}
+                      <td className="py-2.5 px-3 border-b border-gdg-border whitespace-nowrap">{a.gender || '—'}</td>
+
+                      {/* University / Org */}
+                      <td className="py-2.5 px-3 border-b border-gdg-border max-w-[160px] truncate" title={a.university_org}>
+                        {a.university_org || '—'}
+                      </td>
+
+                      {/* GitHub */}
+                      <td className="py-2.5 px-3 border-b border-gdg-border whitespace-nowrap">
+                        {a.github ? (
+                          <a
+                            href={a.github.startsWith('http') ? a.github : `https://github.com/${a.github}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-gdg-blue hover:underline inline-flex items-center gap-0.5"
+                          >
+                            GitHub <ExternalLinkIcon />
+                          </a>
+                        ) : '—'}
+                      </td>
+
+                      {/* LinkedIn */}
+                      <td className="py-2.5 px-3 border-b border-gdg-border whitespace-nowrap">
+                        {a.linkedin ? (
+                          <a
+                            href={a.linkedin.startsWith('http') ? a.linkedin : `https://linkedin.com/in/${a.linkedin}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-gdg-blue hover:underline inline-flex items-center gap-0.5"
+                          >
+                            LinkedIn <ExternalLinkIcon />
+                          </a>
+                        ) : '—'}
+                      </td>
+
+                      {/* Motivation */}
+                      <td className="py-2.5 px-3 border-b border-gdg-border max-w-[200px]">
+                        <span className="block truncate" title={r.motivation}>{r.motivation || '—'}</span>
+                      </td>
+
+                      {/* Registered At */}
+                      <td className="py-2.5 px-3 border-b border-gdg-border whitespace-nowrap text-gdg-gray">
+                        {formatDate(r.registered_at)}
+                      </td>
+
+                      {/* Status */}
+                      <td className="py-2.5 px-3 border-b border-gdg-border whitespace-nowrap">
+                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${STATUS_COLORS[r.status] || 'bg-gray-100 text-gray-500'}`}>
+                          {STATUS_LABELS[r.status] ?? r.status}
+                        </span>
                       </td>
                     </tr>
                   );
                 })}
                 {registrations.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="text-center text-gdg-gray py-8">No registrations found</td>
+                    <td colSpan={15} className="text-center text-gdg-gray py-8">No registrations found</td>
                   </tr>
                 )}
               </tbody>

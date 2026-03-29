@@ -17,6 +17,9 @@ export const adminRegistrationApi = {
     return api.get(`/admin/registrations?${query.toString()}`).then(res => res.data);
   },
   exportCsv: (workshopId) => api.get(`/admin/registrations/export?workshop_id=${workshopId}`, { responseType: 'blob' }).then(res => res.data),
-  updateStatus: (id, status) => api.patch(`/admin/registrations/${id}/status`, { status }).then(res => res.data),
-  bulkUpdateStatus: (ids, status) => api.patch('/admin/registrations/bulk-status', { ids, status }).then(res => res.data),
+  // Unified status update — accepts one or more IDs via POST /registrations/status
+  updateStatus: (ids, status) => api.patch('/admin/registrations/status', {
+    ids: Array.isArray(ids) ? ids : [ids],
+    status,
+  }).then(res => res.data),
 };
