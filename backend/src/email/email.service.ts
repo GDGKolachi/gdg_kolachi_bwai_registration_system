@@ -10,9 +10,12 @@ export class EmailService {
 
   constructor() {
     const apiKey = process.env.RESEND_API_KEY;
-    if (apiKey) {
-      this.resend = new Resend(apiKey);
+    if (!apiKey) {
+      this.logger.error('RESEND_API_KEY is not set — emails will not be sent');
+      return;
     }
+    this.resend = new Resend(apiKey);
+    this.logger.log('Resend email service initialized');
   }
 
   private async generateQRCode(data: string): Promise<string> {
@@ -67,9 +70,15 @@ export class EmailService {
     `);
 
     try {
-      await this.resend.emails.send({ from: this.from, to: email, subject: `Registration Received - ${workshop.title}`, html });
+      const result = await this.resend.emails.send({
+        from: this.from,
+        to: [email],
+        subject: `Registration Received - ${workshop.title}`,
+        html,
+      });
+      this.logger.log(`Registration pending email sent to ${email}, id: ${result.data?.id}`);
     } catch (error) {
-      this.logger.error('Failed to send registration pending email', error);
+      this.logger.error(`Failed to send registration pending email to ${email}`, error);
     }
   }
 
@@ -110,27 +119,32 @@ export class EmailService {
     `);
 
     try {
-      await this.resend.emails.send({
-        from: this.from, to: email,
+      const result = await this.resend.emails.send({
+        from: this.from,
+        to: [email],
         subject: `🎉 You're Shortlisted! - ${workshop.title}`,
         html,
         attachments: [{
           filename: 'ticket-qrcode.png',
           content: qrBase64,
-          contentId: 'qrcode',
+          content_type: 'image/png',
         }],
       });
+      this.logger.log(`Shortlisted email sent to ${email}, id: ${result.data?.id}`);
     } catch (error) {
-      this.logger.error('Failed to send shortlisted email', error);
+      this.logger.error(`Failed to send shortlisted email to ${email}`, error);
     }
   }
 
-  // Attended confirmation - sent after QR scan marks them attended
+  // Attended confirmation - sent after check-in
   async sendAttendedConfirmation(
     email: string, name: string,
     workshop: { title: string; date: string; time: string; venue: string },
   ) {
-    if (!this.resend) return;
+    if (!this.resend) {
+      this.logger.warn('Resend not configured, skipping email');
+      return;
+    }
 
     const html = this.emailWrapper('#4285F4', 'Attendance Confirmed', `
       <h2 style="color: #202124;">Welcome ${name}! 🎊</h2>
@@ -143,15 +157,24 @@ export class EmailService {
     `);
 
     try {
-      await this.resend.emails.send({ from: this.from, to: email, subject: `Attendance Confirmed - ${workshop.title}`, html });
+      const result = await this.resend.emails.send({
+        from: this.from,
+        to: [email],
+        subject: `Attendance Confirmed - ${workshop.title}`,
+        html,
+      });
+      this.logger.log(`Attendance confirmation email sent to ${email}, id: ${result.data?.id}`);
     } catch (error) {
-      this.logger.error('Failed to send attended confirmation email', error);
+      this.logger.error(`Failed to send attendance confirmation email to ${email}`, error);
     }
   }
 
   // Rejection email
   async sendRejectionEmail(email: string, name: string, workshopTitle: string) {
-    if (!this.resend) return;
+    if (!this.resend) {
+      this.logger.warn('Resend not configured, skipping email');
+      return;
+    }
 
     const html = this.emailWrapper('#EA4335', 'Registration Update', `
       <h2 style="color: #202124;">Hi ${name},</h2>
@@ -165,13 +188,19 @@ export class EmailService {
     `);
 
     try {
-      await this.resend.emails.send({ from: this.from, to: email, subject: `Registration Update - ${workshopTitle}`, html });
+      const result = await this.resend.emails.send({
+        from: this.from,
+        to: [email],
+        subject: `Registration Update - ${workshopTitle}`,
+        html,
+      });
+      this.logger.log(`Rejection email sent to ${email}, id: ${result.data?.id}`);
     } catch (error) {
-      this.logger.error('Failed to send rejection email', error);
+      this.logger.error(`Failed to send rejection email to ${email}`, error);
     }
   }
 
-  // Batch email sending (sends in batches of 100)
+  // Batch email sending using resend.batch.send
   async sendBatchEmails(
     emails: Array<{ to: string; subject: string; html: string; attachments?: any[] }>,
   ) {
@@ -182,44 +211,55 @@ export class EmailService {
 
     const batchSize = 100;
     for (let i = 0; i < emails.length; i += batchSize) {
-      const batch = emails.slice(i, i + batchSize);
-      const promises = batch.map((email) =>
-        this.resend.emails.send({
-          from: this.from,
-          to: email.to,
-          subject: email.subject,
-          html: email.html,
-          attachments: email.attachments,
-        }).catch((error) => {
-          this.logger.error(`Failed to send email to ${email.to}`, error);
-        }),
-      );
-      await Promise.all(promises);
+      const batch = emails.slice(i, i + batchSize).map((email) => ({
+        from: this.from,
+        to: [email.to],
+        subject: email.subject,
+        html: email.html,
+        attachments: email.attachments,
+      }));
 
-      // Small delay between batches
+      try {
+        await this.resend.batch.send(batch);
+      } catch (error) {
+        this.logger.error('Failed to send batch emails', error);
+      }
+
       if (i + batchSize < emails.length) {
         await new Promise((resolve) => setTimeout(resolve, 1000));
       }
     }
   }
 
-  // Legacy methods kept for exception module compatibility
+  // Exception methods
   async sendExceptionSubmitted(email: string, name: string, workshopTitle: string) {
-    if (!this.resend) return;
+    if (!this.resend) {
+      this.logger.warn('Resend not configured, skipping email');
+      return;
+    }
     const html = this.emailWrapper('#FBBC04', 'Exception Request Received', `
       <h2 style="color: #202124;">Hi ${name},</h2>
       <p>Your exception request to attend <strong>${workshopTitle}</strong> has been submitted.</p>
       <p>Our admin team will review your request and you'll be notified of the decision.</p>
     `);
     try {
-      await this.resend.emails.send({ from: this.from, to: email, subject: `Exception Request Received - ${workshopTitle}`, html });
+      const result = await this.resend.emails.send({
+        from: this.from,
+        to: [email],
+        subject: `Exception Request Received - ${workshopTitle}`,
+        html,
+      });
+      this.logger.log(`Exception submitted email sent to ${email}, id: ${result.data?.id}`);
     } catch (error) {
-      this.logger.error('Failed to send exception submitted email', error);
+      this.logger.error(`Failed to send exception submitted email to ${email}`, error);
     }
   }
 
   async sendExceptionApproved(email: string, name: string, workshop: { title: string; date: string; time: string; venue: string }, registrationId: string) {
-    if (!this.resend) return;
+    if (!this.resend) {
+      this.logger.warn('Resend not configured, skipping email');
+      return;
+    }
     const qrDataUrl = await this.generateQRCode(registrationId);
     const qrBase64 = qrDataUrl.replace('data:image/png;base64,', '');
 
@@ -234,26 +274,39 @@ export class EmailService {
     `);
 
     try {
-      await this.resend.emails.send({
-        from: this.from, to: email, subject: `Exception Approved - ${workshop.title}`, html,
-        attachments: [{ filename: 'qrcode.png', content: qrBase64, contentId: 'qrcode' }],
+      const result = await this.resend.emails.send({
+        from: this.from,
+        to: [email],
+        subject: `Exception Approved - ${workshop.title}`,
+        html,
+        attachments: [{ filename: 'qrcode.png', content: qrBase64, content_type: 'image/png' }],
       });
+      this.logger.log(`Exception approved email sent to ${email}, id: ${result.data?.id}`);
     } catch (error) {
-      this.logger.error('Failed to send exception approved email', error);
+      this.logger.error(`Failed to send exception approved email to ${email}`, error);
     }
   }
 
   async sendExceptionRejected(email: string, name: string, workshopTitle: string) {
-    if (!this.resend) return;
+    if (!this.resend) {
+      this.logger.warn('Resend not configured, skipping email');
+      return;
+    }
     const html = this.emailWrapper('#EA4335', 'Exception Request Update', `
       <h2 style="color: #202124;">Hi ${name},</h2>
       <p>Unfortunately, your exception request to attend <strong>${workshopTitle}</strong> was not approved at this time.</p>
       <p>If you have questions, please reach out to the GDG Kolachi team.</p>
     `);
     try {
-      await this.resend.emails.send({ from: this.from, to: email, subject: `Exception Request Update - ${workshopTitle}`, html });
+      const result = await this.resend.emails.send({
+        from: this.from,
+        to: [email],
+        subject: `Exception Request Update - ${workshopTitle}`,
+        html,
+      });
+      this.logger.log(`Exception rejected email sent to ${email}, id: ${result.data?.id}`);
     } catch (error) {
-      this.logger.error('Failed to send exception rejected email', error);
+      this.logger.error(`Failed to send exception rejected email to ${email}`, error);
     }
   }
 }
