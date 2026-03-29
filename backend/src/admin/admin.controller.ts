@@ -24,7 +24,13 @@ export class AdminController {
 
   // Workshop CRUD
   @Get('workshops')
-  getWorkshops() {
+  getWorkshops(@Query('page') page?: string, @Query('limit') limit?: string) {
+    if (page || limit) {
+      return this.adminService.getWorkshopsPaginated(
+        page ? parseInt(page) : 1,
+        limit ? parseInt(limit) : 20,
+      );
+    }
     return this.workshopsService.findAll();
   }
 
@@ -43,10 +49,35 @@ export class AdminController {
     return this.workshopsService.remove(id);
   }
 
-  // Registrations
+  // Registrations with search/filter/pagination
   @Get('registrations')
-  getRegistrations(@Query('workshop_id') workshopId: string) {
-    return this.registrationsService.findByWorkshop(workshopId);
+  getRegistrations(
+    @Query('workshop_id') workshopId: string,
+    @Query('name') name?: string,
+    @Query('email') email?: string,
+    @Query('phone') phone?: string,
+    @Query('cnic') cnic?: string,
+    @Query('status') status?: string,
+    @Query('defines_you_best') definesYouBest?: string,
+    @Query('gender') gender?: string,
+    @Query('university_org') universityOrg?: string,
+    @Query('checked_in') checkedIn?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.adminService.getRegistrations(workshopId, {
+      name,
+      email,
+      phone,
+      cnic,
+      status,
+      defines_you_best: definesYouBest,
+      gender,
+      university_org: universityOrg,
+      checked_in: checkedIn !== undefined && checkedIn !== '' ? checkedIn === 'true' : undefined,
+      page: page ? parseInt(page) : 1,
+      limit: limit ? parseInt(limit) : 20,
+    });
   }
 
   @Get('registrations/export')
@@ -55,6 +86,34 @@ export class AdminController {
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', `attachment; filename=registrations-${workshopId}.csv`);
     res.send(csv);
+  }
+
+  // Status transitions
+  @Patch('registrations/:id/status')
+  updateRegistrationStatus(
+    @Param('id') id: string,
+    @Body('status') status: string,
+  ) {
+    return this.adminService.updateRegistrationStatus(id, status);
+  }
+
+  @Patch('registrations/bulk-status')
+  bulkUpdateStatus(
+    @Body('ids') ids: string[],
+    @Body('status') status: string,
+  ) {
+    return this.adminService.bulkUpdateStatus(ids, status);
+  }
+
+  // QR Scan
+  @Post('qr-scan')
+  scanQrCode(@Body('qr_data') qrData: string) {
+    return this.adminService.scanQrCode(qrData);
+  }
+
+  @Patch('qr-scan/:id/attend')
+  markAttendedFromScan(@Param('id') id: string) {
+    return this.adminService.markAttendedFromScan(id);
   }
 
   // Exceptions
@@ -82,5 +141,29 @@ export class AdminController {
   @Patch('checkin/:id/toggle')
   toggleCheckin(@Param('id') id: string) {
     return this.adminService.toggleCheckin(id);
+  }
+
+  // Users (Admin) CRUD
+  @Get('users')
+  getUsers(@Query('page') page?: string, @Query('limit') limit?: string) {
+    return this.adminService.getUsers(
+      page ? parseInt(page) : 1,
+      limit ? parseInt(limit) : 20,
+    );
+  }
+
+  @Post('users')
+  createUser(@Body() body: { email: string; password: string; name: string }) {
+    return this.adminService.createUser(body);
+  }
+
+  @Patch('users/:id')
+  updateUser(@Param('id') id: string, @Body() body: { email?: string; password?: string; name?: string }) {
+    return this.adminService.updateUser(id, body);
+  }
+
+  @Delete('users/:id')
+  deleteUser(@Param('id') id: string) {
+    return this.adminService.deleteUser(id);
   }
 }
