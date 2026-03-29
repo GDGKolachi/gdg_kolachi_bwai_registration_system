@@ -127,7 +127,7 @@ export class EmailService {
         attachments: [{
           filename: 'ticket-qrcode.png',
           content: qrBase64,
-          content_type: 'image/png',
+          contentType: 'image/png',
         }],
       });
       this.logger.log(`Shortlisted email sent to ${email}, id: ${result.data?.id}`);
@@ -279,7 +279,7 @@ export class EmailService {
         to: [email],
         subject: `Exception Approved - ${workshop.title}`,
         html,
-        attachments: [{ filename: 'qrcode.png', content: qrBase64, content_type: 'image/png' }],
+        attachments: [{ filename: 'qrcode.png', content: qrBase64, contentType: 'image/png' }],
       });
       this.logger.log(`Exception approved email sent to ${email}, id: ${result.data?.id}`);
     } catch (error) {
