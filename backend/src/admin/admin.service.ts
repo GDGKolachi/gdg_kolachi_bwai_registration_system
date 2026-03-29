@@ -139,19 +139,9 @@ export class AdminService {
     });
     if (!registration) throw new NotFoundException('Registration not found');
 
-    const validTransitions: Record<string, string[]> = {
-      pending:    ['confirmed', 'shortlisted', 'rejected'],
-      confirmed:  ['attended'],
-      shortlisted: ['attended', 'rejected'],
-      attended:   [],
-      rejected:   [],
-    };
-
-    const allowed = validTransitions[registration.status];
-    if (!allowed || !allowed.includes(newStatus)) {
-      throw new BadRequestException(
-        `Cannot transition from "${registration.status}" to "${newStatus}". Allowed: ${allowed?.join(', ') || 'none'}`,
-      );
+    const validStatuses = ['pending', 'confirmed', 'shortlisted', 'rejected', 'attended'];
+    if (!validStatuses.includes(newStatus)) {
+      throw new BadRequestException(`Invalid status: "${newStatus}"`);
     }
 
     registration.status = newStatus;
@@ -244,10 +234,6 @@ export class AdminService {
       relations: ['attendee', 'workshop'],
     });
     if (!registration) throw new NotFoundException('Registration not found');
-
-    if (registration.status !== 'shortlisted' && registration.status !== 'confirmed') {
-      throw new BadRequestException(`Cannot check in. Current status: ${registration.status}`);
-    }
 
     registration.status = 'attended';
     registration.checked_in = true;
