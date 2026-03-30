@@ -12,6 +12,7 @@ A full-stack workshop registration system for GDG Kolachi's "Build with AI" work
 | Email | Resend |
 | Auth | JWT (Passport) |
 | Deployment | Vercel (frontend) + Railway (backend + DB) |
+| E2E tests | Playwright (`frontend/e2e`) |
 
 ## Core Business Rule
 
@@ -294,6 +295,56 @@ The frontend will be available at `http://localhost:5173`.
 Default admin credentials (from .env):
 - **Email:** `admin@gdgkolachi.com`
 - **Password:** `admin123`
+
+## E2E tests (Playwright)
+
+Browser tests live under `frontend/e2e/`. See `frontend/e2e/README.md` for detail.
+
+### Setup
+
+```bash
+cd frontend
+npm install
+npx playwright install   # browsers (e.g. Chromium)
+```
+
+Requires **backend** running (`backend/npm run start:dev`) and `frontend/.env` with `VITE_API_URL` pointing at the API (e.g. `http://localhost:3000/api`).
+
+### Run
+
+```bash
+cd frontend
+npm run test:e2e          # headless
+npm run test:e2e:ui       # interactive UI
+npm run test:e2e:headed   # headed
+npm run test:e2e:report   # open last HTML report
+```
+
+Optional env: `PLAYWRIGHT_BASE_URL`, `PLAYWRIGHT_API_URL`, `E2E_ADMIN_EMAIL`, `E2E_ADMIN_PASSWORD` (must match a real admin in the DB for the setup project).
+
+### Artifacts (screenshots & traces)
+
+- **Screenshots:** Captured **after every test** (pass and fail) and attached to the HTML report (`screenshot: 'on'` in `playwright.config.ts`).
+- **Traces:** Recorded **on first retry** of a failed test (`trace: 'on-first-retry'`), useful for debugging flakes in CI.
+
+### Covered scenarios
+
+| Area | Spec | What is covered |
+|------|------|------------------|
+| **Setup** | `e2e/auth.setup.ts` | Admin login; saves session for admin specs |
+| **Public — workshops** | `e2e/public/workshops.spec.ts` | Home “Build with AI” title; list has cards or empty state; open workshop **Details** → detail page |
+| **Public — registration** | `e2e/public/registration.spec.ts` | Full register flow for first **open** workshop → confirmation page (skipped if no open workshop) |
+| **Public — exception** | `e2e/public/exception-request.spec.ts` | Exception request form loads for an existing workshop |
+| **Public — login** | `e2e/public/auth-login.spec.ts` | Invalid admin credentials stay on `/admin/login` |
+| **Admin — dashboard** | `e2e/admin/dashboard.spec.ts` | Dashboard heading and stats |
+| **Admin — workshops** | `e2e/admin/workshops.spec.ts` | Workshops page; open **New Workshop** modal; cancel |
+| **Admin — registrations** | `e2e/admin/registrations.spec.ts` | Registrations page; workshop `<select>` visible |
+| **Admin — exceptions** | `e2e/admin/exceptions.spec.ts` | Exception requests heading |
+| **Admin — check-in** | `e2e/admin/checkin.spec.ts` | Check-in heading, search field, Search button |
+| **Admin — QR scan** | `e2e/admin/qr-scan.spec.ts` | QR scanner page; manual input + **Look Up** |
+| **Admin — users** | `e2e/admin/users.spec.ts` | Users list; open **New User** modal; cancel |
+
+Admin specs depend on **setup** (saved `e2e/.auth/admin.json`, gitignored). Some public tests **skip** when the API has no workshops or no **open** workshop.
 
 ## Registration Flow
 
