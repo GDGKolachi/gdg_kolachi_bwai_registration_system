@@ -50,48 +50,7 @@ export class EmailService {
     `;
   }
 
-  // Email 1: Sent on registration submit — includes confirm button
-  async sendRegistrationConfirmation(
-    email: string,
-    name: string,
-    workshop: { title: string; date: string; time: string; venue: string },
-    registrationId: string,
-  ) {
-    const appUrl = process.env.APP_URL || 'http://localhost:3000';
-    const confirmUrl = `${appUrl}/api/registrations/${registrationId}/confirm`;
-
-    const html = this.emailWrapper('#4285F4', 'Confirm Your Registration', `
-      <h2 style="color: #202124;">Hi ${name},</h2>
-      <p>Thank you for registering for <strong>${workshop.title}</strong>!</p>
-      <p>Please confirm your registration by clicking the button below:</p>
-      ${this.workshopDetailsBlock(workshop)}
-      <div style="text-align: center; margin: 30px 0;">
-        <a href="${confirmUrl}" style="background: #4285F4; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-size: 16px; font-weight: bold; display: inline-block;">
-          ✅ Confirm Registration
-        </a>
-      </div>
-      <div style="background: #FFF3CD; padding: 16px; border-radius: 8px; margin: 20px 0;">
-        <p style="margin: 0; color: #856404;"><strong>⚠️ Action required:</strong> Please confirm within 48 hours to secure your spot.</p>
-      </div>
-    `);
-
-    if (!this.resend) { this.logger.warn('Resend not configured, skipping email'); return; }
-
-    const { data, error } = await this.resend.emails.send({
-      from: this.from,
-      to: [email],
-      subject: `Confirm Your Registration - ${workshop.title}`,
-      html,
-    });
-
-    if (error) {
-      this.logger.error(`Failed to send registration confirmation to ${email}`, error);
-      return;
-    }
-    this.logger.log(`Registration confirmation sent to ${email}, id: ${data.id}`);
-  }
-
-  // Email 2: Sent when admin shortlists — includes QR code + event details
+  // Sent when admin shortlists — QR ticket + acknowledge spot button
   // Accepts a batch of recipients and sends all in one batch.send() call (max 100 per batch)
   async sendShortlistedEmail(
     email: string,
@@ -100,6 +59,9 @@ export class EmailService {
     registrationId: string,
     qrData: string,
   ) {
+    const appUrl = process.env.APP_URL || 'http://localhost:3000';
+    const acknowledgeUrl = `${appUrl}/api/registrations/${registrationId}/acknowledge`;
+
     const qrDataUrl = await this.generateQRCode(qrData);
     const qrBase64 = qrDataUrl.replace('data:image/png;base64,', '');
 
@@ -112,6 +74,12 @@ export class EmailService {
         <p style="color: #5F6368; margin: 0 0 16px;">Present this QR code at the venue for check-in</p>
         <img src="cid:qrcode" alt="QR Code" style="width: 200px; height: 200px;" />
         <p style="margin: 12px 0 0; font-size: 12px; color: #9AA0A6;">Registration ID: ${registrationId}</p>
+      </div>
+      <div style="text-align: center; margin: 24px 0;">
+        <p style="color: #5F6368; margin: 0 0 12px; font-size: 14px;">Please confirm that you will attend:</p>
+        <a href="${acknowledgeUrl}" style="background: #34A853; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-size: 16px; font-weight: bold; display: inline-block;">
+          ✓ Confirm my spot
+        </a>
       </div>
       <div style="background: #FFF3CD; padding: 16px; border-radius: 8px; margin: 20px 0;">
         <p style="margin: 0; color: #856404;"><strong>⚠️ Important:</strong></p>
@@ -130,7 +98,14 @@ export class EmailService {
       to: [email],
       subject: `🎉 You're Shortlisted! - ${workshop.title}`,
       html,
-      attachments: [{ filename: 'ticket-qrcode.png', content: qrBase64, contentType: 'image/png' }],
+      attachments: [
+        {
+          filename: 'ticket-qrcode.png',
+          content: qrBase64,
+          contentType: 'image/png',
+          contentId: 'qrcode',
+        },
+      ],
     });
 
     if (error) {
@@ -154,8 +129,10 @@ export class EmailService {
     for (let i = 0; i < recipients.length; i += batchSize) {
       const chunk = recipients.slice(i, i + batchSize);
 
+      const appUrl = process.env.APP_URL || 'http://localhost:3000';
       const messages = await Promise.all(
         chunk.map(async (r) => {
+          const acknowledgeUrl = `${appUrl}/api/registrations/${r.registrationId}/acknowledge`;
           const qrDataUrl = await this.generateQRCode(r.qrData);
           const qrBase64 = qrDataUrl.replace('data:image/png;base64,', '');
           const html = this.emailWrapper('#34A853', "You've Been Shortlisted!", `
@@ -167,13 +144,24 @@ export class EmailService {
               <img src="cid:qrcode" alt="QR Code" style="width: 200px; height: 200px;" />
               <p style="font-size: 12px; color: #9AA0A6;">Registration ID: ${r.registrationId}</p>
             </div>
+            <div style="text-align: center; margin: 20px 0;">
+              <p style="color: #5F6368; margin: 0 0 10px;">Please confirm that you will attend:</p>
+              <a href="${acknowledgeUrl}" style="background: #34A853; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">✓ Confirm my spot</a>
+            </div>
           `);
           return {
             from: this.from,
             to: [r.email],
             subject: `🎉 You're Shortlisted! - ${r.workshop.title}`,
             html,
-            attachments: [{ filename: 'ticket-qrcode.png', content: qrBase64, contentType: 'image/png' }],
+            attachments: [
+              {
+                filename: 'ticket-qrcode.png',
+                content: qrBase64,
+                contentType: 'image/png',
+                contentId: 'qrcode',
+              },
+            ],
           };
         }),
       );

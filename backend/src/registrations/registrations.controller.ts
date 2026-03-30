@@ -16,15 +16,15 @@ export class RegistrationsController {
     return this.registrationsService.register(dto);
   }
 
-  @Get(':id/confirm')
+  @Get(':id/acknowledge')
   @Redirect()
-  async confirmRegistration(@Param('id') id: string) {
+  async acknowledgeSpot(@Param('id') id: string) {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     try {
-      await this.registrationsService.confirmRegistration(id);
-      return { url: `${frontendUrl}/registration/confirmation?confirmed=true` };
+      await this.registrationsService.acknowledgeSpot(id);
+      return { url: `${frontendUrl}/registration/confirmation?acknowledged=true` };
     } catch {
-      return { url: `${frontendUrl}/registration/confirmation?confirmed=false` };
+      return { url: `${frontendUrl}/registration/confirmation?acknowledged=false` };
     }
   }
 }
