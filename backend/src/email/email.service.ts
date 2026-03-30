@@ -51,21 +51,28 @@ export class EmailService {
     `;
   }
 
-  // Registration pending - sent when person first registers
-  async sendRegistrationPending(email: string, name: string, workshop: { title: string; date: string; time: string; venue: string }) {
+  // Registration submitted - sent when person first registers, includes confirm button
+  async sendRegistrationConfirmation(email: string, name: string, workshop: { title: string; date: string; time: string; venue: string }, registrationId: string) {
     if (!this.resend) {
       this.logger.warn('Resend not configured, skipping email');
       return;
     }
 
-    const html = this.emailWrapper('#4285F4', 'Registration Received', `
+    const appUrl = process.env.APP_URL || 'http://localhost:3000';
+    const confirmUrl = `${appUrl}/api/registrations/${registrationId}/confirm`;
+
+    const html = this.emailWrapper('#4285F4', 'Confirm Your Registration', `
       <h2 style="color: #202124;">Hi ${name},</h2>
       <p>Thank you for registering for <strong>${workshop.title}</strong>!</p>
-      <p>Your registration is currently <span style="background: #FFF3CD; color: #856404; padding: 2px 8px; border-radius: 4px; font-weight: bold;">Pending</span> review by our team.</p>
+      <p>Please confirm your registration by clicking the button below:</p>
       ${this.workshopDetailsBlock(workshop)}
-      <div style="background: #E8F0FE; padding: 16px; border-radius: 8px; margin: 20px 0;">
-        <p style="margin: 0; color: #1967D2;"><strong>What's next?</strong></p>
-        <p style="margin: 8px 0 0; color: #5F6368;">Our team will review your registration. Once shortlisted, you'll receive a confirmation email with your event ticket and QR code.</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${confirmUrl}" style="background: #4285F4; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-size: 16px; font-weight: bold; display: inline-block;">
+          ✅ Confirm Registration
+        </a>
+      </div>
+      <div style="background: #FFF3CD; padding: 16px; border-radius: 8px; margin: 20px 0;">
+        <p style="margin: 0; color: #856404;"><strong>⚠️ Action required:</strong> Please confirm within 48 hours to secure your spot. Unconfirmed registrations may be released.</p>
       </div>
     `);
 
@@ -73,12 +80,12 @@ export class EmailService {
       const result = await this.resend.emails.send({
         from: this.from,
         to: [email],
-        subject: `Registration Received - ${workshop.title}`,
+        subject: `Confirm Your Registration - ${workshop.title}`,
         html,
       });
-      this.logger.log(`Registration pending email sent to ${email}, id: ${result.data?.id}`);
+      this.logger.log(`Registration confirmation email sent to ${email}, id: ${result.data?.id}`);
     } catch (error) {
-      this.logger.error(`Failed to send registration pending email to ${email}`, error);
+      this.logger.error(`Failed to send registration confirmation email to ${email}`, error);
     }
   }
 
