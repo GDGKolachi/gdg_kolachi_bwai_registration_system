@@ -31,6 +31,7 @@ const INITIAL_FILTERS = {
   gender: '',
   university_org: '',
   checked_in: '',
+  acknowledged: '',
 };
 
 export default function RegistrationsViewer() {
@@ -61,6 +62,8 @@ export default function RegistrationsViewer() {
     gender:          appliedFilters.gender          || undefined,
     university_org:  appliedFilters.university_org  || undefined,
     checked_in:      appliedFilters.checked_in !== '' ? appliedFilters.checked_in === 'true' : undefined,
+    acknowledged:
+      appliedFilters.acknowledged !== '' ? appliedFilters.acknowledged === 'true' : undefined,
     page,
     limit: 20,
   };
@@ -250,6 +253,14 @@ export default function RegistrationsViewer() {
               <label className={labelCls}>University / Org</label>
               <input className={inputCls} placeholder="Search organization..." value={draftFilters.university_org} onChange={e => setDraftFilter('university_org', e.target.value)} />
             </div>
+            <div>
+              <label className={labelCls}>Spot acknowledged (email)</label>
+              <select className={inputCls} value={draftFilters.acknowledged} onChange={e => setDraftFilter('acknowledged', e.target.value)}>
+                <option value="">Any</option>
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
@@ -331,6 +342,7 @@ export default function RegistrationsViewer() {
                   <th className="text-left py-3 px-3 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide whitespace-nowrap">Motivation</th>
                   <th className="text-left py-3 px-3 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide whitespace-nowrap">Registered</th>
                   <th className="text-left py-3 px-3 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide whitespace-nowrap">Status</th>
+                  <th className="text-left py-3 px-3 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide whitespace-nowrap">Ack</th>
                 </tr>
               </thead>
               <tbody>
@@ -420,12 +432,15 @@ export default function RegistrationsViewer() {
                           {STATUS_LABELS[r.status] ?? r.status}
                         </span>
                       </td>
+                      <td className="py-2.5 px-3 border-b border-gdg-border whitespace-nowrap text-gdg-gray" title="User confirmed via shortlisted email">
+                        {r.acknowledged ? '✓' : '—'}
+                      </td>
                     </tr>
                   );
                 })}
                 {registrations.length === 0 && (
                   <tr>
-                    <td colSpan={15} className="text-center text-gdg-gray py-8">No registrations found</td>
+                    <td colSpan={14} className="text-center text-gdg-gray py-8">No registrations found</td>
                   </tr>
                 )}
               </tbody>
