@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
 import * as QRCode from 'qrcode';
 
@@ -8,8 +9,8 @@ export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private readonly from = 'GDG Kolachi <hello@gdgkolachi.com>';
 
-  constructor() {
-    const apiKey = process.env.RESEND_API_KEY;
+  constructor(private configService: ConfigService) {
+    const apiKey = this.configService.get<string>('RESEND_API_KEY');
     if (!apiKey) {
       this.logger.error('RESEND_API_KEY is not set — emails will not be sent');
       return;
@@ -63,7 +64,7 @@ export class EmailService {
       return;
     }
 
-    const appUrl = process.env.APP_URL || 'http://localhost:3000';
+    const appUrl = this.configService.get<string>('APP_URL') || 'http://localhost:3000';
     const confirmUrl = `${appUrl}/api/registrations/${registrationId}/confirm`;
 
     const html = this.emailWrapper('#4285F4', 'Confirm Your Registration', `
