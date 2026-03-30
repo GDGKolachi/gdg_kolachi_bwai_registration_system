@@ -4,7 +4,6 @@ import { Repository } from 'typeorm';
 import { Registration } from '../entities/registration.entity';
 import { Attendee } from '../entities/attendee.entity';
 import { Workshop } from '../entities/workshop.entity';
-import { EmailService } from '../email/email.service';
 import { CreateRegistrationDto } from './dto/create-registration.dto';
 
 @Injectable()
@@ -16,7 +15,6 @@ export class RegistrationsService {
     private attendeeRepo: Repository<Attendee>,
     @InjectRepository(Workshop)
     private workshopRepo: Repository<Workshop>,
-    private emailService: EmailService,
   ) {}
 
   async checkEmail(email: string) {
@@ -68,11 +66,6 @@ export class RegistrationsService {
       status: 'pending',
     });
     const saved = await this.registrationRepo.save(registration);
-
-    await this.emailService.sendRegistrationConfirmation(
-      attendee.email, attendee.name, workshop, saved.id,
-    );
-
     return saved;
   }
 

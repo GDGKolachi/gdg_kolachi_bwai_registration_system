@@ -4,7 +4,7 @@ import * as QRCode from 'qrcode';
 
 @Injectable()
 export class EmailService {
-  private readonly resend: Resend;
+  private resend: Resend;
   private readonly logger = new Logger(EmailService.name);
   private readonly from = 'GDG Kolachi <hello@gdgkolachi.com>';
 
@@ -17,82 +17,8 @@ export class EmailService {
     this.logger.log('Resend email service initialized');
   }
 
-  private async generateQRCode(data: string): Promise<string> {
-    return QRCode.toDataURL(data, { width: 200 });
-  }
-
-  private emailWrapper(bgColor: string, headerText: string, bodyHtml: string): string {
-    return `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
-        <div style="background: ${bgColor}; color: white; padding: 24px; text-align: center;">
-          <h1 style="margin: 0; font-size: 22px;">GDG Kolachi - Build with AI</h1>
-          <p style="margin: 8px 0 0; font-size: 16px; opacity: 0.9;">${headerText}</p>
-        </div>
-        <div style="padding: 30px; background: #f9f9f9;">
-          ${bodyHtml}
-        </div>
-        <div style="padding: 16px; background: #202124; color: #9AA0A6; text-align: center; font-size: 12px;">
-          <p style="margin: 0;">GDG Kolachi - Build with AI Workshop Series</p>
-          <p style="margin: 4px 0 0;">This is an automated message. Please do not reply.</p>
-        </div>
-      </div>
-    `;
-  }
-
-  private workshopDetailsBlock(workshop: { title: string; date: string; time: string; venue: string }): string {
-    return `
-      <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4285F4;">
-        <h3 style="margin: 0 0 12px; color: #202124;">${workshop.title}</h3>
-        <p style="margin: 4px 0;"><strong>📅 Date:</strong> ${workshop.date}</p>
-        <p style="margin: 4px 0;"><strong>🕐 Time:</strong> ${workshop.time}</p>
-        <p style="margin: 4px 0;"><strong>📍 Venue:</strong> ${workshop.venue}</p>
-      </div>
-    `;
-  }
-
-  // Email 1: Sent on registration submit — includes confirm button
-  async sendRegistrationConfirmation(
-    email: string,
-    name: string,
-    workshop: { title: string; date: string; time: string; venue: string },
-    registrationId: string,
-  ) {
-    const appUrl = process.env.APP_URL || 'http://localhost:3000';
-    const confirmUrl = `${appUrl}/api/registrations/${registrationId}/confirm`;
-
-    const html = this.emailWrapper('#4285F4', 'Confirm Your Registration', `
-      <h2 style="color: #202124;">Hi ${name},</h2>
-      <p>Thank you for registering for <strong>${workshop.title}</strong>!</p>
-      <p>Please confirm your registration by clicking the button below:</p>
-      ${this.workshopDetailsBlock(workshop)}
-      <div style="text-align: center; margin: 30px 0;">
-        <a href="${confirmUrl}" style="background: #4285F4; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-size: 16px; font-weight: bold; display: inline-block;">
-          ✅ Confirm Registration
-        </a>
-      </div>
-      <div style="background: #FFF3CD; padding: 16px; border-radius: 8px; margin: 20px 0;">
-        <p style="margin: 0; color: #856404;"><strong>⚠️ Action required:</strong> Please confirm within 48 hours to secure your spot.</p>
-      </div>
-    `);
-
-    if (!this.resend) { this.logger.warn('Resend not configured, skipping email'); return; }
-
-    const { data, error } = await this.resend.emails.send({
-      from: this.from,
-      to: [email],
-      subject: `Confirm Your Registration - ${workshop.title}`,
-      html,
-    });
-
-    if (error) {
-      this.logger.error(`Failed to send registration confirmation to ${email}`, error);
-      return;
-    }
-    this.logger.log(`Registration confirmation sent to ${email}, id: ${data.id}`);
-  }
-
-  // Email 2: Sent when admin shortlists — includes QR code + event details
-  // Accepts a batch of recipients and sends all in one batch.send() call (max 100 per batch)
+  // Single email — sent when admin shortlists a registration.
+  // Contains event details, QR ticket, and a Confirm button.
   async sendShortlistedEmail(
     email: string,
     name: string,
@@ -100,35 +26,69 @@ export class EmailService {
     registrationId: string,
     qrData: string,
   ) {
-    const qrDataUrl = await this.generateQRCode(qrData);
+    if (!this.resend) {
+      this.logger.warn('Resend not configured, skipping email');
+      return;
+    }
+
+    const appUrl = process.env.APP_URL || 'http://localhost:3000';
+    const confirmUrl = `${appUrl}/api/registrations/${registrationId}/confirm`;
+
+    const qrDataUrl = await QRCode.toDataURL(qrData, { width: 200 });
     const qrBase64 = qrDataUrl.replace('data:image/png;base64,', '');
 
-    const html = this.emailWrapper('#34A853', "You've Been Shortlisted!", `
-      <h2 style="color: #202124;">Congratulations ${name}! 🎉</h2>
-      <p>You have been <span style="background: #D4EDDA; color: #155724; padding: 2px 8px; border-radius: 4px; font-weight: bold;">Shortlisted</span> for <strong>${workshop.title}</strong>!</p>
-      ${this.workshopDetailsBlock(workshop)}
-      <div style="background: white; padding: 24px; border-radius: 8px; margin: 20px 0; text-align: center; border: 2px dashed #34A853;">
-        <h3 style="margin: 0 0 8px; color: #202124;">🎫 Your Event Ticket</h3>
-        <p style="color: #5F6368; margin: 0 0 16px;">Present this QR code at the venue for check-in</p>
-        <img src="cid:qrcode" alt="QR Code" style="width: 200px; height: 200px;" />
-        <p style="margin: 12px 0 0; font-size: 12px; color: #9AA0A6;">Registration ID: ${registrationId}</p>
-      </div>
-      <div style="background: #FFF3CD; padding: 16px; border-radius: 8px; margin: 20px 0;">
-        <p style="margin: 0; color: #856404;"><strong>⚠️ Important:</strong></p>
-        <ul style="margin: 8px 0 0; color: #856404; padding-left: 20px;">
-          <li>Save or screenshot this email — you'll need the QR code for entry</li>
-          <li>Arrive 15 minutes before the scheduled time</li>
-          <li>Bring a valid ID matching your registration</li>
-        </ul>
-      </div>
-    `);
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+        <div style="background: #34A853; color: white; padding: 24px; text-align: center;">
+          <h1 style="margin: 0; font-size: 22px;">GDG Kolachi - Build with AI</h1>
+          <p style="margin: 8px 0 0; font-size: 16px; opacity: 0.9;">You've Been Shortlisted!</p>
+        </div>
+        <div style="padding: 30px; background: #f9f9f9;">
+          <h2 style="color: #202124;">Congratulations ${name}! 🎉</h2>
+          <p>You have been <span style="background: #D4EDDA; color: #155724; padding: 2px 8px; border-radius: 4px; font-weight: bold;">Shortlisted</span> for <strong>${workshop.title}</strong>!</p>
 
-    if (!this.resend) { this.logger.warn('Resend not configured, skipping email'); return; }
+          <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4285F4;">
+            <h3 style="margin: 0 0 12px; color: #202124;">${workshop.title}</h3>
+            <p style="margin: 4px 0;"><strong>📅 Date:</strong> ${workshop.date}</p>
+            <p style="margin: 4px 0;"><strong>🕐 Time:</strong> ${workshop.time}</p>
+            <p style="margin: 4px 0;"><strong>📍 Venue:</strong> ${workshop.venue}</p>
+          </div>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${confirmUrl}" style="background: #4285F4; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-size: 16px; font-weight: bold; display: inline-block;">
+              ✅ Confirm My Spot
+            </a>
+            <p style="color: #5F6368; font-size: 13px; margin-top: 10px;">Click to confirm your attendance and secure your spot.</p>
+          </div>
+
+          <div style="background: white; padding: 24px; border-radius: 8px; margin: 20px 0; text-align: center; border: 2px dashed #34A853;">
+            <h3 style="margin: 0 0 8px; color: #202124;">🎫 Your Entry QR Code</h3>
+            <p style="color: #5F6368; margin: 0 0 16px;">Present this at the venue for check-in</p>
+            <img src="cid:qrcode" alt="QR Code" style="width: 200px; height: 200px;" />
+            <p style="margin: 12px 0 0; font-size: 12px; color: #9AA0A6;">Registration ID: ${registrationId}</p>
+          </div>
+
+          <div style="background: #FFF3CD; padding: 16px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0; color: #856404;"><strong>⚠️ Important:</strong></p>
+            <ul style="margin: 8px 0 0; color: #856404; padding-left: 20px;">
+              <li>Please confirm your spot using the button above</li>
+              <li>Save or screenshot this email — you'll need the QR code for entry</li>
+              <li>Arrive 15 minutes before the scheduled time</li>
+              <li>Bring a valid ID matching your registration</li>
+            </ul>
+          </div>
+        </div>
+        <div style="padding: 16px; background: #202124; color: #9AA0A6; text-align: center; font-size: 12px;">
+          <p style="margin: 0;">GDG Kolachi - Build with AI Workshop Series</p>
+          <p style="margin: 4px 0 0;">This is an automated message. Please do not reply.</p>
+        </div>
+      </div>
+    `;
 
     const { data, error } = await this.resend.emails.send({
       from: this.from,
       to: [email],
-      subject: `🎉 You're Shortlisted! - ${workshop.title}`,
+      subject: `🎉 You're Shortlisted! Confirm Your Spot - ${workshop.title}`,
       html,
       attachments: [{ filename: 'ticket-qrcode.png', content: qrBase64, contentType: 'image/png' }],
     });
@@ -138,53 +98,5 @@ export class EmailService {
       return;
     }
     this.logger.log(`Shortlisted email sent to ${email}, id: ${data.id}`);
-  }
-
-  // Batch send — used when bulk shortlisting up to 100 registrations at once
-  async sendShortlistedBatch(
-    recipients: Array<{
-      email: string;
-      name: string;
-      workshop: { title: string; date: string; time: string; venue: string };
-      registrationId: string;
-      qrData: string;
-    }>,
-  ) {
-    const batchSize = 100;
-    for (let i = 0; i < recipients.length; i += batchSize) {
-      const chunk = recipients.slice(i, i + batchSize);
-
-      const messages = await Promise.all(
-        chunk.map(async (r) => {
-          const qrDataUrl = await this.generateQRCode(r.qrData);
-          const qrBase64 = qrDataUrl.replace('data:image/png;base64,', '');
-          const html = this.emailWrapper('#34A853', "You've Been Shortlisted!", `
-            <h2 style="color: #202124;">Congratulations ${r.name}! 🎉</h2>
-            <p>You have been <span style="background: #D4EDDA; color: #155724; padding: 2px 8px; border-radius: 4px; font-weight: bold;">Shortlisted</span> for <strong>${r.workshop.title}</strong>!</p>
-            ${this.workshopDetailsBlock(r.workshop)}
-            <div style="text-align: center; margin: 20px 0; border: 2px dashed #34A853; padding: 20px; border-radius: 8px;">
-              <h3 style="margin: 0 0 8px;">🎫 Your Event Ticket</h3>
-              <img src="cid:qrcode" alt="QR Code" style="width: 200px; height: 200px;" />
-              <p style="font-size: 12px; color: #9AA0A6;">Registration ID: ${r.registrationId}</p>
-            </div>
-          `);
-          return {
-            from: this.from,
-            to: [r.email],
-            subject: `🎉 You're Shortlisted! - ${r.workshop.title}`,
-            html,
-            attachments: [{ filename: 'ticket-qrcode.png', content: qrBase64, contentType: 'image/png' }],
-          };
-        }),
-      );
-
-      if (!this.resend) { this.logger.warn('Resend not configured, skipping batch'); return; }
-      const { data, error } = await this.resend.batch.send(messages);
-      if (error) {
-        this.logger.error(`Batch send failed for chunk ${i}–${i + chunk.length}`, error);
-      } else {
-        this.logger.log(`Batch sent ${chunk.length} shortlist emails, ids: ${data.data.map(d => d.id).join(', ')}`);
-      }
-    }
   }
 }
