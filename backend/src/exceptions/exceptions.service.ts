@@ -40,8 +40,6 @@ export class ExceptionsService {
     });
     const saved = await this.exceptionRepo.save(exception);
 
-    await this.emailService.sendExceptionSubmitted(email, attendee.name, workshop.title);
-
     return saved;
   }
 
@@ -73,13 +71,6 @@ export class ExceptionsService {
     });
     const savedReg = await this.registrationRepo.save(registration);
 
-    await this.emailService.sendExceptionApproved(
-      exception.attendee.email,
-      exception.attendee.name,
-      exception.requested_workshop,
-      savedReg.id,
-    );
-
     return exception;
   }
 
@@ -95,12 +86,6 @@ export class ExceptionsService {
     exception.reviewed_by = adminId;
     exception.reviewed_at = new Date();
     await this.exceptionRepo.save(exception);
-
-    await this.emailService.sendExceptionRejected(
-      exception.attendee.email,
-      exception.attendee.name,
-      exception.requested_workshop.title,
-    );
 
     return exception;
   }

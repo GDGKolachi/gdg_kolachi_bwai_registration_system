@@ -69,11 +69,19 @@ export class RegistrationsService {
     });
     const saved = await this.registrationRepo.save(registration);
 
-    await this.emailService.sendRegistrationPending(
-      attendee.email, attendee.name, workshop,
+    await this.emailService.sendRegistrationConfirmation(
+      attendee.email, attendee.name, workshop, saved.id,
     );
 
     return saved;
+  }
+
+  async confirmRegistration(registrationId: string) {
+    const registration = await this.registrationRepo.findOne({ where: { id: registrationId } });
+    if (!registration) throw new NotFoundException('Registration not found');
+    registration.status = 'confirmed';
+    await this.registrationRepo.save(registration);
+    return registration;
   }
 
   async findByWorkshop(workshopId: string) {

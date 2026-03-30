@@ -168,12 +168,6 @@ export class AdminService {
       registration.checked_in = true;
       registration.checked_in_at = new Date();
       await this.registrationRepo.save(registration);
-
-      await this.emailService.sendAttendedConfirmation(
-        registration.attendee.email,
-        registration.attendee.name,
-        registration.workshop,
-      );
     } else {
       await this.registrationRepo.save(registration);
     }
