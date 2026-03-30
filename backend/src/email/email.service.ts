@@ -9,12 +9,12 @@ export class EmailService {
   private readonly from = 'GDG Kolachi <hello@gdgkolachi.com>';
 
   constructor() {
-    this.resend = new Resend(process.env.RESEND_API_KEY);
     if (!process.env.RESEND_API_KEY) {
-      this.logger.warn('RESEND_API_KEY is not set — emails will fail');
-    } else {
-      this.logger.log('Resend email service initialized');
+      this.logger.warn('RESEND_API_KEY is not set — emails will be skipped');
+      return;
     }
+    this.resend = new Resend(process.env.RESEND_API_KEY);
+    this.logger.log('Resend email service initialized');
   }
 
   private async generateQRCode(data: string): Promise<string> {
@@ -75,6 +75,8 @@ export class EmailService {
       </div>
     `);
 
+    if (!this.resend) { this.logger.warn('Resend not configured, skipping email'); return; }
+
     const { data, error } = await this.resend.emails.send({
       from: this.from,
       to: [email],
@@ -120,6 +122,8 @@ export class EmailService {
         </ul>
       </div>
     `);
+
+    if (!this.resend) { this.logger.warn('Resend not configured, skipping email'); return; }
 
     const { data, error } = await this.resend.emails.send({
       from: this.from,
@@ -174,6 +178,7 @@ export class EmailService {
         }),
       );
 
+      if (!this.resend) { this.logger.warn('Resend not configured, skipping batch'); return; }
       const { data, error } = await this.resend.batch.send(messages);
       if (error) {
         this.logger.error(`Batch send failed for chunk ${i}–${i + chunk.length}`, error);
