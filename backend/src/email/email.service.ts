@@ -58,11 +58,6 @@ export class EmailService {
     workshop: { title: string; date: string; time: string; venue: string },
     registrationId: string,
   ) {
-    if (!this.resend) {
-      this.logger.warn('Resend not configured, skipping email');
-      return;
-    }
-
     const appUrl = process.env.APP_URL || 'http://localhost:3000';
     const confirmUrl = `${appUrl}/api/registrations/${registrationId}/confirm`;
 
@@ -77,24 +72,28 @@ export class EmailService {
         </a>
       </div>
       <div style="background: #FFF3CD; padding: 16px; border-radius: 8px; margin: 20px 0;">
-        <p style="margin: 0; color: #856404;"><strong>⚠️ Action required:</strong> Please confirm within 48 hours to secure your spot. Unconfirmed registrations may be released.</p>
+        <p style="margin: 0; color: #856404;"><strong>⚠️ Action required:</strong> Please confirm within 48 hours to secure your spot.</p>
       </div>
     `);
 
-    try {
-      const result = await this.resend.emails.send({
-        from: this.from,
-        to: [email],
-        subject: `Confirm Your Registration - ${workshop.title}`,
-        html,
-      });
-      this.logger.log(`Registration confirmation email sent to ${email}, id: ${result.data?.id}`);
-    } catch (error) {
-      this.logger.error(`Failed to send registration confirmation email to ${email}`, error);
+    if (!this.resend) { this.logger.warn('Resend not configured, skipping email'); return; }
+
+    const { data, error } = await this.resend.emails.send({
+      from: this.from,
+      to: [email],
+      subject: `Confirm Your Registration - ${workshop.title}`,
+      html,
+    });
+
+    if (error) {
+      this.logger.error(`Failed to send registration confirmation to ${email}`, error);
+      return;
     }
+    this.logger.log(`Registration confirmation sent to ${email}, id: ${data.id}`);
   }
 
   // Email 2: Sent when admin shortlists — includes QR code + event details
+  // Accepts a batch of recipients and sends all in one batch.send() call (max 100 per batch)
   async sendShortlistedEmail(
     email: string,
     name: string,
@@ -102,26 +101,19 @@ export class EmailService {
     registrationId: string,
     qrData: string,
   ) {
-    if (!this.resend) {
-      this.logger.warn('Resend not configured, skipping email');
-      return;
-    }
-
     const qrDataUrl = await this.generateQRCode(qrData);
     const qrBase64 = qrDataUrl.replace('data:image/png;base64,', '');
 
     const html = this.emailWrapper('#34A853', "You've Been Shortlisted!", `
       <h2 style="color: #202124;">Congratulations ${name}! 🎉</h2>
-      <p>Great news! You have been <span style="background: #D4EDDA; color: #155724; padding: 2px 8px; border-radius: 4px; font-weight: bold;">Shortlisted</span> for <strong>${workshop.title}</strong>!</p>
+      <p>You have been <span style="background: #D4EDDA; color: #155724; padding: 2px 8px; border-radius: 4px; font-weight: bold;">Shortlisted</span> for <strong>${workshop.title}</strong>!</p>
       ${this.workshopDetailsBlock(workshop)}
-
       <div style="background: white; padding: 24px; border-radius: 8px; margin: 20px 0; text-align: center; border: 2px dashed #34A853;">
         <h3 style="margin: 0 0 8px; color: #202124;">🎫 Your Event Ticket</h3>
         <p style="color: #5F6368; margin: 0 0 16px;">Present this QR code at the venue for check-in</p>
         <img src="cid:qrcode" alt="QR Code" style="width: 200px; height: 200px;" />
         <p style="margin: 12px 0 0; font-size: 12px; color: #9AA0A6;">Registration ID: ${registrationId}</p>
       </div>
-
       <div style="background: #FFF3CD; padding: 16px; border-radius: 8px; margin: 20px 0;">
         <p style="margin: 0; color: #856404;"><strong>⚠️ Important:</strong></p>
         <ul style="margin: 8px 0 0; color: #856404; padding-left: 20px;">
@@ -132,21 +124,68 @@ export class EmailService {
       </div>
     `);
 
-    try {
-      const result = await this.resend.emails.send({
-        from: this.from,
-        to: [email],
-        subject: `🎉 You're Shortlisted! - ${workshop.title}`,
-        html,
-        attachments: [{
-          filename: 'ticket-qrcode.png',
-          content: qrBase64,
-          contentType: 'image/png',
-        }],
-      });
-      this.logger.log(`Shortlisted email sent to ${email}, id: ${result.data?.id}`);
-    } catch (error) {
+    if (!this.resend) { this.logger.warn('Resend not configured, skipping email'); return; }
+
+    const { data, error } = await this.resend.emails.send({
+      from: this.from,
+      to: [email],
+      subject: `🎉 You're Shortlisted! - ${workshop.title}`,
+      html,
+      attachments: [{ filename: 'ticket-qrcode.png', content: qrBase64, contentType: 'image/png' }],
+    });
+
+    if (error) {
       this.logger.error(`Failed to send shortlisted email to ${email}`, error);
+      return;
+    }
+    this.logger.log(`Shortlisted email sent to ${email}, id: ${data.id}`);
+  }
+
+  // Batch send — used when bulk shortlisting up to 100 registrations at once
+  async sendShortlistedBatch(
+    recipients: Array<{
+      email: string;
+      name: string;
+      workshop: { title: string; date: string; time: string; venue: string };
+      registrationId: string;
+      qrData: string;
+    }>,
+  ) {
+    const batchSize = 100;
+    for (let i = 0; i < recipients.length; i += batchSize) {
+      const chunk = recipients.slice(i, i + batchSize);
+
+      const messages = await Promise.all(
+        chunk.map(async (r) => {
+          const qrDataUrl = await this.generateQRCode(r.qrData);
+          const qrBase64 = qrDataUrl.replace('data:image/png;base64,', '');
+          const html = this.emailWrapper('#34A853', "You've Been Shortlisted!", `
+            <h2 style="color: #202124;">Congratulations ${r.name}! 🎉</h2>
+            <p>You have been <span style="background: #D4EDDA; color: #155724; padding: 2px 8px; border-radius: 4px; font-weight: bold;">Shortlisted</span> for <strong>${r.workshop.title}</strong>!</p>
+            ${this.workshopDetailsBlock(r.workshop)}
+            <div style="text-align: center; margin: 20px 0; border: 2px dashed #34A853; padding: 20px; border-radius: 8px;">
+              <h3 style="margin: 0 0 8px;">🎫 Your Event Ticket</h3>
+              <img src="cid:qrcode" alt="QR Code" style="width: 200px; height: 200px;" />
+              <p style="font-size: 12px; color: #9AA0A6;">Registration ID: ${r.registrationId}</p>
+            </div>
+          `);
+          return {
+            from: this.from,
+            to: [r.email],
+            subject: `🎉 You're Shortlisted! - ${r.workshop.title}`,
+            html,
+            attachments: [{ filename: 'ticket-qrcode.png', content: qrBase64, contentType: 'image/png' }],
+          };
+        }),
+      );
+
+      if (!this.resend) { this.logger.warn('Resend not configured, skipping batch'); return; }
+      const { data, error } = await this.resend.batch.send(messages);
+      if (error) {
+        this.logger.error(`Batch send failed for chunk ${i}–${i + chunk.length}`, error);
+      } else {
+        this.logger.log(`Batch sent ${chunk.length} shortlist emails, ids: ${data.data.map(d => d.id).join(', ')}`);
+      }
     }
   }
 }
