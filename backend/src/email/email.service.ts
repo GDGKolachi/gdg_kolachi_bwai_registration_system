@@ -9,7 +9,6 @@ export class EmailService {
   private readonly from = 'GDG Kolachi <hello@gdgkolachi.com>';
 
   constructor() {
-    this.resend = new Resend(process.env.RESEND_API_KEY);
     if (!process.env.RESEND_API_KEY) {
       this.logger.warn('RESEND_API_KEY is not set — emails will fail');
     } else {
