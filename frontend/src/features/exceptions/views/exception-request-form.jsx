@@ -14,7 +14,7 @@ export default function ExceptionRequestForm() {
   const [errors, setErrors] = useState({});
   const [submitted, setSubmitted] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async e => {
     e.preventDefault();
     const validationErrors = validateExceptionForm(formData);
     setErrors(validationErrors);
@@ -33,22 +33,34 @@ export default function ExceptionRequestForm() {
     }
   };
 
-  if (isLoading) return <div className="flex justify-center items-center py-16 text-gdg-gray">Loading...</div>;
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-24">
+        <div className="flex items-center gap-3 text-sm font-medium text-slate-500">
+          <span
+            className="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-gdg-blue"
+            aria-hidden
+          />
+          Loading…
+        </div>
+      </div>
+    );
+  }
 
   if (submitted) {
     return (
-      <div className="max-w-md mx-auto text-center">
-        <div className="bg-white rounded-xl p-10 border border-gdg-border">
-          <div className="w-16 h-16 rounded-full bg-yellow-100 flex items-center justify-center mx-auto mb-5 text-3xl">
-            &#9202;
+      <div className="mx-auto max-w-md text-center">
+        <div className="ui-card px-8 py-12 sm:px-10 sm:py-14">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-50 text-2xl ring-1 ring-amber-200/70">
+            ⏱
           </div>
-          <h1 className="text-2xl font-bold mb-3">Exception Request Submitted</h1>
-          <p className="text-gdg-gray mb-6">
-            Your request to attend <strong>{workshop?.title}</strong> is pending admin review.
+          <h1 className="mb-3 text-2xl font-bold tracking-tight text-slate-900">Exception request submitted</h1>
+          <p className="mb-8 text-sm leading-relaxed text-slate-600">
+            Your request to attend <strong className="text-slate-900">{workshop?.title}</strong> is pending admin review.
             You will be notified by email once it is processed.
           </p>
-          <Link to="/" className="inline-flex items-center justify-center px-6 py-2.5 bg-gdg-blue text-white rounded-lg font-semibold text-sm hover:bg-blue-600 no-underline">
-            Back to Workshops
+          <Link to="/" className="ui-btn-primary px-8 no-underline">
+            Back to workshops
           </Link>
         </div>
       </div>
@@ -56,46 +68,55 @@ export default function ExceptionRequestForm() {
   }
 
   return (
-    <div className="max-w-xl mx-auto">
-      <Link to={`/workshops/${workshopId}`} className="text-sm text-gdg-gray mb-4 inline-block hover:text-gdg-blue">
-        &larr; Back to {workshop?.title}
+    <div className="mx-auto max-w-xl">
+      <Link to={`/workshops/${workshopId}`} className="ui-link-back">
+        ← Back to {workshop?.title}
       </Link>
 
-      <div className="bg-white rounded-xl p-6 border border-gdg-border mt-2">
-        <h1 className="text-2xl font-bold mb-1">Exception Request</h1>
-        <p className="text-gdg-gray mb-6">
-          Already registered for another workshop? Submit an exception request to also attend <strong>{workshop?.title}</strong>.
-        </p>
+      <div className="ui-card p-6 sm:p-8">
+        <div className="mb-8 border-b border-slate-100 pb-6">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Exception request</h1>
+          <p className="mt-3 text-sm leading-relaxed text-slate-600">
+            Already registered for another workshop? Request an exception to also attend{' '}
+            <strong className="text-slate-800">{workshop?.title}</strong>.
+          </p>
+        </div>
 
         <form onSubmit={handleSubmit}>
           <div className="mb-5">
-            <label className="block mb-1.5 font-medium text-sm text-gdg-dark">Your Registered Email *</label>
+            <label className="ui-label-sentence" htmlFor="ex-email">
+              Your registered email *
+            </label>
             <input
+              id="ex-email"
               type="email"
               value={formData.email}
-              onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+              onChange={e => setFormData(prev => ({ ...prev, email: e.target.value }))}
               placeholder="The email you used to register"
-              className="w-full px-3.5 py-2.5 border border-gdg-border rounded-lg text-sm focus:outline-none focus:border-gdg-blue focus:ring-2 focus:ring-gdg-blue/15"
+              className={`ui-input ${errors.email ? 'border-rose-300 focus:border-gdg-red focus:ring-gdg-red/15' : ''}`}
             />
-            {errors.email && <div className="text-gdg-red text-xs mt-1">{errors.email}</div>}
+            {errors.email && <div className="mt-1 text-xs font-medium text-gdg-red">{errors.email}</div>}
           </div>
-          <div className="mb-5">
-            <label className="block mb-1.5 font-medium text-sm text-gdg-dark">Why do you need to attend this additional workshop? *</label>
+          <div className="mb-6">
+            <label className="ui-label-sentence" htmlFor="ex-reason">
+              Why do you need to attend this additional workshop? *
+            </label>
             <textarea
+              id="ex-reason"
               value={formData.reason}
-              onChange={(e) => setFormData(prev => ({ ...prev, reason: e.target.value }))}
-              placeholder="Please explain why you need to attend this additional workshop..."
+              onChange={e => setFormData(prev => ({ ...prev, reason: e.target.value }))}
+              placeholder="Please explain why you need to attend this additional workshop…"
               rows={5}
-              className="w-full px-3.5 py-2.5 border border-gdg-border rounded-lg text-sm focus:outline-none focus:border-gdg-blue focus:ring-2 focus:ring-gdg-blue/15 resize-y min-h-24"
+              className={`ui-input min-h-32 resize-y ${errors.reason ? 'border-rose-300 focus:border-gdg-red focus:ring-gdg-red/15' : ''}`}
             />
-            {errors.reason && <div className="text-gdg-red text-xs mt-1">{errors.reason}</div>}
+            {errors.reason && <div className="mt-1 text-xs font-medium text-gdg-red">{errors.reason}</div>}
           </div>
           <button
             type="submit"
-            className="w-full py-2.5 px-6 bg-gdg-blue text-white rounded-lg font-semibold text-sm hover:bg-blue-600 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="ui-btn-primary w-full py-3 disabled:cursor-not-allowed disabled:opacity-60"
             disabled={submitMutation.isPending}
           >
-            {submitMutation.isPending ? 'Submitting...' : 'Submit Exception Request'}
+            {submitMutation.isPending ? 'Submitting…' : 'Submit exception request'}
           </button>
         </form>
       </div>
