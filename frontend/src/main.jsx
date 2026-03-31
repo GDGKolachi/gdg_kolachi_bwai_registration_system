@@ -20,7 +20,17 @@ createRoot(document.getElementById('root')).render(
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <App />
-        <Toaster position="top-right" />
+        <Toaster
+          position="top-center"
+          containerStyle={{
+            top: 'max(0.75rem, env(safe-area-inset-top))',
+          }}
+          toastOptions={{
+            style: {
+              maxWidth: 'min(22rem, calc(100vw - 1.5rem))',
+            },
+          }}
+        />
       </BrowserRouter>
     </QueryClientProvider>
   </StrictMode>

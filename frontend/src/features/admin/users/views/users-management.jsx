@@ -19,8 +19,13 @@ export default function UsersManagement() {
   const users = result?.data || [];
   const totalPages = result?.totalPages || 1;
 
-  const openCreate = () => { setEditingId(null); setForm(emptyForm); setErrors({}); setShowModal(true); };
-  const openEdit = (u) => {
+  const openCreate = () => {
+    setEditingId(null);
+    setForm(emptyForm);
+    setErrors({});
+    setShowModal(true);
+  };
+  const openEdit = u => {
     setEditingId(u.id);
     setForm({ name: u.name, email: u.email, password: '' });
     setErrors({});
@@ -36,7 +41,7 @@ export default function UsersManagement() {
     return errs;
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async e => {
     e.preventDefault();
     const v = validate();
     setErrors(v);
@@ -59,7 +64,7 @@ export default function UsersManagement() {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async id => {
     if (!confirm('Delete this user?')) return;
     try {
       await deleteMutation.mutateAsync(id);
@@ -69,81 +74,164 @@ export default function UsersManagement() {
     }
   };
 
-  if (isLoading) return <div className="flex justify-center items-center py-16 text-gdg-gray">Loading users...</div>;
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-24">
+        <div className="flex items-center gap-3 text-sm font-medium text-slate-500">
+          <span
+            className="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-gdg-blue"
+            aria-hidden
+          />
+          Loading users…
+        </div>
+      </div>
+    );
+  }
 
-  const inputCls = "w-full px-3.5 py-2.5 border border-gdg-border rounded-lg text-sm focus:outline-none focus:border-gdg-blue focus:ring-2 focus:ring-gdg-blue/15";
+  const inputCls = 'ui-input';
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gdg-dark">Users</h1>
-        <button className="py-2.5 px-6 bg-gdg-blue text-white rounded-lg font-semibold text-sm hover:bg-blue-600" onClick={openCreate}>+ New User</button>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="admin-page-head mb-0">
+          <h1>Users</h1>
+          <p>Manage admin accounts for the dashboard.</p>
+        </div>
+        <button type="button" className="ui-btn-primary w-full shrink-0 sm:w-auto" onClick={openCreate}>
+          + New user
+        </button>
       </div>
 
-      <div className="bg-white rounded-xl p-6 border border-gdg-border">
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr>
-                <th className="text-left py-3 px-4 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide">Name</th>
-                <th className="text-left py-3 px-4 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide">Email</th>
-                <th className="text-left py-3 px-4 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide">Created At</th>
-                <th className="text-left py-3 px-4 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide">Actions</th>
+      <div className="ui-table-wrap">
+        <table className="ui-table min-w-[32rem]">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Created</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map(u => (
+              <tr key={u.id}>
+                <td className="font-semibold text-slate-900">{u.name}</td>
+                <td>{u.email}</td>
+                <td className="text-slate-600">{new Date(u.created_at).toLocaleDateString()}</td>
+                <td>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="ui-btn-secondary !px-3 !py-1.5 text-xs"
+                      onClick={() => openEdit(u)}
+                    >
+                      Edit
+                    </button>
+                    <button type="button" className="ui-btn-danger !px-3 !py-1.5 text-xs" onClick={() => handleDelete(u.id)}>
+                      Delete
+                    </button>
+                  </div>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {users.map(u => (
-                <tr key={u.id} className="hover:bg-gdg-light-gray">
-                  <td className="py-3 px-4 border-b border-gdg-border font-medium">{u.name}</td>
-                  <td className="py-3 px-4 border-b border-gdg-border">{u.email}</td>
-                  <td className="py-3 px-4 border-b border-gdg-border text-sm">{new Date(u.created_at).toLocaleDateString()}</td>
-                  <td className="py-3 px-4 border-b border-gdg-border">
-                    <div className="flex gap-2">
-                      <button className="px-4 py-1.5 border-2 border-gdg-border rounded-lg text-sm font-semibold text-gdg-gray hover:border-gdg-blue hover:text-gdg-blue" onClick={() => openEdit(u)}>Edit</button>
-                      <button className="px-4 py-1.5 bg-gdg-red text-white rounded-lg text-sm font-semibold hover:bg-red-600" onClick={() => handleDelete(u.id)}>Delete</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {users.length === 0 && (
-                <tr><td colSpan={4} className="text-center text-gdg-gray py-8">No users found</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+            ))}
+            {users.length === 0 && (
+              <tr>
+                <td colSpan={4} className="py-8 text-center text-sm text-slate-500">
+                  No users found
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
 
         {totalPages > 1 && (
-          <div className="flex justify-center items-center gap-2 mt-6">
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 border border-gdg-border rounded-lg text-sm disabled:opacity-40">Previous</button>
-            <span className="text-sm text-gdg-gray">Page {page} of {totalPages}</span>
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-3 py-1.5 border border-gdg-border rounded-lg text-sm disabled:opacity-40">Next</button>
+          <div className="flex items-center justify-center gap-2 border-t border-slate-100 px-4 py-4">
+            <button
+              type="button"
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="ui-btn-secondary !px-3 !py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Previous
+            </button>
+            <span className="text-sm font-medium text-slate-600">
+              Page {page} of {totalPages}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="ui-btn-secondary !px-3 !py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Next
+            </button>
           </div>
         )}
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowModal(false)}>
-          <div className="bg-white rounded-2xl p-8 max-w-md w-[90%]" onClick={e => e.stopPropagation()}>
-            <h2 className="text-xl font-bold mb-5">{editingId ? 'Edit User' : 'Create User'}</h2>
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+          onClick={() => setShowModal(false)}
+          role="presentation"
+        >
+          <div
+            className="ui-card w-full max-w-md rounded-b-none rounded-t-2xl p-5 shadow-2xl sm:rounded-2xl sm:p-8"
+            onClick={e => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <h2 className="mb-6 text-xl font-bold tracking-tight text-slate-900">
+              {editingId ? 'Edit user' : 'Create user'}
+            </h2>
             <form onSubmit={handleSubmit}>
               <div className="mb-5">
-                <label className="block mb-1.5 font-medium text-sm text-gdg-dark">Name</label>
-                <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className={inputCls} />
-                {errors.name && <div className="text-gdg-red text-xs mt-1">{errors.name}</div>}
+                <label className="ui-label-sentence" htmlFor="u-name">
+                  Name
+                </label>
+                <input
+                  id="u-name"
+                  value={form.name}
+                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                  className={inputCls}
+                />
+                {errors.name && <div className="mt-1 text-xs font-medium text-gdg-red">{errors.name}</div>}
               </div>
               <div className="mb-5">
-                <label className="block mb-1.5 font-medium text-sm text-gdg-dark">Email</label>
-                <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className={inputCls} />
-                {errors.email && <div className="text-gdg-red text-xs mt-1">{errors.email}</div>}
+                <label className="ui-label-sentence" htmlFor="u-email">
+                  Email
+                </label>
+                <input
+                  id="u-email"
+                  type="email"
+                  value={form.email}
+                  onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                  className={inputCls}
+                />
+                {errors.email && <div className="mt-1 text-xs font-medium text-gdg-red">{errors.email}</div>}
               </div>
               <div className="mb-5">
-                <label className="block mb-1.5 font-medium text-sm text-gdg-dark">Password {editingId ? '(leave blank to keep current)' : '*'}</label>
-                <input type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} className={inputCls} />
-                {errors.password && <div className="text-gdg-red text-xs mt-1">{errors.password}</div>}
+                <label className="ui-label-sentence" htmlFor="u-pass">
+                  Password {editingId ? '(leave blank to keep current)' : '*'}
+                </label>
+                <input
+                  id="u-pass"
+                  type="password"
+                  value={form.password}
+                  onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                  className={inputCls}
+                />
+                {errors.password && (
+                  <div className="mt-1 text-xs font-medium text-gdg-red">{errors.password}</div>
+                )}
               </div>
-              <div className="flex gap-3 justify-end mt-6">
-                <button type="button" className="px-6 py-2.5 border-2 border-gdg-border rounded-lg text-sm font-semibold text-gdg-gray hover:border-gdg-blue hover:text-gdg-blue" onClick={() => setShowModal(false)}>Cancel</button>
-                <button type="submit" className="px-6 py-2.5 bg-gdg-blue text-white rounded-lg text-sm font-semibold hover:bg-blue-600">{editingId ? 'Update' : 'Create'}</button>
+              <div className="mt-6 flex justify-end gap-3">
+                <button type="button" className="ui-btn-secondary" onClick={() => setShowModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="ui-btn-primary">
+                  {editingId ? 'Update' : 'Create'}
+                </button>
               </div>
             </form>
           </div>

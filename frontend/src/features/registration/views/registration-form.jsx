@@ -16,26 +16,31 @@ export default function RegistrationForm() {
   const registerMutation = useRegister();
 
   const [formData, setFormData] = useState({
-    name: '', email: '', phone: '', universityOrg: '',
-    github: '', linkedin: '', cnic: '', gender: '',
-    definesYouBest: '', motivation: '',
+    name: '',
+    email: '',
+    phone: '',
+    universityOrg: '',
+    github: '',
+    linkedin: '',
+    cnic: '',
+    gender: '',
+    definesYouBest: '',
+    motivation: '',
   });
   const [errors, setErrors] = useState({});
-  const [emailChecked, setEmailChecked] = useState(false);
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
 
   const handleEmailBlur = async () => {
     if (!formData.email || !formData.email.includes('@')) return;
     try {
       const result = await api.get(`/registrations/check-email?email=${encodeURIComponent(formData.email)}`);
-      setEmailChecked(true);
       setAlreadyRegistered(result.data.registered);
     } catch {
       // Allow form submission even if check fails
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async e => {
     e.preventDefault();
     const validationErrors = validateRegistrationForm(formData);
     setErrors(validationErrors);
@@ -58,30 +63,56 @@ export default function RegistrationForm() {
     }
   };
 
-  if (workshopLoading) return <div className="flex justify-center items-center py-16 text-gdg-gray">Loading...</div>;
-  if (!workshop) return <div className="bg-red-100 text-gdg-red p-3 rounded-lg">Workshop not found.</div>;
+  if (workshopLoading) {
+    return (
+      <div className="flex justify-center py-24">
+        <div className="flex items-center gap-3 text-sm font-medium text-slate-500">
+          <span
+            className="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-gdg-blue"
+            aria-hidden
+          />
+          Loading…
+        </div>
+      </div>
+    );
+  }
+
+  if (!workshop) {
+    return (
+      <div className="ui-card border-rose-200/80 bg-rose-50/50 px-5 py-4 text-sm font-medium text-rose-800">
+        Workshop not found.
+      </div>
+    );
+  }
 
   const canRegister = isRegistrationOpen(workshop);
 
   return (
-    <div className="max-w-xl mx-auto">
-      <Link to={`/workshops/${workshopId}`} className="text-sm text-gdg-gray mb-4 inline-block hover:text-gdg-blue">
-        &larr; Back to {workshop.title}
+    <div className="mx-auto max-w-xl">
+      <Link to={`/workshops/${workshopId}`} className="ui-link-back">
+        ← Back to {workshop.title}
       </Link>
 
-      <div className="bg-white rounded-xl p-6 border border-gdg-border mt-2">
-        <h1 className="text-2xl font-bold mb-1">Register</h1>
-        <p className="text-gdg-gray mb-6">{workshop.title}</p>
+      <div className="ui-card p-6 sm:p-8">
+        <div className="mb-8 border-b border-slate-100 pb-6">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Register</h1>
+          <p className="mt-2 text-sm font-medium text-slate-600">{workshop.title}</p>
+        </div>
 
         {!canRegister && (
-          <div className="bg-red-100 text-gdg-red p-3 rounded-lg mb-4">Registration is not currently open for this workshop.</div>
+          <div className="mb-6 rounded-xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900 ring-1 ring-amber-200/70">
+            Registration is not currently open for this workshop.
+          </div>
         )}
 
         {alreadyRegistered && (
-          <div className="bg-red-100 text-gdg-red p-3 rounded-lg mb-4">
-            This email is already registered for a workshop.
-            <Link to={`/exception-request/${workshopId}`} className="ml-2 font-semibold text-gdg-blue hover:underline">
-              Submit an exception request &rarr;
+          <div className="mb-6 rounded-xl bg-rose-50 px-4 py-3 text-sm leading-relaxed text-rose-900 ring-1 ring-rose-200/70">
+            This email is already registered for a workshop.{' '}
+            <Link
+              to={`/exception-request/${workshopId}`}
+              className="font-semibold text-gdg-blue underline decoration-gdg-blue/30 underline-offset-2 hover:decoration-gdg-blue"
+            >
+              Submit an exception request →
             </Link>
           </div>
         )}
@@ -92,15 +123,15 @@ export default function RegistrationForm() {
             <div onBlur={handleEmailBlur} />
             <MotivationField
               value={formData.motivation}
-              onChange={(val) => setFormData(prev => ({ ...prev, motivation: val }))}
+              onChange={val => setFormData(prev => ({ ...prev, motivation: val }))}
               error={errors.motivation}
             />
             <button
               type="submit"
-              className="w-full py-2.5 px-6 bg-gdg-blue text-white rounded-lg font-semibold text-sm hover:bg-blue-600 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="ui-btn-primary w-full py-3 disabled:cursor-not-allowed disabled:opacity-60"
               disabled={registerMutation.isPending}
             >
-              {registerMutation.isPending ? 'Submitting...' : 'Register'}
+              {registerMutation.isPending ? 'Submitting…' : 'Submit registration'}
             </button>
           </form>
         )}
