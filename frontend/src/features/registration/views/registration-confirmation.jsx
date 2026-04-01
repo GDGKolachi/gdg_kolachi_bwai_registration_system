@@ -5,28 +5,33 @@ export default function RegistrationConfirmation() {
   const [searchParams] = useSearchParams();
   const { workshopTitle, email } = location.state || {};
 
-  // Arrived here from the confirm-button link in the registration email
-  const confirmedParam = searchParams.get('confirmed');
-  const isEmailConfirm = confirmedParam !== null;
-  const confirmSuccess = confirmedParam === 'true';
+  const acknowledgedParam = searchParams.get('acknowledged');
+  const isAcknowledge = acknowledgedParam !== null;
+  const acknowledgeSuccess = acknowledgedParam === 'true';
 
-  if (isEmailConfirm) {
+  if (isAcknowledge) {
     return (
-      <div className="max-w-md mx-auto text-center">
-        <div className="bg-white rounded-xl p-10 border border-gdg-border">
-          <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5 text-3xl ${confirmSuccess ? 'bg-green-100 text-gdg-green' : 'bg-red-100 text-gdg-red'}`}>
-            {confirmSuccess ? '✓' : '✕'}
+      <div className="mx-auto max-w-md text-center">
+        <div className="ui-card px-8 py-12 sm:px-10 sm:py-14">
+          <div
+            className={`mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl text-2xl font-bold ${
+              acknowledgeSuccess
+                ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70'
+                : 'bg-rose-50 text-rose-700 ring-1 ring-rose-200/70'
+            }`}
+          >
+            {acknowledgeSuccess ? '✓' : '✕'}
           </div>
-          <h1 className="text-2xl font-bold mb-3">
-            {confirmSuccess ? 'Registration Confirmed!' : 'Confirmation Failed'}
+          <h1 className="mb-3 text-2xl font-bold tracking-tight text-slate-900">
+            {acknowledgeSuccess ? 'Thank you — spot confirmed!' : 'Could not confirm'}
           </h1>
-          <p className="text-gdg-gray mb-6 text-sm">
-            {confirmSuccess
-              ? 'Your registration has been confirmed. Our team will review applications and notify you if you are shortlisted.'
-              : 'This confirmation link is invalid or has already been used.'}
+          <p className="mb-8 text-sm leading-relaxed text-slate-600">
+            {acknowledgeSuccess
+              ? 'We have recorded your acknowledgement. See you at the workshop — bring your QR code from the email for check-in.'
+              : 'This link may be invalid, or you are not shortlisted yet. If you need help, contact the GDG Kolachi team.'}
           </p>
-          <Link to="/" className="inline-flex items-center justify-center px-6 py-2.5 bg-gdg-blue text-white rounded-lg font-semibold text-sm hover:bg-blue-600 no-underline">
-            Browse Workshops
+          <Link to="/" className="ui-btn-primary px-8 no-underline">
+            Browse workshops
           </Link>
         </div>
       </div>
@@ -34,24 +39,24 @@ export default function RegistrationConfirmation() {
   }
 
   return (
-    <div className="max-w-md mx-auto text-center">
-      <div className="bg-white rounded-xl p-10 border border-gdg-border">
-        <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-5 text-3xl text-gdg-green">
+    <div className="mx-auto max-w-md text-center">
+      <div className="ui-card px-8 py-12 sm:px-10 sm:py-14">
+        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-2xl font-bold text-emerald-700 ring-1 ring-emerald-200/70">
           ✓
         </div>
-        <h1 className="text-2xl font-bold mb-3">Registration Submitted!</h1>
+        <h1 className="mb-3 text-2xl font-bold tracking-tight text-slate-900">Registration submitted</h1>
         {workshopTitle && (
-          <p className="text-gdg-gray mb-2">
-            You have registered for <strong>{workshopTitle}</strong>
+          <p className="mb-2 text-slate-700">
+            You have registered for <strong className="text-slate-900">{workshopTitle}</strong>
           </p>
         )}
         {email && (
-          <p className="text-gdg-gray mb-6 text-sm">
-            A confirmation email has been sent to <strong>{email}</strong>. Please click the button in the email to confirm your spot.
+          <p className="mb-8 text-sm leading-relaxed text-slate-600">
+            Our team will review your application. If you are shortlisted, you will receive an email with your ticket QR code and a link to confirm your spot.
           </p>
         )}
-        <Link to="/" className="inline-flex items-center justify-center px-6 py-2.5 bg-gdg-blue text-white rounded-lg font-semibold text-sm hover:bg-blue-600 no-underline">
-          Browse More Workshops
+        <Link to="/" className="ui-btn-primary px-8 no-underline">
+          Browse more workshops
         </Link>
       </div>
     </div>

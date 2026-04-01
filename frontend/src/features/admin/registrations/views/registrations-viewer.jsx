@@ -31,6 +31,7 @@ const INITIAL_FILTERS = {
   gender: '',
   university_org: '',
   checked_in: '',
+  acknowledged: '',
 };
 
 export default function RegistrationsViewer() {
@@ -61,6 +62,8 @@ export default function RegistrationsViewer() {
     gender:          appliedFilters.gender          || undefined,
     university_org:  appliedFilters.university_org  || undefined,
     checked_in:      appliedFilters.checked_in !== '' ? appliedFilters.checked_in === 'true' : undefined,
+    acknowledged:
+      appliedFilters.acknowledged !== '' ? appliedFilters.acknowledged === 'true' : undefined,
     page,
     limit: 20,
   };
@@ -146,34 +149,42 @@ export default function RegistrationsViewer() {
     }
   };
 
-  const inputCls = "w-full px-3 py-2 border border-gdg-border rounded-lg text-sm focus:outline-none focus:border-gdg-blue focus:ring-2 focus:ring-gdg-blue/15 bg-white";
-  const labelCls = "block text-xs font-semibold text-gdg-gray uppercase tracking-wide mb-1.5";
+  const inputCls = 'ui-input';
+  const labelCls = 'ui-label';
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gdg-dark">Registrations</h1>
-        <p className="text-gdg-gray mt-1">View, filter, and manage registrations per workshop</p>
+      <div className="admin-page-head">
+        <h1>Registrations</h1>
+        <p>View, filter, and manage registrations per workshop.</p>
       </div>
 
       {/* Workshop selector */}
-      <div className="flex items-end gap-3 mb-5">
-        <div className="flex-1 max-w-sm">
-          <label className={labelCls}>Workshop</label>
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+        <div className="w-full min-w-0 sm:max-w-sm sm:flex-1">
+          <label className={labelCls} htmlFor="reg-workshop-select">
+            Workshop
+          </label>
           <select
+            id="reg-workshop-select"
             className={inputCls}
             value={selectedWorkshop}
-            onChange={e => { setSelectedWorkshop(e.target.value); setPage(1); setSelectedIds(new Set()); }}
+            onChange={e => {
+              setSelectedWorkshop(e.target.value);
+              setPage(1);
+              setSelectedIds(new Set());
+            }}
           >
             <option value="">Select a workshop</option>
-            {workshops?.map(w => <option key={w.id} value={w.id}>{w.title}</option>)}
+            {workshops?.map(w => (
+              <option key={w.id} value={w.id}>
+                {w.title}
+              </option>
+            ))}
           </select>
         </div>
         {selectedWorkshop && (
-          <button
-            className="px-5 py-2 border-2 border-gdg-border rounded-lg text-sm font-semibold text-gdg-gray hover:border-gdg-blue hover:text-gdg-blue"
-            onClick={handleExport}
-          >
+          <button type="button" className="ui-btn-secondary w-full shrink-0 sm:w-auto" onClick={handleExport}>
             Export CSV
           </button>
         )}
@@ -181,24 +192,28 @@ export default function RegistrationsViewer() {
 
       {/* Filters panel */}
       {selectedWorkshop && (
-        <div className="bg-gdg-light-gray border border-gdg-border rounded-xl p-4 mb-5">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-bold text-gdg-dark">
+        <div className="ui-card-quiet mb-6 p-4 sm:p-5">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <span className="text-sm font-bold text-slate-900">
               Filters
               {activeAppliedCount > 0 && (
-                <span className="ml-2 bg-gdg-blue text-white text-xs font-semibold rounded-full px-2 py-0.5">
+                <span className="ml-2 rounded-full bg-gdg-blue px-2 py-0.5 text-xs font-semibold text-white shadow-sm shadow-blue-500/20">
                   {activeAppliedCount} active
                 </span>
               )}
             </span>
             {(activeDraftCount > 0 || activeAppliedCount > 0) && (
-              <button onClick={clearAllFilters} className="text-xs font-semibold text-gdg-red hover:underline">
+              <button
+                type="button"
+                onClick={clearAllFilters}
+                className="text-xs font-semibold text-gdg-red hover:underline"
+              >
                 Clear all filters
               </button>
             )}
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 mb-4">
+          <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             <div>
               <label className={labelCls}>Name</label>
               <input className={inputCls} placeholder="Search name..." value={draftFilters.name} onChange={e => setDraftFilter('name', e.target.value)} />
@@ -250,18 +265,31 @@ export default function RegistrationsViewer() {
               <label className={labelCls}>University / Org</label>
               <input className={inputCls} placeholder="Search organization..." value={draftFilters.university_org} onChange={e => setDraftFilter('university_org', e.target.value)} />
             </div>
+            <div>
+              <label className={labelCls}>Spot acknowledged (email)</label>
+              <select className={inputCls} value={draftFilters.acknowledged} onChange={e => setDraftFilter('acknowledged', e.target.value)}>
+                <option value="">Any</option>
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button
+              type="button"
               onClick={applyFilters}
               disabled={!hasDraftChanges}
-              className={`px-5 py-2 rounded-lg text-sm font-semibold text-white transition-colors ${hasDraftChanges ? 'bg-gdg-blue hover:bg-blue-600' : 'bg-gray-300 cursor-not-allowed'}`}
+              className={`rounded-xl px-5 py-2 text-sm font-semibold text-white transition-colors ${
+                hasDraftChanges ? 'bg-gdg-blue shadow-sm shadow-blue-500/20 hover:bg-blue-600' : 'cursor-not-allowed bg-slate-300'
+              }`}
             >
-              Apply Filters
+              Apply filters
             </button>
             {hasDraftChanges && (
-              <span className="text-xs text-gdg-gray italic">Unapplied changes — click Apply to refresh results</span>
+              <span className="text-xs italic text-slate-500">
+                Unapplied changes — click Apply to refresh results
+              </span>
             )}
           </div>
         </div>
@@ -269,23 +297,29 @@ export default function RegistrationsViewer() {
 
       {/* Bulk action bar */}
       {selectedIds.size > 0 && (
-        <div className="flex items-center gap-3 bg-gdg-dark text-white rounded-xl px-4 py-3 mb-4 flex-wrap">
-          <span className="text-sm font-semibold">{selectedIds.size} selected</span>
-          <span className="text-white/30 hidden sm:block">|</span>
-          <span className="text-xs text-white/60">Set status:</span>
-          {BULK_STATUSES.map(s => (
-            <button
-              key={s}
-              onClick={() => handleBulkUpdate(s)}
-              disabled={bulkUpdateMutation.isPending}
-              className={`px-3 py-1 rounded-lg text-xs font-semibold disabled:opacity-50 ${STATUS_BUTTON_COLORS[s]}`}
-            >
-              {STATUS_LABELS[s] ?? s}
-            </button>
-          ))}
+        <div className="mb-4 flex flex-col gap-3 rounded-2xl bg-admin-sidebar px-3 py-3 text-white shadow-lg shadow-slate-900/15 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 sm:px-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-semibold">{selectedIds.size} selected</span>
+            <span className="hidden text-slate-500 sm:inline">|</span>
+            <span className="text-xs text-slate-400">Set status:</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {BULK_STATUSES.map(s => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => handleBulkUpdate(s)}
+                disabled={bulkUpdateMutation.isPending}
+                className={`rounded-lg px-2.5 py-1.5 text-[0.7rem] font-semibold disabled:opacity-50 sm:px-3 sm:text-xs ${STATUS_BUTTON_COLORS[s]}`}
+              >
+                {STATUS_LABELS[s] ?? s}
+              </button>
+            ))}
+          </div>
           <button
+            type="button"
             onClick={() => setSelectedIds(new Set())}
-            className="ml-auto text-xs text-white/50 hover:text-white"
+            className="text-left text-xs text-slate-400 hover:text-white sm:ml-auto sm:text-right"
           >
             Deselect all
           </button>
@@ -293,44 +327,83 @@ export default function RegistrationsViewer() {
       )}
 
       {!selectedWorkshop && (
-        <div className="text-center py-16 text-gdg-gray">Select a workshop to view registrations</div>
+        <div className="ui-card-quiet py-16 text-center text-sm font-medium text-slate-500">
+          Select a workshop to view registrations
+        </div>
       )}
 
       {selectedWorkshop && isLoading && (
-        <div className="flex justify-center items-center py-16 text-gdg-gray">Loading...</div>
+        <div className="flex justify-center py-16">
+          <div className="flex items-center gap-3 text-sm font-medium text-slate-500">
+            <span
+              className="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-gdg-blue"
+              aria-hidden
+            />
+            Loading…
+          </div>
+        </div>
       )}
 
       {selectedWorkshop && !isLoading && (
         <>
-          <div className="text-sm text-gdg-gray mb-3">
+          <div className="mb-3 text-sm font-medium text-slate-600">
             Showing {registrations.length} of {total} registrations
           </div>
 
-          <div className="bg-white rounded-xl border border-gdg-border overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
+          <div className="ui-table-wrap">
+            <table className="w-full min-w-[56rem] border-collapse text-sm">
               <thead>
-                <tr className="bg-gdg-light-gray">
-                  <th className="py-3 px-3 border-b border-gdg-border w-10">
+                <tr className="bg-slate-50/95">
+                  <th className="w-10 border-b border-slate-200 px-3 py-3">
                     <input
                       type="checkbox"
                       checked={allSelected}
-                      ref={el => { if (el) el.indeterminate = someSelected; }}
+                      ref={el => {
+                        if (el) el.indeterminate = someSelected;
+                      }}
                       onChange={toggleSelectAll}
-                      className="w-4 h-4 rounded cursor-pointer accent-gdg-blue"
+                      className="h-4 w-4 cursor-pointer rounded accent-gdg-blue"
                     />
                   </th>
-                  <th className="text-left py-3 px-3 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide whitespace-nowrap">#</th>
-                  <th className="text-left py-3 px-3 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide whitespace-nowrap">Name</th>
-                  <th className="text-left py-3 px-3 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide whitespace-nowrap">Email</th>
-                  <th className="text-left py-3 px-3 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide whitespace-nowrap">Phone</th>
-                  <th className="text-left py-3 px-3 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide whitespace-nowrap">CNIC</th>
-                  <th className="text-left py-3 px-3 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide whitespace-nowrap">Gender</th>
-                  <th className="text-left py-3 px-3 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide whitespace-nowrap">University / Org</th>
-                  <th className="text-left py-3 px-3 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide whitespace-nowrap">GitHub</th>
-                  <th className="text-left py-3 px-3 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide whitespace-nowrap">LinkedIn</th>
-                  <th className="text-left py-3 px-3 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide whitespace-nowrap">Motivation</th>
-                  <th className="text-left py-3 px-3 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide whitespace-nowrap">Registered</th>
-                  <th className="text-left py-3 px-3 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide whitespace-nowrap">Status</th>
+                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    #
+                  </th>
+                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Name
+                  </th>
+                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Email
+                  </th>
+                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Phone
+                  </th>
+                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    CNIC
+                  </th>
+                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Gender
+                  </th>
+                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    University / Org
+                  </th>
+                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    GitHub
+                  </th>
+                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    LinkedIn
+                  </th>
+                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Motivation
+                  </th>
+                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Registered
+                  </th>
+                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Status
+                  </th>
+                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Ack
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -339,10 +412,10 @@ export default function RegistrationsViewer() {
                   const isSelected = selectedIds.has(r.id);
                   const a          = r.attendee || {};
                   return (
-                    <tr key={r.id} className={`hover:bg-gdg-light-gray ${isSelected ? 'bg-blue-50' : ''}`}>
+                    <tr key={r.id} className={`transition-colors hover:bg-slate-50/90 ${isSelected ? 'bg-sky-50/70' : ''}`}>
 
                       {/* Checkbox */}
-                      <td className="py-2.5 px-3 border-b border-gdg-border">
+                      <td className="py-2.5 px-3 border-b border-slate-100">
                         <input
                           type="checkbox"
                           checked={isSelected}
@@ -352,32 +425,32 @@ export default function RegistrationsViewer() {
                       </td>
 
                       {/* Row number */}
-                      <td className="py-2.5 px-3 border-b border-gdg-border text-gdg-gray whitespace-nowrap">
+                      <td className="border-b border-slate-100 py-2.5 px-3 whitespace-nowrap text-slate-600">
                         {(page - 1) * 20 + idx + 1}
                       </td>
 
                       {/* Name */}
-                      <td className="py-2.5 px-3 border-b border-gdg-border font-medium whitespace-nowrap">{a.name || '—'}</td>
+                      <td className="py-2.5 px-3 border-b border-slate-100 font-medium whitespace-nowrap">{a.name || '—'}</td>
 
                       {/* Email */}
-                      <td className="py-2.5 px-3 border-b border-gdg-border whitespace-nowrap">{a.email || '—'}</td>
+                      <td className="py-2.5 px-3 border-b border-slate-100 whitespace-nowrap">{a.email || '—'}</td>
 
                       {/* Phone */}
-                      <td className="py-2.5 px-3 border-b border-gdg-border whitespace-nowrap">{a.phone || '—'}</td>
+                      <td className="py-2.5 px-3 border-b border-slate-100 whitespace-nowrap">{a.phone || '—'}</td>
 
                       {/* CNIC */}
-                      <td className="py-2.5 px-3 border-b border-gdg-border whitespace-nowrap">{a.cnic || '—'}</td>
+                      <td className="py-2.5 px-3 border-b border-slate-100 whitespace-nowrap">{a.cnic || '—'}</td>
 
                       {/* Gender */}
-                      <td className="py-2.5 px-3 border-b border-gdg-border whitespace-nowrap">{a.gender || '—'}</td>
+                      <td className="py-2.5 px-3 border-b border-slate-100 whitespace-nowrap">{a.gender || '—'}</td>
 
                       {/* University / Org */}
-                      <td className="py-2.5 px-3 border-b border-gdg-border max-w-[160px] truncate" title={a.university_org}>
+                      <td className="py-2.5 px-3 border-b border-slate-100 max-w-[160px] truncate" title={a.university_org}>
                         {a.university_org || '—'}
                       </td>
 
                       {/* GitHub */}
-                      <td className="py-2.5 px-3 border-b border-gdg-border whitespace-nowrap">
+                      <td className="py-2.5 px-3 border-b border-slate-100 whitespace-nowrap">
                         {a.github ? (
                           <a
                             href={a.github.startsWith('http') ? a.github : `https://github.com/${a.github}`}
@@ -391,7 +464,7 @@ export default function RegistrationsViewer() {
                       </td>
 
                       {/* LinkedIn */}
-                      <td className="py-2.5 px-3 border-b border-gdg-border whitespace-nowrap">
+                      <td className="py-2.5 px-3 border-b border-slate-100 whitespace-nowrap">
                         {a.linkedin ? (
                           <a
                             href={a.linkedin.startsWith('http') ? a.linkedin : `https://linkedin.com/in/${a.linkedin}`}
@@ -405,27 +478,34 @@ export default function RegistrationsViewer() {
                       </td>
 
                       {/* Motivation */}
-                      <td className="py-2.5 px-3 border-b border-gdg-border max-w-[200px]">
+                      <td className="py-2.5 px-3 border-b border-slate-100 max-w-[200px]">
                         <span className="block truncate" title={r.motivation}>{r.motivation || '—'}</span>
                       </td>
 
                       {/* Registered At */}
-                      <td className="py-2.5 px-3 border-b border-gdg-border whitespace-nowrap text-gdg-gray">
+                      <td className="py-2.5 px-3 border-b border-slate-100 whitespace-nowrap text-gdg-gray">
                         {formatDate(r.registered_at)}
                       </td>
 
                       {/* Status */}
-                      <td className="py-2.5 px-3 border-b border-gdg-border whitespace-nowrap">
-                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${STATUS_COLORS[r.status] || 'bg-gray-100 text-gray-500'}`}>
+                      <td className="py-2.5 px-3 border-b border-slate-100 whitespace-nowrap">
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLORS[r.status] || 'bg-slate-100 text-slate-600 ring-1 ring-slate-200/80'}`}
+                        >
                           {STATUS_LABELS[r.status] ?? r.status}
                         </span>
+                      </td>
+                      <td className="py-2.5 px-3 border-b border-slate-100 whitespace-nowrap text-gdg-gray" title="User confirmed via shortlisted email">
+                        {r.acknowledged ? '✓' : '—'}
                       </td>
                     </tr>
                   );
                 })}
                 {registrations.length === 0 && (
                   <tr>
-                    <td colSpan={15} className="text-center text-gdg-gray py-8">No registrations found</td>
+                    <td colSpan={14} className="py-8 text-center text-sm text-slate-500">
+                      No registrations found
+                    </td>
                   </tr>
                 )}
               </tbody>
@@ -433,10 +513,26 @@ export default function RegistrationsViewer() {
           </div>
 
           {totalPages > 1 && (
-            <div className="flex justify-center items-center gap-2 mt-6">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 border border-gdg-border rounded-lg text-sm disabled:opacity-40">Previous</button>
-              <span className="text-sm text-gdg-gray">Page {page} of {totalPages}</span>
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-3 py-1.5 border border-gdg-border rounded-lg text-sm disabled:opacity-40">Next</button>
+            <div className="mt-6 flex items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="ui-btn-secondary !px-3 !py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Previous
+              </button>
+              <span className="text-sm font-medium text-slate-600">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="ui-btn-secondary !px-3 !py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Next
+              </button>
             </div>
           )}
         </>

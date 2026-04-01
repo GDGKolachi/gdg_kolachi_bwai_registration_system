@@ -62,6 +62,7 @@ export class AdminController {
     @Query('gender') gender?: string,
     @Query('university_org') universityOrg?: string,
     @Query('checked_in') checkedIn?: string,
+    @Query('acknowledged') acknowledged?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
@@ -75,6 +76,8 @@ export class AdminController {
       gender,
       university_org: universityOrg,
       checked_in: checkedIn !== undefined && checkedIn !== '' ? checkedIn === 'true' : undefined,
+      acknowledged:
+        acknowledged !== undefined && acknowledged !== '' ? acknowledged === 'true' : undefined,
       page: page ? parseInt(page) : 1,
       limit: limit ? parseInt(limit) : 20,
     });

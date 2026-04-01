@@ -67,6 +67,7 @@ export class AdminService {
       gender?: string;
       university_org?: string;
       checked_in?: boolean;
+      acknowledged?: boolean;
       page?: number;
       limit?: number;
     },
@@ -114,6 +115,10 @@ export class AdminService {
       qb.andWhere('r.checked_in = :checkedIn', { checkedIn: filters.checked_in });
     }
 
+    if (filters.acknowledged !== undefined) {
+      qb.andWhere('r.acknowledged = :acknowledged', { acknowledged: filters.acknowledged });
+    }
+
     const page = filters.page || 1;
     const limit = filters.limit || 20;
     const total = await qb.getCount();
@@ -147,6 +152,7 @@ export class AdminService {
     registration.status = newStatus;
 
     if (newStatus === 'shortlisted') {
+      registration.acknowledged = false;
       const qrData = JSON.stringify({
         registrationId: registration.id,
         name: registration.attendee.name,

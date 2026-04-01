@@ -31,6 +31,10 @@ export class Registration {
   @Column({ nullable: true })
   qr_code_data: string;
 
+  /** User tapped "Confirm" in the shortlisted email (spot acknowledgement). */
+  @Column({ default: false })
+  acknowledged: boolean;
+
   @ManyToOne(() => Attendee, (a) => a.registrations)
   @JoinColumn({ name: 'attendee_id' })
   attendee: Attendee;

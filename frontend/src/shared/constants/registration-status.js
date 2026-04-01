@@ -18,19 +18,19 @@ export const STATUS_LABELS = {
 };
 
 export const STATUS_COLORS = {
-  [RegistrationStatus.PENDING]:     'bg-yellow-100 text-amber-600',
-  [RegistrationStatus.CONFIRMED]:   'bg-blue-100 text-gdg-blue',
-  [RegistrationStatus.SHORTLISTED]: 'bg-purple-100 text-purple-700',
-  [RegistrationStatus.REJECTED]:    'bg-red-100 text-gdg-red',
-  [RegistrationStatus.ATTENDED]:    'bg-green-100 text-gdg-green',
+  [RegistrationStatus.PENDING]:     'bg-amber-50 text-amber-900 ring-1 ring-amber-200/70',
+  [RegistrationStatus.CONFIRMED]:   'bg-sky-50 text-sky-900 ring-1 ring-sky-200/70',
+  [RegistrationStatus.SHORTLISTED]: 'bg-violet-50 text-violet-900 ring-1 ring-violet-200/70',
+  [RegistrationStatus.REJECTED]:    'bg-rose-50 text-rose-900 ring-1 ring-rose-200/70',
+  [RegistrationStatus.ATTENDED]:    'bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200/70',
 };
 
 export const STATUS_BUTTON_COLORS = {
-  [RegistrationStatus.PENDING]:     'bg-gray-200 text-gray-700 hover:bg-gray-300',
-  [RegistrationStatus.CONFIRMED]:   'bg-gdg-blue text-white hover:bg-blue-600',
-  [RegistrationStatus.SHORTLISTED]: 'bg-purple-600 text-white hover:bg-purple-700',
-  [RegistrationStatus.REJECTED]:    'bg-gdg-red text-white hover:bg-red-600',
-  [RegistrationStatus.ATTENDED]:    'bg-gdg-green text-white hover:bg-green-600',
+  [RegistrationStatus.PENDING]:     'bg-slate-200 text-slate-800 hover:bg-slate-300',
+  [RegistrationStatus.CONFIRMED]:   'bg-gdg-blue text-white shadow-sm shadow-blue-500/25 hover:bg-blue-600',
+  [RegistrationStatus.SHORTLISTED]: 'bg-violet-600 text-white shadow-sm shadow-violet-500/25 hover:bg-violet-700',
+  [RegistrationStatus.REJECTED]:    'bg-gdg-red text-white shadow-sm shadow-red-500/20 hover:bg-red-600',
+  [RegistrationStatus.ATTENDED]:    'bg-gdg-green text-white shadow-sm shadow-emerald-500/20 hover:bg-green-600',
 };
 
 /** All statuses shown in the bulk-action bar */

@@ -22,7 +22,7 @@ export default function QrScanView() {
       await html5QrCode.start(
         { facingMode: 'environment' },
         { fps: 10, qrbox: { width: 250, height: 250 } },
-        (decodedText) => {
+        decodedText => {
           handleScan(decodedText);
           html5QrCode.stop().catch(() => {});
           setScanning(false);
@@ -50,7 +50,7 @@ export default function QrScanView() {
     };
   }, []);
 
-  const handleScan = async (qrData) => {
+  const handleScan = async qrData => {
     setLoading(true);
     try {
       const res = await api.post('/admin/qr-scan', { qr_data: qrData });
@@ -79,108 +79,120 @@ export default function QrScanView() {
     }
   };
 
+  const statusBadge = status => {
+    const map = {
+      attended: 'bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200/70',
+      shortlisted: 'bg-sky-50 text-sky-900 ring-1 ring-sky-200/70',
+      pending: 'bg-amber-50 text-amber-900 ring-1 ring-amber-200/70',
+      rejected: 'bg-rose-50 text-rose-900 ring-1 ring-rose-200/70',
+    };
+    return map[status] || 'bg-slate-100 text-slate-700 ring-1 ring-slate-200/80';
+  };
+
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gdg-dark">QR Code Scanner</h1>
-        <p className="text-gdg-gray mt-2">Scan participant QR codes to view info and mark attendance</p>
+      <div className="admin-page-head">
+        <h1>QR code scanner</h1>
+        <p>Scan participant QR codes or paste payload JSON to verify and mark attendance.</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div>
-          <div className="bg-white rounded-xl p-6 border border-gdg-border mb-4">
-            <h2 className="text-lg font-semibold mb-4">Camera Scanner</h2>
-            <div id="qr-reader" ref={scannerRef} className="w-full mb-4 rounded-lg overflow-hidden" />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="space-y-6">
+          <div className="ui-card p-4 sm:p-6">
+            <h2 className="mb-4 text-lg font-semibold tracking-tight text-slate-900">Camera</h2>
+            <div id="qr-reader" ref={scannerRef} className="mb-4 w-full overflow-hidden rounded-xl ring-1 ring-slate-200" />
             <div className="flex gap-3">
               {!scanning ? (
-                <button onClick={startScanner} className="py-2.5 px-6 bg-gdg-blue text-white rounded-lg font-semibold text-sm hover:bg-blue-600">
-                  Start Scanner
+                <button type="button" className="ui-btn-primary" onClick={startScanner}>
+                  Start scanner
                 </button>
               ) : (
-                <button onClick={stopScanner} className="py-2.5 px-6 bg-gdg-red text-white rounded-lg font-semibold text-sm hover:bg-red-600">
-                  Stop Scanner
+                <button type="button" className="ui-btn-danger" onClick={stopScanner}>
+                  Stop scanner
                 </button>
               )}
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-6 border border-gdg-border">
-            <h2 className="text-lg font-semibold mb-4">Manual QR Data Input</h2>
-            <div className="flex gap-3">
-              <textarea
-                value={manualInput}
-                onChange={e => setManualInput(e.target.value)}
-                placeholder='Paste QR code data here (JSON format)...'
-                rows={3}
-                className="flex-1 px-3.5 py-2.5 border border-gdg-border rounded-lg text-sm focus:outline-none focus:border-gdg-blue focus:ring-2 focus:ring-gdg-blue/15 resize-y"
-              />
-            </div>
-            <button onClick={handleManualScan} disabled={loading} className="mt-3 py-2.5 px-6 bg-gdg-blue text-white rounded-lg font-semibold text-sm hover:bg-blue-600 disabled:opacity-60">
-              {loading ? 'Scanning...' : 'Look Up'}
+          <div className="ui-card p-6">
+            <h2 className="mb-4 text-lg font-semibold tracking-tight text-slate-900">Manual input</h2>
+            <textarea
+              value={manualInput}
+              onChange={e => setManualInput(e.target.value)}
+              placeholder="Paste QR code data (JSON)…"
+              rows={3}
+              className="ui-input min-h-24 resize-y"
+            />
+            <button
+              type="button"
+              onClick={handleManualScan}
+              disabled={loading}
+              className="ui-btn-primary mt-3 disabled:opacity-60"
+            >
+              {loading ? 'Looking up…' : 'Look up'}
             </button>
           </div>
         </div>
 
         <div>
           {loading && (
-            <div className="flex justify-center items-center py-16 text-gdg-gray">Looking up registration...</div>
+            <div className="flex justify-center py-16">
+              <div className="flex items-center gap-3 text-sm font-medium text-slate-500">
+                <span
+                  className="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-gdg-blue"
+                  aria-hidden
+                />
+                Looking up registration…
+              </div>
+            </div>
           )}
 
           {scanResult && !loading && (
-            <div className="bg-white rounded-xl p-6 border border-gdg-border">
-              <h2 className="text-lg font-semibold mb-4">Participant Info</h2>
-              <div className="space-y-3">
-                <div className="flex justify-between py-2 border-b border-gdg-border">
-                  <span className="text-sm text-gdg-gray">Name</span>
-                  <span className="font-medium">{scanResult.name}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-gdg-border">
-                  <span className="text-sm text-gdg-gray">Email</span>
-                  <span className="font-medium">{scanResult.email}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-gdg-border">
-                  <span className="text-sm text-gdg-gray">Phone</span>
-                  <span className="font-medium">{scanResult.phone}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-gdg-border">
-                  <span className="text-sm text-gdg-gray">CNIC</span>
-                  <span className="font-medium">{scanResult.cnic}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-gdg-border">
-                  <span className="text-sm text-gdg-gray">Workshop</span>
-                  <span className="font-medium">{scanResult.workshop}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-gdg-border">
-                  <span className="text-sm text-gdg-gray">Status</span>
-                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
-                    scanResult.status === 'attended' ? 'bg-green-100 text-gdg-green' :
-                    scanResult.status === 'shortlisted' ? 'bg-blue-100 text-gdg-blue' :
-                    scanResult.status === 'pending' ? 'bg-yellow-100 text-amber-600' :
-                    'bg-red-100 text-gdg-red'
-                  }`}>{scanResult.status}</span>
+            <div className="ui-card p-4 sm:p-6">
+              <h2 className="mb-4 text-lg font-semibold tracking-tight text-slate-900">Participant</h2>
+              <div className="divide-y divide-slate-100">
+                {[
+                  ['Name', scanResult.name],
+                  ['Email', scanResult.email],
+                  ['Phone', scanResult.phone],
+                  ['CNIC', scanResult.cnic],
+                  ['Workshop', scanResult.workshop],
+                ].map(([label, val]) => (
+                  <div key={label} className="flex justify-between gap-4 py-3 text-sm">
+                    <span className="text-slate-500">{label}</span>
+                    <span className="max-w-[60%] text-right font-medium text-slate-900">{val}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between gap-4 py-3 text-sm">
+                  <span className="text-slate-500">Status</span>
+                  <span
+                    className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${statusBadge(scanResult.status)}`}
+                  >
+                    {scanResult.status}
+                  </span>
                 </div>
               </div>
 
               {scanResult.status === 'shortlisted' && (
-                <button onClick={handleMarkAttended} className="mt-6 w-full py-3 px-6 bg-gdg-green text-white rounded-lg font-semibold text-sm hover:bg-green-600">
-                  Mark as Attended
+                <button type="button" onClick={handleMarkAttended} className="ui-btn-primary mt-6 w-full py-3">
+                  Mark as attended
                 </button>
               )}
 
               {scanResult.status === 'attended' && (
-                <div className="mt-6 text-center p-4 bg-green-100 rounded-lg text-gdg-green font-semibold">
+                <div className="mt-6 rounded-xl bg-emerald-50 py-4 text-center text-sm font-semibold text-emerald-900 ring-1 ring-emerald-200/70">
                   Already checked in
                 </div>
               )}
 
               {scanResult.status === 'pending' && (
-                <div className="mt-6 text-center p-4 bg-yellow-100 rounded-lg text-amber-600 font-semibold">
-                  Registration is still pending - must be shortlisted first
+                <div className="mt-6 rounded-xl bg-amber-50 py-4 text-center text-sm font-semibold text-amber-900 ring-1 ring-amber-200/70">
+                  Registration is still pending — must be shortlisted first
                 </div>
               )}
 
               {scanResult.status === 'rejected' && (
-                <div className="mt-6 text-center p-4 bg-red-100 rounded-lg text-gdg-red font-semibold">
+                <div className="mt-6 rounded-xl bg-rose-50 py-4 text-center text-sm font-semibold text-rose-900 ring-1 ring-rose-200/70">
                   Registration was rejected
                 </div>
               )}
@@ -188,8 +200,8 @@ export default function QrScanView() {
           )}
 
           {!scanResult && !loading && (
-            <div className="bg-white rounded-xl p-6 border border-gdg-border text-center py-16 text-gdg-gray">
-              Scan a QR code or paste QR data to view participant info
+            <div className="ui-card flex min-h-[14rem] items-center justify-center p-6 text-center text-sm font-medium text-slate-500 sm:min-h-[16rem] sm:p-8">
+              Scan a QR code or paste data to view participant info
             </div>
           )}
         </div>

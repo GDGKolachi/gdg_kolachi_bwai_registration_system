@@ -69,10 +69,20 @@ export class RegistrationsService {
     return saved;
   }
 
-  async confirmRegistration(registrationId: string) {
+  /**
+   * Public link from shortlisted email: records spot acknowledgement only.
+   * Status stays `shortlisted`; sets `acknowledged` to true.
+   */
+  async acknowledgeSpot(registrationId: string) {
     const registration = await this.registrationRepo.findOne({ where: { id: registrationId } });
     if (!registration) throw new NotFoundException('Registration not found');
-    registration.status = 'confirmed';
+    if (registration.status !== 'shortlisted') {
+      throw new BadRequestException('Acknowledgement is only available after you have been shortlisted.');
+    }
+    if (registration.acknowledged) {
+      return registration;
+    }
+    registration.acknowledged = true;
     await this.registrationRepo.save(registration);
     return registration;
   }
@@ -87,10 +97,10 @@ export class RegistrationsService {
 
   async exportCsv(workshopId: string): Promise<string> {
     const registrations = await this.findByWorkshop(workshopId);
-    const header = 'Name,Email,Phone,Organization,GitHub,LinkedIn,CNIC,Gender,Defines You Best,Motivation,Status,Checked In,Registered At\n';
+    const header = 'Name,Email,Phone,Organization,GitHub,LinkedIn,CNIC,Gender,Defines You Best,Motivation,Status,Acknowledged,Checked In,Registered At\n';
     const rows = registrations.map(r => {
       const a = r.attendee;
-      return `"${a?.name}","${a?.email}","${a?.phone}","${a?.university_org}","${a?.github || ''}","${a?.linkedin || ''}","${a?.cnic}","${a?.gender || ''}","${a?.defines_you_best || ''}","${r.motivation}","${r.status}","${r.checked_in}","${r.registered_at}"`;
+      return `"${a?.name}","${a?.email}","${a?.phone}","${a?.university_org}","${a?.github || ''}","${a?.linkedin || ''}","${a?.cnic}","${a?.gender || ''}","${a?.defines_you_best || ''}","${r.motivation}","${r.status}","${r.acknowledged}","${r.checked_in}","${r.registered_at}"`;
     }).join('\n');
     return header + rows;
   }

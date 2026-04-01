@@ -6,10 +6,10 @@ import { validateWorkshopForm } from '../admin-workshop-service';
 const emptyForm = { title: '', description: '', date: '', time: '', venue: '', max_capacity: '', status: 'upcoming' };
 
 const badgeColors = {
-  open: 'bg-green-100 text-gdg-green',
-  closed: 'bg-red-100 text-gdg-red',
-  upcoming: 'bg-blue-100 text-gdg-blue',
-  completed: 'bg-gray-100 text-gdg-gray',
+  open: 'bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200/70',
+  closed: 'bg-rose-50 text-rose-900 ring-1 ring-rose-200/70',
+  upcoming: 'bg-sky-50 text-sky-900 ring-1 ring-sky-200/70',
+  completed: 'bg-slate-100 text-slate-700 ring-1 ring-slate-200/80',
 };
 
 export default function WorkshopCrud() {
@@ -25,15 +25,28 @@ export default function WorkshopCrud() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  const openCreate = () => { setEditingId(null); setForm(emptyForm); setErrors({}); setShowModal(true); };
-  const openEdit = (w) => {
+  const openCreate = () => {
+    setEditingId(null);
+    setForm(emptyForm);
+    setErrors({});
+    setShowModal(true);
+  };
+  const openEdit = w => {
     setEditingId(w.id);
-    setForm({ title: w.title, description: w.description, date: w.date, time: w.time, venue: w.venue, max_capacity: w.max_capacity ?? w.maxCapacity, status: w.status });
+    setForm({
+      title: w.title,
+      description: w.description,
+      date: w.date,
+      time: w.time,
+      venue: w.venue,
+      max_capacity: w.max_capacity ?? w.maxCapacity,
+      status: w.status,
+    });
     setErrors({});
     setShowModal(true);
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async e => {
     e.preventDefault();
     const v = validateWorkshopForm(form);
     setErrors(v);
@@ -41,7 +54,10 @@ export default function WorkshopCrud() {
 
     try {
       if (editingId) {
-        await updateMutation.mutateAsync({ id: editingId, data: { ...form, max_capacity: Number(form.max_capacity) } });
+        await updateMutation.mutateAsync({
+          id: editingId,
+          data: { ...form, max_capacity: Number(form.max_capacity) },
+        });
         toast.success('Workshop updated');
       } else {
         await createMutation.mutateAsync({ ...form, max_capacity: Number(form.max_capacity) });
@@ -53,7 +69,7 @@ export default function WorkshopCrud() {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async id => {
     if (!confirm('Delete this workshop?')) return;
     try {
       await deleteMutation.mutateAsync(id);
@@ -63,108 +79,235 @@ export default function WorkshopCrud() {
     }
   };
 
-  if (isLoading) return <div className="flex justify-center items-center py-16 text-gdg-gray">Loading workshops...</div>;
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-24">
+        <div className="flex items-center gap-3 text-sm font-medium text-slate-500">
+          <span
+            className="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-gdg-blue"
+            aria-hidden
+          />
+          Loading workshops…
+        </div>
+      </div>
+    );
+  }
 
   const workshopList = Array.isArray(workshops) ? workshops : workshops?.data || [];
   const totalPages = Math.ceil(workshopList.length / itemsPerPage);
   const paginated = workshopList.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  const inputCls = "w-full px-3.5 py-2.5 border border-gdg-border rounded-lg text-sm focus:outline-none focus:border-gdg-blue focus:ring-2 focus:ring-gdg-blue/15";
+  const inputCls = 'ui-input';
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gdg-dark">Workshops</h1>
-        <button className="py-2.5 px-6 bg-gdg-blue text-white rounded-lg font-semibold text-sm hover:bg-blue-600" onClick={openCreate}>+ New Workshop</button>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="admin-page-head mb-0">
+          <h1>Workshops</h1>
+          <p>Create and manage workshop sessions, capacity, and registration status.</p>
+        </div>
+        <button type="button" className="ui-btn-primary w-full shrink-0 sm:w-auto" onClick={openCreate}>
+          + New workshop
+        </button>
       </div>
 
-      <div className="bg-white rounded-xl p-6 border border-gdg-border">
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr>
-                <th className="text-left py-3 px-4 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide">Title</th>
-                <th className="text-left py-3 px-4 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide">Date</th>
-                <th className="text-left py-3 px-4 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide">Venue</th>
-                <th className="text-left py-3 px-4 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide">Capacity</th>
-                <th className="text-left py-3 px-4 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide">Status</th>
-                <th className="text-left py-3 px-4 border-b border-gdg-border font-semibold text-xs text-gdg-gray uppercase tracking-wide">Actions</th>
+      <div className="ui-table-wrap">
+        <table className="ui-table min-w-[36rem]">
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Date</th>
+              <th>Venue</th>
+              <th>Capacity</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paginated.map(w => (
+              <tr key={w.id}>
+                <td className="font-semibold text-slate-900">{w.title}</td>
+                <td className="tabular-nums text-slate-700">{w.date}</td>
+                <td className="max-w-[10rem] truncate text-slate-700" title={w.venue}>
+                  {w.venue}
+                </td>
+                <td className="tabular-nums">{w.max_capacity ?? w.maxCapacity}</td>
+                <td>
+                  <span
+                    className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${badgeColors[w.status] || ''}`}
+                  >
+                    {w.status}
+                  </span>
+                </td>
+                <td>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="ui-btn-secondary !px-3 !py-1.5 text-xs"
+                      onClick={() => openEdit(w)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="ui-btn-danger !px-3 !py-1.5 text-xs"
+                      onClick={() => handleDelete(w.id)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {paginated.map(w => (
-                <tr key={w.id} className="hover:bg-gdg-light-gray">
-                  <td className="py-3 px-4 border-b border-gdg-border font-medium">{w.title}</td>
-                  <td className="py-3 px-4 border-b border-gdg-border">{w.date}</td>
-                  <td className="py-3 px-4 border-b border-gdg-border">{w.venue}</td>
-                  <td className="py-3 px-4 border-b border-gdg-border">{w.max_capacity ?? w.maxCapacity}</td>
-                  <td className="py-3 px-4 border-b border-gdg-border">
-                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${badgeColors[w.status] || ''}`}>{w.status}</span>
-                  </td>
-                  <td className="py-3 px-4 border-b border-gdg-border">
-                    <div className="flex gap-2">
-                      <button className="px-4 py-1.5 border-2 border-gdg-border rounded-lg text-sm font-semibold text-gdg-gray hover:border-gdg-blue hover:text-gdg-blue" onClick={() => openEdit(w)}>Edit</button>
-                      <button className="px-4 py-1.5 bg-gdg-red text-white rounded-lg text-sm font-semibold hover:bg-red-600" onClick={() => handleDelete(w.id)}>Delete</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
 
         {totalPages > 1 && (
-          <div className="flex justify-center items-center gap-2 mt-6">
-            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-3 py-1.5 border border-gdg-border rounded-lg text-sm disabled:opacity-40">Previous</button>
+          <div className="flex items-center justify-center gap-2 border-t border-slate-100 px-4 py-4">
+            <button
+              type="button"
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="ui-btn-secondary !px-3 !py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Previous
+            </button>
             {Array.from({ length: totalPages }, (_, i) => (
-              <button key={i + 1} onClick={() => setCurrentPage(i + 1)} className={`px-3 py-1.5 rounded-lg text-sm ${currentPage === i + 1 ? 'bg-gdg-blue text-white' : 'border border-gdg-border hover:bg-gdg-light-gray'}`}>{i + 1}</button>
+              <button
+                key={i + 1}
+                type="button"
+                onClick={() => setCurrentPage(i + 1)}
+                className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
+                  currentPage === i + 1
+                    ? 'bg-gdg-blue text-white shadow-sm'
+                    : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                {i + 1}
+              </button>
             ))}
-            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-3 py-1.5 border border-gdg-border rounded-lg text-sm disabled:opacity-40">Next</button>
+            <button
+              type="button"
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="ui-btn-secondary !px-3 !py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Next
+            </button>
           </div>
         )}
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowModal(false)}>
-          <div className="bg-white rounded-2xl p-8 max-w-lg w-[90%] max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <h2 className="text-xl font-bold mb-5">{editingId ? 'Edit Workshop' : 'Create Workshop'}</h2>
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+          onClick={() => setShowModal(false)}
+          role="presentation"
+        >
+          <div
+            className="ui-card max-h-[min(90dvh,90vh)] w-full max-w-lg overflow-y-auto rounded-b-none rounded-t-2xl p-5 shadow-2xl sm:rounded-2xl sm:p-8"
+            onClick={e => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <h2 className="mb-6 text-xl font-bold tracking-tight text-slate-900">
+              {editingId ? 'Edit workshop' : 'Create workshop'}
+            </h2>
             <form onSubmit={handleSubmit}>
               <div className="mb-5">
-                <label className="block mb-1.5 font-medium text-sm text-gdg-dark">Title</label>
-                <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className={inputCls} />
-                {errors.title && <div className="text-gdg-red text-xs mt-1">{errors.title}</div>}
+                <label className="ui-label-sentence" htmlFor="w-title">
+                  Title
+                </label>
+                <input
+                  id="w-title"
+                  value={form.title}
+                  onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                  className={inputCls}
+                />
+                {errors.title && <div className="mt-1 text-xs font-medium text-gdg-red">{errors.title}</div>}
               </div>
               <div className="mb-5">
-                <label className="block mb-1.5 font-medium text-sm text-gdg-dark">Description</label>
-                <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} className={`${inputCls} resize-y`} />
-                {errors.description && <div className="text-gdg-red text-xs mt-1">{errors.description}</div>}
+                <label className="ui-label-sentence" htmlFor="w-desc">
+                  Description
+                </label>
+                <textarea
+                  id="w-desc"
+                  value={form.description}
+                  onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                  rows={3}
+                  className={`${inputCls} resize-y`}
+                />
+                {errors.description && (
+                  <div className="mt-1 text-xs font-medium text-gdg-red">{errors.description}</div>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="mb-5">
-                  <label className="block mb-1.5 font-medium text-sm text-gdg-dark">Date</label>
-                  <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className={inputCls} />
-                  {errors.date && <div className="text-gdg-red text-xs mt-1">{errors.date}</div>}
+                  <label className="ui-label-sentence" htmlFor="w-date">
+                    Date
+                  </label>
+                  <input
+                    id="w-date"
+                    type="date"
+                    value={form.date}
+                    onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+                    className={inputCls}
+                  />
+                  {errors.date && <div className="mt-1 text-xs font-medium text-gdg-red">{errors.date}</div>}
                 </div>
                 <div className="mb-5">
-                  <label className="block mb-1.5 font-medium text-sm text-gdg-dark">Time</label>
-                  <input type="time" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} className={inputCls} />
-                  {errors.time && <div className="text-gdg-red text-xs mt-1">{errors.time}</div>}
+                  <label className="ui-label-sentence" htmlFor="w-time">
+                    Time
+                  </label>
+                  <input
+                    id="w-time"
+                    type="time"
+                    value={form.time}
+                    onChange={e => setForm(f => ({ ...f, time: e.target.value }))}
+                    className={inputCls}
+                  />
+                  {errors.time && <div className="mt-1 text-xs font-medium text-gdg-red">{errors.time}</div>}
                 </div>
               </div>
               <div className="mb-5">
-                <label className="block mb-1.5 font-medium text-sm text-gdg-dark">Venue</label>
-                <input value={form.venue} onChange={e => setForm(f => ({ ...f, venue: e.target.value }))} className={inputCls} />
-                {errors.venue && <div className="text-gdg-red text-xs mt-1">{errors.venue}</div>}
+                <label className="ui-label-sentence" htmlFor="w-venue">
+                  Venue
+                </label>
+                <input
+                  id="w-venue"
+                  value={form.venue}
+                  onChange={e => setForm(f => ({ ...f, venue: e.target.value }))}
+                  className={inputCls}
+                />
+                {errors.venue && <div className="mt-1 text-xs font-medium text-gdg-red">{errors.venue}</div>}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="mb-5">
-                  <label className="block mb-1.5 font-medium text-sm text-gdg-dark">Max Capacity</label>
-                  <input type="number" min="1" value={form.max_capacity} onChange={e => setForm(f => ({ ...f, max_capacity: e.target.value }))} className={inputCls} />
-                  {errors.max_capacity && <div className="text-gdg-red text-xs mt-1">{errors.max_capacity}</div>}
+                  <label className="ui-label-sentence" htmlFor="w-cap">
+                    Max capacity
+                  </label>
+                  <input
+                    id="w-cap"
+                    type="number"
+                    min="1"
+                    value={form.max_capacity}
+                    onChange={e => setForm(f => ({ ...f, max_capacity: e.target.value }))}
+                    className={inputCls}
+                  />
+                  {errors.max_capacity && (
+                    <div className="mt-1 text-xs font-medium text-gdg-red">{errors.max_capacity}</div>
+                  )}
                 </div>
                 <div className="mb-5">
-                  <label className="block mb-1.5 font-medium text-sm text-gdg-dark">Status</label>
-                  <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} className={inputCls}>
+                  <label className="ui-label-sentence" htmlFor="w-status">
+                    Status
+                  </label>
+                  <select
+                    id="w-status"
+                    value={form.status}
+                    onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
+                    className={inputCls}
+                  >
                     <option value="upcoming">Upcoming</option>
                     <option value="open">Open</option>
                     <option value="closed">Closed</option>
@@ -172,9 +315,13 @@ export default function WorkshopCrud() {
                   </select>
                 </div>
               </div>
-              <div className="flex gap-3 justify-end mt-6">
-                <button type="button" className="px-6 py-2.5 border-2 border-gdg-border rounded-lg text-sm font-semibold text-gdg-gray hover:border-gdg-blue hover:text-gdg-blue" onClick={() => setShowModal(false)}>Cancel</button>
-                <button type="submit" className="px-6 py-2.5 bg-gdg-blue text-white rounded-lg text-sm font-semibold hover:bg-blue-600">{editingId ? 'Update' : 'Create'}</button>
+              <div className="mt-6 flex justify-end gap-3">
+                <button type="button" className="ui-btn-secondary" onClick={() => setShowModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="ui-btn-primary">
+                  {editingId ? 'Update' : 'Create'}
+                </button>
               </div>
             </form>
           </div>
