@@ -30,39 +30,28 @@ jobs:
         with:
           project_id: ${{ env.PROJECT_ID }}
 
-      # ---- Write production .env from GitHub secrets ----
-      - name: Write production .env
+      # ---- Write .env directly on VM via SSH ----
+      - name: Write .env to VM
         run: |
-          cat > /tmp/gdg-bwai.env <<EOF
-          DB_USER=${{ secrets.DB_USER }}
-          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-          DB_NAME=${{ secrets.DB_NAME }}
-          JWT_SECRET=${{ secrets.JWT_SECRET }}
-          ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL }}
-          ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}
-          RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
-          FRONTEND_URL=${{ secrets.FRONTEND_URL }}
-          APP_URL=${{ secrets.APP_URL }}
-          PORT=3000
-          EOF
-          # Remove leading whitespace from each line
-          sed -i 's/^[[:space:]]*//' /tmp/gdg-bwai.env
-
-      # ---- Copy .env to VM ----
-      - name: Copy .env to VM
-        run: |
-          gcloud compute scp /tmp/gdg-bwai.env ${VM_NAME}:/tmp/gdg-bwai.env \
-            --zone=${ZONE} \
-            --project=${PROJECT_ID} \
-            --ssh-key-expire-after=120s \
-            --strict-host-key-checking=no \
-            --quiet
           gcloud compute ssh ${VM_NAME} \
             --zone=${ZONE} \
             --project=${PROJECT_ID} \
             --ssh-key-expire-after=120s \
+            --strict-host-key-checking=no \
             --quiet \
-            --command="sudo cp /tmp/gdg-bwai.env /opt/gdg-bwai/.env && sudo chmod 600 /opt/gdg-bwai/.env"
+            --command="sudo bash -c 'cat > /opt/gdg-bwai/.env << ENVEOF
+DB_USER=${{ secrets.DB_USER }}
+DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+DB_NAME=${{ secrets.DB_NAME }}
+JWT_SECRET=${{ secrets.JWT_SECRET }}
+ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL }}
+ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}
+RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
+FRONTEND_URL=${{ secrets.FRONTEND_URL }}
+APP_URL=${{ secrets.APP_URL }}
+PORT=3000
+ENVEOF
+chmod 600 /opt/gdg-bwai/.env'"
 
       # ---- SSH: pull latest code, rebuild, restart ----
       - name: Deploy on VM
