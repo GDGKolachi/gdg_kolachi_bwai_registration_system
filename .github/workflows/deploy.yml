@@ -60,6 +60,16 @@ jobs:
             --quiet \
             --command="echo '${ENV_CONTENT}' | sudo tee /opt/gdg-bwai/.env > /dev/null && sudo sed -i 's/^[[:space:]]*//' /opt/gdg-bwai/.env && sudo chmod 600 /opt/gdg-bwai/.env"
 
+      - name: Upload code to VM
+        run: |
+          tar czf /tmp/app.tar.gz --exclude='.git' --exclude='node_modules' --exclude='deploy/backup-sa-key.json' --exclude='deploy/.env' .
+          gcloud compute scp /tmp/app.tar.gz ${VM_NAME}:/tmp/app.tar.gz \
+            --zone=${ZONE} \
+            --project=${PROJECT_ID} \
+            --ssh-key-expire-after=120s \
+            --strict-host-key-checking=no \
+            --quiet
+
       - name: Deploy on VM
         run: |
           gcloud compute ssh ${VM_NAME} \
@@ -67,4 +77,4 @@ jobs:
             --project=${PROJECT_ID} \
             --ssh-key-expire-after=120s \
             --quiet \
-            --command="set -euo pipefail && APP_DIR=/opt/gdg-bwai && sudo git config --global --add safe.directory /opt/gdg-bwai && cd /opt/gdg-bwai && if [ ! -d .git ]; then sudo git init; fi && if sudo git remote get-url origin >/dev/null 2>&1; then sudo git remote set-url origin https://github.com/techymualim/gdg_kolachi_bwai_registration_system.git; else sudo git remote add origin https://github.com/techymualim/gdg_kolachi_bwai_registration_system.git; fi && sudo git fetch origin main && (sudo git checkout -f main 2>/dev/null || sudo git checkout -b main origin/main) && sudo git reset --hard origin/main && sudo docker compose up --build -d --remove-orphans && echo 'Waiting for services...' && sleep 15 && sudo docker compose ps"
+            --command="sudo tar xzf /tmp/app.tar.gz -C /opt/gdg-bwai && rm -f /tmp/app.tar.gz && cd /opt/gdg-bwai && sudo docker compose up --build -d --remove-orphans && echo 'Waiting for services...' && sleep 15 && sudo docker compose ps"
