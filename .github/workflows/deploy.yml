@@ -10,6 +10,11 @@ jobs:
     name: Build & Deploy
     runs-on: ubuntu-latest
 
+    env:
+      VM_NAME: gdg-bwai-vm
+      ZONE: us-central1-a
+      PROJECT_ID: gdg-registration-492219
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -23,7 +28,7 @@ jobs:
       - name: Set up gcloud CLI
         uses: google-github-actions/setup-gcloud@v2
         with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          project_id: ${{ env.PROJECT_ID }}
 
       # ---- Write production .env from GitHub secrets ----
       - name: Write production .env
@@ -40,25 +45,27 @@ jobs:
           APP_URL=${{ secrets.APP_URL }}
           PORT=3000
           EOF
+          # Remove leading whitespace from each line
+          sed -i 's/^[[:space:]]*//' /tmp/gdg-bwai.env
 
       # ---- Copy .env to VM ----
       - name: Copy .env to VM
         run: |
-          gcloud compute scp /tmp/gdg-bwai.env ${{ secrets.GCP_VM_NAME }}:/tmp/gdg-bwai.env \
-            --zone=${{ secrets.GCP_ZONE }} \
-            --project=${{ secrets.GCP_PROJECT_ID }} \
+          gcloud compute scp /tmp/gdg-bwai.env ${VM_NAME}:/tmp/gdg-bwai.env \
+            --zone=${ZONE} \
+            --project=${PROJECT_ID} \
             --strict-host-key-checking=no
-          gcloud compute ssh ${{ secrets.GCP_VM_NAME }} \
-            --zone=${{ secrets.GCP_ZONE }} \
-            --project=${{ secrets.GCP_PROJECT_ID }} \
+          gcloud compute ssh ${VM_NAME} \
+            --zone=${ZONE} \
+            --project=${PROJECT_ID} \
             --command="sudo cp /tmp/gdg-bwai.env /opt/gdg-bwai/.env && sudo chmod 600 /opt/gdg-bwai/.env"
 
       # ---- SSH: pull latest code, rebuild, restart ----
       - name: Deploy on VM
         run: |
-          gcloud compute ssh ${{ secrets.GCP_VM_NAME }} \
-            --zone=${{ secrets.GCP_ZONE }} \
-            --project=${{ secrets.GCP_PROJECT_ID }} \
+          gcloud compute ssh ${VM_NAME} \
+            --zone=${ZONE} \
+            --project=${PROJECT_ID} \
             --command="
               set -euo pipefail
               APP_DIR=/opt/gdg-bwai
