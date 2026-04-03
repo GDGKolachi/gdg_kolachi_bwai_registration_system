@@ -326,7 +326,7 @@ export default function DashboardHome() {
           <IconWorkshops className="mb-3 h-10 w-10 text-slate-400" />
           <p className="font-semibold text-slate-800">No workshops yet</p>
           <p className="mt-1 max-w-sm text-sm text-slate-600">
-            Create your first workshop to start accepting registrations.
+            Create your first workshop to start accepting  registrations.
           </p>
           <Link
             to="/admin/workshops"
