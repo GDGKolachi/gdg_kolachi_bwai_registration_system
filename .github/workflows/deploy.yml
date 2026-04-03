@@ -28,7 +28,7 @@ jobs:
       # ---- Write production .env from GitHub secrets ----
       - name: Write production .env
         run: |
-          cat > deploy/.env <<EOF
+          cat > /tmp/gdg-bwai.env <<EOF
           DB_USER=${{ secrets.DB_USER }}
           DB_PASSWORD=${{ secrets.DB_PASSWORD }}
           DB_NAME=${{ secrets.DB_NAME }}
@@ -44,9 +44,14 @@ jobs:
       # ---- Copy .env to VM ----
       - name: Copy .env to VM
         run: |
-          gcloud compute scp deploy/.env ${{ secrets.GCP_VM_NAME }}:/opt/gdg-bwai/.env \
+          gcloud compute scp /tmp/gdg-bwai.env ${{ secrets.GCP_VM_NAME }}:/tmp/gdg-bwai.env \
             --zone=${{ secrets.GCP_ZONE }} \
-            --project=${{ secrets.GCP_PROJECT_ID }}
+            --project=${{ secrets.GCP_PROJECT_ID }} \
+            --strict-host-key-checking=no
+          gcloud compute ssh ${{ secrets.GCP_VM_NAME }} \
+            --zone=${{ secrets.GCP_ZONE }} \
+            --project=${{ secrets.GCP_PROJECT_ID }} \
+            --command="sudo cp /tmp/gdg-bwai.env /opt/gdg-bwai/.env && sudo chmod 600 /opt/gdg-bwai/.env"
 
       # ---- SSH: pull latest code, rebuild, restart ----
       - name: Deploy on VM
@@ -54,19 +59,30 @@ jobs:
           gcloud compute ssh ${{ secrets.GCP_VM_NAME }} \
             --zone=${{ secrets.GCP_ZONE }} \
             --project=${{ secrets.GCP_PROJECT_ID }} \
-            -- bash <<'REMOTE'
+            --command="
               set -euo pipefail
-              APP_DIR="/opt/gdg-bwai"
+              APP_DIR=/opt/gdg-bwai
 
-              cd "$APP_DIR"
-              git fetch origin main
-              git reset --hard origin/main
+              sudo git config --global --add safe.directory \$APP_DIR
+              cd \$APP_DIR
 
-              cp -f .env .env
+              if [ ! -d \$APP_DIR/.git ]; then
+                sudo git init
+              fi
 
-              docker compose up --build -d --remove-orphans
+              if sudo git remote get-url origin >/dev/null 2>&1; then
+                sudo git remote set-url origin https://github.com/techymualim/gdg_kolachi_bwai_registration_system.git
+              else
+                sudo git remote add origin https://github.com/techymualim/gdg_kolachi_bwai_registration_system.git
+              fi
 
-              echo "Waiting for services..."
+              sudo git fetch origin main
+              sudo git checkout -f main 2>/dev/null || sudo git checkout -b main origin/main
+              sudo git reset --hard origin/main
+
+              sudo docker compose up --build -d --remove-orphans
+
+              echo 'Waiting for services...'
               sleep 15
-              docker compose ps
-          REMOTE
+              sudo docker compose ps
+            "
