@@ -3,3 +3,7 @@ dist/
 .env
 *.log
 .DS_Store
+
+# Deployment secrets — never commit these
+deploy/.env
+deploy/backup-sa-key.json
