@@ -6,9 +6,35 @@ on:
       - main
 
 jobs:
-  deploy:
-    name: Build & Deploy
+  build-check:
+    name: Build Check
     runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build backend
+        working-directory: ./backend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build frontend
+        working-directory: ./frontend
+        run: |
+          npm ci
+          npm run build
+
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: build-check
 
     env:
       VM_NAME: gdg-bwai-vm
