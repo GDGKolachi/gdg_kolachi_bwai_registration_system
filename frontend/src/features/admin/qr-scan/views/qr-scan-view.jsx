@@ -187,7 +187,7 @@ export default function QrScanView() {
 
               {scanResult.status === 'pending' && (
                 <div className="mt-6 rounded-xl bg-amber-50 py-4 text-center text-sm font-semibold text-amber-900 ring-1 ring-amber-200/70">
-                  Registration is still pending — must be shortlisted first
+                  Registration is still pending —  must be shortlisted first
                 </div>
               )}
 
