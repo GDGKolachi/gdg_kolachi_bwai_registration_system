@@ -54,10 +54,12 @@ jobs:
           gcloud compute scp /tmp/gdg-bwai.env ${VM_NAME}:/tmp/gdg-bwai.env \
             --zone=${ZONE} \
             --project=${PROJECT_ID} \
+            --tunnel-through-iap \
             --strict-host-key-checking=no
           gcloud compute ssh ${VM_NAME} \
             --zone=${ZONE} \
             --project=${PROJECT_ID} \
+            --tunnel-through-iap \
             --command="sudo cp /tmp/gdg-bwai.env /opt/gdg-bwai/.env && sudo chmod 600 /opt/gdg-bwai/.env"
 
       # ---- SSH: pull latest code, rebuild, restart ----
@@ -66,6 +68,7 @@ jobs:
           gcloud compute ssh ${VM_NAME} \
             --zone=${ZONE} \
             --project=${PROJECT_ID} \
+            --tunnel-through-iap \
             --command="
               set -euo pipefail
               APP_DIR=/opt/gdg-bwai
