@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import { useAdminWorkshops, useCreateWorkshop, useUpdateWorkshop, useDeleteWorkshop } from '../admin-workshop-repository';
 import { validateWorkshopForm } from '../admin-workshop-service';
 
-const emptyForm = { title: '', description: '', date: '', time: '', venue: '', max_capacity: '', status: 'upcoming' };
+const emptyForm = { title: '', description: '', date: '', time: '', venue: '', map_location: '', speakers: [], max_capacity: '', status: 'upcoming' };
 
 const badgeColors = {
   open: 'bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200/70',
@@ -39,6 +39,8 @@ export default function WorkshopCrud() {
       date: w.date,
       time: w.time,
       venue: w.venue,
+      map_location: w.map_location ?? w.mapLocation ?? '',
+      speakers: w.speakers ?? [],
       max_capacity: w.max_capacity ?? w.maxCapacity,
       status: w.status,
     });
@@ -53,14 +55,17 @@ export default function WorkshopCrud() {
     if (Object.keys(v).length > 0) return;
 
     try {
+      const payload = {
+        ...form,
+        max_capacity: Number(form.max_capacity),
+        map_location: form.map_location || null,
+        speakers: form.speakers.filter(s => s.name.trim()),
+      };
       if (editingId) {
-        await updateMutation.mutateAsync({
-          id: editingId,
-          data: { ...form, max_capacity: Number(form.max_capacity) },
-        });
+        await updateMutation.mutateAsync({ id: editingId, data: payload });
         toast.success('Workshop updated');
       } else {
-        await createMutation.mutateAsync({ ...form, max_capacity: Number(form.max_capacity) });
+        await createMutation.mutateAsync(payload);
         toast.success('Workshop created');
       }
       setShowModal(false);
@@ -237,6 +242,7 @@ export default function WorkshopCrud() {
                   rows={3}
                   className={`${inputCls} resize-y`}
                 />
+                <div className="mt-1 text-xs text-slate-400">Supports **bold**, *italic*, lists, and markdown formatting</div>
                 {errors.description && (
                   <div className="mt-1 text-xs font-medium text-gdg-red">{errors.description}</div>
                 )}
@@ -280,6 +286,77 @@ export default function WorkshopCrud() {
                   className={inputCls}
                 />
                 {errors.venue && <div className="mt-1 text-xs font-medium text-gdg-red">{errors.venue}</div>}
+              </div>
+              <div className="mb-5">
+                <label className="ui-label-sentence" htmlFor="w-map">
+                  Map Location
+                </label>
+                <input
+                  id="w-map"
+                  value={form.map_location}
+                  onChange={e => setForm(f => ({ ...f, map_location: e.target.value }))}
+                  placeholder="Google Maps URL or lat,lng coordinates"
+                  className={inputCls}
+                />
+              </div>
+              <div className="mb-5">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="ui-label-sentence mb-0">Speakers / Facilitators</label>
+                  <button
+                    type="button"
+                    className="text-xs font-semibold text-gdg-blue hover:underline"
+                    onClick={() => setForm(f => ({ ...f, speakers: [...f.speakers, { name: '', role: '', photo_url: '' }] }))}
+                  >
+                    + Add speaker
+                  </button>
+                </div>
+                {form.speakers.map((speaker, i) => (
+                  <div key={i} className="mb-2 flex gap-2 items-start">
+                    <input
+                      value={speaker.name}
+                      onChange={e => {
+                        const updated = [...form.speakers];
+                        updated[i] = { ...updated[i], name: e.target.value };
+                        setForm(f => ({ ...f, speakers: updated }));
+                      }}
+                      placeholder="Name"
+                      className={`${inputCls} flex-1`}
+                    />
+                    <input
+                      value={speaker.role}
+                      onChange={e => {
+                        const updated = [...form.speakers];
+                        updated[i] = { ...updated[i], role: e.target.value };
+                        setForm(f => ({ ...f, speakers: updated }));
+                      }}
+                      placeholder="Role"
+                      className={`${inputCls} flex-1`}
+                    />
+                    <input
+                      value={speaker.photo_url}
+                      onChange={e => {
+                        const updated = [...form.speakers];
+                        updated[i] = { ...updated[i], photo_url: e.target.value };
+                        setForm(f => ({ ...f, speakers: updated }));
+                      }}
+                      placeholder="Photo URL (optional)"
+                      className={`${inputCls} flex-1`}
+                    />
+                    <button
+                      type="button"
+                      className="mt-2 text-sm text-gdg-red hover:text-gdg-red/80"
+                      onClick={() => setForm(f => ({ ...f, speakers: f.speakers.filter((_, j) => j !== i) }))}
+                      title="Remove speaker"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                ))}
+                {form.speakers.length === 0 && (
+                  <div className="rounded-lg border border-dashed border-slate-200 px-4 py-3 text-center text-xs text-slate-400">
+                    No speakers added yet
+                  </div>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="mb-5">

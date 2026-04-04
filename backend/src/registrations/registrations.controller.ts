@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Query, Body, Param, Redirect } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { RegistrationsService } from './registrations.service';
 import { CreateRegistrationDto } from './dto/create-registration.dto';
 
@@ -12,6 +13,7 @@ export class RegistrationsController {
   }
 
   @Post()
+  @Throttle({ strict: { ttl: 60000, limit: 10 } })
   register(@Body() dto: CreateRegistrationDto) {
     return this.registrationsService.register(dto);
   }

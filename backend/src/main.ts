@@ -4,6 +4,10 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET environment variable is required. Refusing to start with default secret.');
+  }
+
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api');
 

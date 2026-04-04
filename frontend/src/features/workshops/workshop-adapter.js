@@ -8,6 +8,8 @@ export function adaptWorkshop(raw) {
     venue: raw.venue,
     maxCapacity: raw.max_capacity ?? raw.maxCapacity,
     registeredCount: raw.registered_count ?? raw.registeredCount ?? 0,
+    mapLocation: raw.map_location ?? raw.mapLocation ?? null,
+    speakers: raw.speakers ?? [],
     status: raw.status,
     createdAt: raw.created_at ?? raw.createdAt,
   };

@@ -2,16 +2,21 @@
 
 A full-stack workshop registration system for GDG Kolachi's "Build with AI" workshop series. Attendees can browse workshops, register, and request exceptions for additional workshops. Admins manage workshops, review registrations, process exception requests, and handle day-of check-in.
 
+**Live:** https://register.gdgkolachi.com
+
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | React + Vite |
+| Frontend | React + Vite + Tailwind CSS |
 | Backend | NestJS (TypeScript) |
-| Database | PostgreSQL |
+| Database | PostgreSQL 16 |
 | Email | Resend |
 | Auth | JWT (Passport) |
-| Deployment | Vercel (frontend) + Railway (backend + DB) |
+| Deployment | GCP Compute Engine (Docker Compose) |
+| CI/CD | GitHub Actions (build check + auto-deploy on push to main) |
+| SSL | Let's Encrypt (auto-renewal via Certbot) |
+| Backups | Daily pg_dump to Google Cloud Storage (30-day retention) |
 | E2E tests | Playwright (`frontend/e2e`) |
 
 ## Core Business Rule
@@ -39,7 +44,10 @@ frontend/src/
 │   │   │   └── workshop-detail.jsx
 │   │   └── components/
 │   │       ├── workshop-card.jsx
-│   │       └── capacity-badge.jsx
+│   │       ├── capacity-badge.jsx
+│   │       ├── markdown-text.jsx  # Markdown rendering (marked + DOMPurify)
+│   │       ├── map-embed.jsx      # Google Maps iframe embed
+│   │       └── speakers-list.jsx  # Speaker/facilitator cards
 │   │
 │   ├── registration/              # Attendee registration flow
 │   │   ├── registration-api.js
@@ -112,6 +120,7 @@ backend/src/
 ├── workshops/                     # Public workshop endpoints
 │   ├── workshops.module.ts
 │   ├── workshops.service.ts
+│   ├── dto/create-workshop.dto.ts # Validation with class-validator
 │   └── workshops.controller.ts    # GET /api/workshops, GET /api/workshops/:id
 │
 ├── registrations/                 # Public registration endpoints
@@ -142,7 +151,7 @@ backend/src/
 
 ```
 admins:             id, email, password_hash, name, created_at
-workshops:          id, title, description, date, time, venue, max_capacity, status, created_at
+workshops:          id, title, description, date, time, venue, max_capacity, map_location, speakers (jsonb), status, created_at
 attendees:          id, name, email (unique), phone, university_org, github_linkedin, cnic, created_at
 registrations:      id, attendee_id, workshop_id, motivation, status, checked_in, registered_at, checked_in_at
 exception_requests: id, attendee_id, requested_workshop_id, reason, status, reviewed_by, reviewed_at, created_at
@@ -185,7 +194,7 @@ exception_requests: id, attendee_id, requested_workshop_id, reason, status, revi
 - Exception approved (new workshop details + QR code)
 - Exception rejected (notification)
 
-## Getting Started
+## Getting Started (Local Development)
 
 ### Prerequisites
 
@@ -202,149 +211,64 @@ cd gdg_kolachi_bwai_registration_system
 
 ### 2. Set up the database
 
-Create a PostgreSQL database:
-
 ```bash
 createdb gdg_bwai
-```
-
-Or using psql:
-
-```sql
-CREATE DATABASE gdg_bwai;
 ```
 
 ### 3. Set up the backend
 
 ```bash
 cd backend
-
-# Install dependencies
 npm install
-
-# Create environment file
 cp .env.example .env
 ```
 
-Edit `.env` with your values:
-
-```env
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/gdg_bwai
-JWT_SECRET=your-secret-key-change-this
-ADMIN_EMAIL=admin@gdgkolachi.com
-ADMIN_PASSWORD=admin123
-RESEND_API_KEY=re_your_resend_api_key   # Optional — emails are skipped if not set
-FRONTEND_URL=http://localhost:5173
-PORT=3000
-```
-
-Start the backend:
+Edit `.env` with your database credentials, JWT secret, admin credentials, and Resend API key. See `.env.example` for all required variables.
 
 ```bash
-# Development (with hot reload)
 npm run start:dev
-
-# Production build
-npm run build
-npm run start:prod
 ```
 
-The backend will:
-- Auto-create all database tables via TypeORM synchronize
-- Seed the first admin account on startup (using ADMIN_EMAIL/ADMIN_PASSWORD from .env)
-- Listen on `http://localhost:3000`
+The backend will auto-create all tables via TypeORM synchronize and seed the first admin account.
 
 ### 4. Set up the frontend
 
 ```bash
 cd frontend
-
-# Install dependencies
 npm install
-
-# Create environment file
-cp .env.example .env
-```
-
-Edit `.env`:
-
-```env
-VITE_API_URL=http://localhost:3000/api
-```
-
-Start the frontend:
-
-```bash
-# Development
 npm run dev
-
-# Production build
-npm run build
-npm run preview
 ```
-
-The frontend will be available at `http://localhost:5173`.
 
 ### 5. Access the app
 
 | URL | Description |
 |-----|-------------|
 | `http://localhost:5173` | Public workshop listing |
-| `http://localhost:5173/admin/login` | Admin login |
+| `http://localhost:5173/admin/login` | Admin login (credentials from your `.env`) |
 
-Default admin credentials (from .env):
-- **Email:** `admin@gdgkolachi.com`
-- **Password:** `admin123`
+## Deployment (GCP Compute Engine)
 
-## E2E tests (Playwright)
+The app is deployed on a single GCP Compute Engine VM running Docker Compose with 3 containers: PostgreSQL, NestJS backend, and nginx (serving the React SPA + proxying `/api`).
 
-Browser tests live under `frontend/e2e/`. See `frontend/e2e/README.md` for detail.
+See [DEPLOYMENT.md](DEPLOYMENT.md) for full step-by-step instructions.
 
-### Setup
+### Deployment Scripts
 
-```bash
-cd frontend
-npm install
-npx playwright install   # browsers (e.g. Chromium)
-```
+| Script | Purpose |
+|--------|---------|
+| `scripts/create-infrastructure.sh` | Provisions VM, firewall, GCS bucket, service account |
+| `deploy/vm-setup.sh` | Installs Docker, Compose, gcloud on the VM |
+| `scripts/deploy.sh` | Deploys code + secrets to the VM |
+| `deploy/postgres-backup.sh` | Daily automated PostgreSQL backup to GCS |
 
-Requires **backend** running (`backend/npm run start:dev`) and `frontend/.env` with `VITE_API_URL` pointing at the API (e.g. `http://localhost:3000/api`).
+### CI/CD Pipeline
 
-### Run
+Every push to `main` triggers a GitHub Actions workflow:
 
-```bash
-cd frontend
-npm run test:e2e          # headless
-npm run test:e2e:ui       # interactive UI
-npm run test:e2e:headed   # headed
-npm run test:e2e:report   # open last HTML report
-```
+1. **Build Check** — Builds both backend and frontend. If either fails, deploy is blocked.
+2. **Deploy** — Pushes code to the VM and runs `docker compose up --build -d`.
 
-Optional env: `PLAYWRIGHT_BASE_URL`, `PLAYWRIGHT_API_URL`, `E2E_ADMIN_EMAIL`, `E2E_ADMIN_PASSWORD` (must match a real admin in the DB for the setup project).
-
-### Artifacts (screenshots & traces)
-
-- **Screenshots:** Captured **after every test** (pass and fail) and attached to the HTML report (`screenshot: 'on'` in `playwright.config.ts`).
-- **Traces:** Recorded **on first retry** of a failed test (`trace: 'on-first-retry'`), useful for debugging flakes in CI.
-
-### Covered scenarios
-
-| Area | Spec | What is covered |
-|------|------|------------------|
-| **Setup** | `e2e/auth.setup.ts` | Admin login; saves session for admin specs |
-| **Public — workshops** | `e2e/public/workshops.spec.ts` | Home “Build with AI” title; list has cards or empty state; open workshop **Details** → detail page |
-| **Public — registration** | `e2e/public/registration.spec.ts` | Full register flow for first **open** workshop → confirmation page (skipped if no open workshop) |
-| **Public — exception** | `e2e/public/exception-request.spec.ts` | Exception request form loads for an existing workshop |
-| **Public — login** | `e2e/public/auth-login.spec.ts` | Invalid admin credentials stay on `/admin/login` |
-| **Admin — dashboard** | `e2e/admin/dashboard.spec.ts` | Dashboard heading and stats |
-| **Admin — workshops** | `e2e/admin/workshops.spec.ts` | Workshops page; open **New Workshop** modal; cancel |
-| **Admin — registrations** | `e2e/admin/registrations.spec.ts` | Registrations page; workshop `<select>` visible |
-| **Admin — exceptions** | `e2e/admin/exceptions.spec.ts` | Exception requests heading |
-| **Admin — check-in** | `e2e/admin/checkin.spec.ts` | Check-in heading, search field, Search button |
-| **Admin — QR scan** | `e2e/admin/qr-scan.spec.ts` | QR scanner page; manual input + **Look Up** |
-| **Admin — users** | `e2e/admin/users.spec.ts` | Users list; open **New User** modal; cancel |
-
-Admin specs depend on **setup** (saved `e2e/.auth/admin.json`, gitignored). Some public tests **skip** when the API has no workshops or no **open** workshop.
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed setup instructions, required secrets, and operational commands.
 
 ## Registration Flow
 
@@ -358,32 +282,32 @@ Admin specs depend on **setup** (saved `e2e/.auth/admin.json`, gitignored). Some
 8. **Rejected** → rejection notification email
 9. **At capacity** → workshop shows "full" message
 
-## Deployment
+## E2E Tests (Playwright)
 
-### Frontend → Vercel
+Browser tests live under `frontend/e2e/`. See `frontend/e2e/README.md` for detail.
 
 ```bash
 cd frontend
-vercel --prod
+npm install
+npx playwright install
+npm run test:e2e          # headless
+npm run test:e2e:ui       # interactive UI
 ```
 
-Set environment variable in Vercel dashboard:
-- `VITE_API_URL` = your Railway backend URL + `/api`
+## Future Improvements
 
-### Backend → Railway
-
-1. Connect your repo to Railway
-2. Set root directory to `backend`
-3. Add environment variables (DATABASE_URL is auto-provided by Railway Postgres)
-4. Railway uses the `Procfile` to start: `node dist/main.js`
-5. Build command: `npm run build`
-
-Required Railway environment variables:
-- `JWT_SECRET`
-- `ADMIN_EMAIL`
-- `ADMIN_PASSWORD`
-- `RESEND_API_KEY`
-- `FRONTEND_URL` (your Vercel URL)
+- **Custom domain email** — Use a custom sender domain with Resend instead of the default, for better deliverability
+- **Waitlist system** — Allow attendees to join a waitlist when a workshop is full, auto-notify when spots open
+- **Analytics dashboard** — Add charts for registration trends, attendance rates, and workshop popularity over time
+- **Multi-event support** — Support multiple event series beyond "Build with AI" (e.g., DevFest, I/O Extended)
+- **Image uploads** — Allow speaker photos and workshop banners to be uploaded directly instead of URL-based
+- **Rate limiting** — Add rate limiting on public endpoints to prevent spam registrations
+- **Email templates** — Move email HTML to template files for easier customization
+- **Monitoring & alerts** — Set up uptime monitoring (e.g., Google Cloud Monitoring or UptimeRobot) and Slack alerts for downtime
+- **Horizontal scaling** — Move to Cloud Run or GKE if traffic outgrows the single VM
+- **Database migrations** — Switch from TypeORM `synchronize: true` to proper migrations for production safety
+- **Automated SSL renewal** — Add a cron job that stops the frontend container, runs `certbot renew`, and restarts it
+- **CDN** — Put Cloudflare or Cloud CDN in front of the nginx container for static asset caching and DDoS protection
 
 ## Branding
 
