@@ -24,6 +24,12 @@ export class Workshop {
   @Column({ type: 'int' })
   max_capacity: number;
 
+  @Column({ nullable: true })
+  map_location: string;
+
+  @Column({ type: 'jsonb', nullable: true, default: [] })
+  speakers: { name: string; role: string; photo_url?: string }[];
+
   @Column({ default: 'upcoming' })
   status: string;
 

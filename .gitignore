@@ -4,6 +4,9 @@ dist/
 *.log
 .DS_Store
 
-# Deployment secrets — never commit these
+# Deployment secrets & docs — never commit these
 deploy/.env
 deploy/backup-sa-key.json
+backup-sa-key.json
+cicd-sa-key.json
+DEPLOYMENT.md

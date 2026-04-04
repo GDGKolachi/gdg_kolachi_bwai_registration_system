@@ -1,7 +1,9 @@
 import { useParams, Link } from 'react-router-dom';
 import { useWorkshopById } from '../workshop-repository';
 import { isRegistrationOpen, isWorkshopFull, getStatusLabel } from '../workshop-service';
-import CapacityBadge from '../components/capacity-badge';
+import MarkdownText from '../components/markdown-text';
+import MapEmbed from '../components/map-embed';
+import SpeakersList from '../components/speakers-list';
 
 const badgeColors = {
   open: 'bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200/70',
@@ -56,7 +58,9 @@ export default function WorkshopDetail() {
           </span>
         </div>
 
-        <p className="mb-8 leading-relaxed text-slate-600">{workshop.description}</p>
+        <div className="mb-8">
+          <MarkdownText content={workshop.description} />
+        </div>
 
         <div className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6">
           <div>
@@ -71,11 +75,11 @@ export default function WorkshopDetail() {
             <div className="ui-label">Venue</div>
             <div className="text-sm font-semibold text-slate-900">{workshop.venue}</div>
           </div>
-          <div>
-            <div className="ui-label">Capacity</div>
-            <CapacityBadge workshop={workshop} />
-          </div>
         </div>
+
+        <MapEmbed mapLocation={workshop.mapLocation} />
+
+        <SpeakersList speakers={workshop.speakers} />
 
         {canRegister && (
           <Link

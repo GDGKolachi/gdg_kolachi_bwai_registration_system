@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
 import { getStatusLabel, isRegistrationOpen } from '../workshop-service';
-import CapacityBadge from './capacity-badge';
 
 const badgeColors = {
   open: 'bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200/70',
@@ -33,9 +32,25 @@ export default function WorkshopCard({ workshop }) {
         <span className="text-slate-300">·</span>
         <span>{workshop.time}</span>
         <span className="text-slate-300">·</span>
-        <span className="truncate">{workshop.venue}</span>
+        <span className="inline-flex items-center gap-1 truncate">
+          {workshop.venue}
+          {workshop.mapLocation && (
+            <a
+              href={workshop.mapLocation.includes('google.com') ? workshop.mapLocation : `https://www.google.com/maps/search/${encodeURIComponent(workshop.mapLocation)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gdg-blue hover:text-gdg-blue/80"
+              onClick={(e) => e.stopPropagation()}
+              title="View on map"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 0115 0z" />
+              </svg>
+            </a>
+          )}
+        </span>
       </div>
-      <CapacityBadge workshop={workshop} />
       <div className="flex flex-wrap gap-2 pt-1">
         <Link
           to={`/workshops/${workshop.id}`}

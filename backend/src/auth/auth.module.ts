@@ -12,7 +12,7 @@ import { Admin } from '../entities/admin.entity';
     TypeOrmModule.forFeature([Admin]),
     PassportModule,
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'gdg-kolachi-bwai-secret-key',
+      secret: process.env.JWT_SECRET,
       signOptions: { expiresIn: '24h' },
     }),
   ],

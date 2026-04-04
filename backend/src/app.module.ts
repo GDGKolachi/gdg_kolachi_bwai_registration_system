@@ -19,10 +19,11 @@ import { ExceptionRequest } from './entities/exception-request.entity';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    ThrottlerModule.forRoot([{
-      ttl: 60000,
-      limit: 30,
-    }]),
+    ThrottlerModule.forRoot([
+      { name: 'default', ttl: 60000, limit: 30 },
+      { name: 'strict', ttl: 60000, limit: 5 },
+      { name: 'loose', ttl: 60000, limit: 60 },
+    ]),
     TypeOrmModule.forRoot({
       type: 'postgres',
       url: process.env.DATABASE_URL,
