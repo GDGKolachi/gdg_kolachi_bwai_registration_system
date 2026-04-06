@@ -8,7 +8,7 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post('login')
-  @Throttle({ strict: { ttl: 60000, limit: 5 } })
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   async login(@Body() dto: LoginDto) {
     return this.authService.login(dto.email, dto.password);
   }

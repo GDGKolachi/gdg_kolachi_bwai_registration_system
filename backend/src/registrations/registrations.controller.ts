@@ -13,7 +13,7 @@ export class RegistrationsController {
   }
 
   @Post()
-  @Throttle({ strict: { ttl: 60000, limit: 10 } })
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
   register(@Body() dto: CreateRegistrationDto) {
     return this.registrationsService.register(dto);
   }
