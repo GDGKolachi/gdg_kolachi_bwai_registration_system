@@ -20,10 +20,19 @@ export class Attendee {
   university_org: string;
 
   @Column({ nullable: true })
-  github_linkedin: string;
+  github: string;
+
+  @Column({ nullable: true })
+  linkedin: string;
 
   @Column()
   cnic: string;
+
+  @Column({ nullable: true })
+  gender: string;
+
+  @Column({ nullable: true })
+  defines_you_best: string;
 
   @CreateDateColumn()
   created_at: Date;

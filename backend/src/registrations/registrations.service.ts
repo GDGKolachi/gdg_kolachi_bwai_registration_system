@@ -52,8 +52,11 @@ export class RegistrationsService {
         email: dto.email,
         phone: dto.phone,
         university_org: dto.university_org,
-        github_linkedin: dto.github_linkedin,
+        github: dto.github,
+        linkedin: dto.linkedin,
         cnic: dto.cnic,
+        gender: dto.gender,
+        defines_you_best: dto.defines_you_best,
       });
       attendee = await this.attendeeRepo.save(attendee);
     }
@@ -62,12 +65,12 @@ export class RegistrationsService {
       attendee_id: attendee.id,
       workshop_id: dto.workshop_id,
       motivation: dto.motivation,
-      status: 'confirmed',
+      status: 'pending',
     });
     const saved = await this.registrationRepo.save(registration);
 
-    await this.emailService.sendRegistrationConfirmation(
-      attendee.email, attendee.name, workshop, saved.id,
+    await this.emailService.sendRegistrationPending(
+      attendee.email, attendee.name, workshop,
     );
 
     return saved;
@@ -83,10 +86,10 @@ export class RegistrationsService {
 
   async exportCsv(workshopId: string): Promise<string> {
     const registrations = await this.findByWorkshop(workshopId);
-    const header = 'Name,Email,Phone,Organization,GitHub/LinkedIn,CNIC,Motivation,Status,Checked In,Registered At\n';
+    const header = 'Name,Email,Phone,Organization,GitHub,LinkedIn,CNIC,Gender,Defines You Best,Motivation,Status,Checked In,Registered At\n';
     const rows = registrations.map(r => {
       const a = r.attendee;
-      return `"${a?.name}","${a?.email}","${a?.phone}","${a?.university_org}","${a?.github_linkedin || ''}","${a?.cnic}","${r.motivation}","${r.status}","${r.checked_in}","${r.registered_at}"`;
+      return `"${a?.name}","${a?.email}","${a?.phone}","${a?.university_org}","${a?.github || ''}","${a?.linkedin || ''}","${a?.cnic}","${a?.gender || ''}","${a?.defines_you_best || ''}","${r.motivation}","${r.status}","${r.checked_in}","${r.registered_at}"`;
     }).join('\n');
     return header + rows;
   }

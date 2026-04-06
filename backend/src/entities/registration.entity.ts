@@ -16,7 +16,7 @@ export class Registration {
   @Column('text')
   motivation: string;
 
-  @Column({ default: 'confirmed' })
+  @Column({ default: 'pending' })
   status: string;
 
   @Column({ default: false })
@@ -27,6 +27,9 @@ export class Registration {
 
   @Column({ type: 'timestamp', nullable: true })
   checked_in_at: Date | null;
+
+  @Column({ nullable: true })
+  qr_code_data: string;
 
   @ManyToOne(() => Attendee, (a) => a.registrations)
   @JoinColumn({ name: 'attendee_id' })

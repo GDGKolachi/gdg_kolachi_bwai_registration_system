@@ -6,6 +6,8 @@ const navItems = [
   { path: '/admin/registrations', label: 'Registrations' },
   { path: '/admin/exceptions', label: 'Exceptions' },
   { path: '/admin/checkin', label: 'Check-in' },
+  { path: '/admin/qr-scan', label: 'QR Scan' },
+  { path: '/admin/users', label: 'Users' },
 ];
 
 export default function AdminLayout() {
@@ -22,26 +24,19 @@ export default function AdminLayout() {
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
-      <aside style={{
-        width: 240,
-        background: 'var(--gdg-dark)',
-        color: 'white',
-        padding: '24px 0',
-        display: 'flex',
-        flexDirection: 'column',
-      }}>
-        <div style={{ padding: '0 20px', marginBottom: 32 }}>
-          <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--gdg-blue)' }} />
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--gdg-red)' }} />
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--gdg-yellow)' }} />
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--gdg-green)' }} />
+    <div className="flex min-h-screen">
+      <aside className="w-60 bg-gdg-dark text-white py-6 flex flex-col">
+        <div className="px-5 mb-8">
+          <div className="flex gap-1 mb-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-gdg-blue" />
+            <span className="w-1.5 h-1.5 rounded-full bg-gdg-red" />
+            <span className="w-1.5 h-1.5 rounded-full bg-gdg-yellow" />
+            <span className="w-1.5 h-1.5 rounded-full bg-gdg-green" />
           </div>
-          <div style={{ fontWeight: 700, fontSize: 16 }}>GDG Admin</div>
-          <div style={{ fontSize: 12, opacity: 0.6 }}>Build with AI</div>
+          <div className="font-bold text-base">GDG Admin</div>
+          <div className="text-xs opacity-60">Build with AI</div>
         </div>
-        <nav style={{ flex: 1 }}>
+        <nav className="flex-1">
           {navItems.map(item => {
             const isActive = item.exact
               ? location.pathname === item.path
@@ -50,41 +45,27 @@ export default function AdminLayout() {
               <Link
                 key={item.path}
                 to={item.path}
-                style={{
-                  display: 'block',
-                  padding: '10px 20px',
-                  color: isActive ? 'white' : 'rgba(255,255,255,0.6)',
-                  background: isActive ? 'rgba(255,255,255,0.1)' : 'transparent',
-                  textDecoration: 'none',
-                  fontSize: 14,
-                  fontWeight: isActive ? 600 : 400,
-                  borderLeft: isActive ? '3px solid var(--gdg-blue)' : '3px solid transparent',
-                }}
+                className={`block py-2.5 px-5 text-sm no-underline border-l-3 transition-colors ${
+                  isActive
+                    ? 'text-white bg-white/10 font-semibold border-l-gdg-blue'
+                    : 'text-white/60 border-l-transparent hover:text-white/80 hover:bg-white/5'
+                }`}
               >
                 {item.label}
               </Link>
             );
           })}
         </nav>
-        <div style={{ padding: '0 20px' }}>
+        <div className="px-5">
           <button
             onClick={handleLogout}
-            style={{
-              background: 'rgba(255,255,255,0.1)',
-              border: 'none',
-              color: 'rgba(255,255,255,0.8)',
-              padding: '8px 16px',
-              borderRadius: 6,
-              cursor: 'pointer',
-              width: '100%',
-              fontSize: 13,
-            }}
+            className="bg-white/10 border-none text-white/80 py-2 px-4 rounded-md cursor-pointer w-full text-sm hover:bg-white/20"
           >
             Logout
           </button>
         </div>
       </aside>
-      <main style={{ flex: 1, padding: 32, overflow: 'auto' }}>
+      <main className="flex-1 p-8 overflow-auto">
         <Outlet />
       </main>
     </div>
