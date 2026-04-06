@@ -9,6 +9,9 @@ export function useWorkshops() {
       const data = await workshopApi.getAll();
       return adaptWorkshopList(data);
     },
+    staleTime: 30_000,
+    retry: 2,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 5000),
   });
 }
 

@@ -16,7 +16,7 @@ export default function Layout() {
               <span className="text-[0.6rem] font-semibold uppercase tracking-[0.12em] text-slate-500 sm:text-[0.65rem] sm:tracking-[0.14em]">
                 {BRAND_KICKER_PUBLIC}
               </span>
-              <span className="truncate text-sm font-bold tracking-tight text-slate-900 group-hover:text-gdg-blue sm:text-base lg:text-lg">
+              <span className="truncate text-sm font-bold tracking-tight text-slate-900 sm:text-base lg:text-lg">
                 {BRAND_NAME}
               </span>
               <span className="truncate text-[0.7rem] font-medium text-slate-500 sm:text-xs">{BRAND_SERIES}</span>

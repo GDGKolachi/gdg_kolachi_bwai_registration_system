@@ -11,9 +11,22 @@ function parseMapLocation(value) {
   }
 
   if (value.includes('google.com/maps') || value.includes('goo.gl/maps')) {
-    const encoded = encodeURIComponent(value);
+    // Extract coordinates or place query from Google Maps URL
+    const atMatch = value.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+    const placeMatch = value.match(/\/place\/([^/@]+)/);
+    const queryMatch = value.match(/[?&]q=([^&]+)/);
+    let q;
+    if (atMatch) {
+      q = `${atMatch[1]},${atMatch[2]}`;
+    } else if (queryMatch) {
+      q = decodeURIComponent(queryMatch[1]);
+    } else if (placeMatch) {
+      q = decodeURIComponent(placeMatch[1].replace(/\+/g, ' '));
+    } else {
+      q = encodeURIComponent(value);
+    }
     return {
-      embedUrl: `https://maps.google.com/maps?q=${encoded}&output=embed`,
+      embedUrl: `https://maps.google.com/maps?q=${encodeURIComponent(q)}&z=15&output=embed`,
       linkUrl: value,
     };
   }

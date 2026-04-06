@@ -53,8 +53,11 @@ export default function RegistrationForm() {
         state: { workshopTitle: workshop?.title, email: formData.email },
       });
     } catch (err) {
+      const status = err.response?.status;
       const msg = err.response?.data?.message || 'Registration failed';
-      if (msg.includes('already registered')) {
+      if (status === 413 || msg.includes('entity too large')) {
+        toast.error('Your response is too long. Please shorten your answers and try again.');
+      } else if (msg.includes('already registered')) {
         setAlreadyRegistered(true);
         toast.error('You are already registered for a workshop. Please submit an exception request.');
       } else {

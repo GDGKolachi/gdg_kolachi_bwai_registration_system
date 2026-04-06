@@ -1,6 +1,22 @@
 import { Link } from 'react-router-dom';
 import { getStatusLabel, isRegistrationOpen } from '../workshop-service';
 
+function stripMarkdown(text) {
+  if (!text) return '';
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/__(.+?)__/g, '$1')
+    .replace(/_(.+?)_/g, '$1')
+    .replace(/#{1,6}\s?/g, '')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/~~(.+?)~~/g, '$1')
+    .replace(/>\s?/g, '')
+    .replace(/[-*+]\s/g, '')
+    .replace(/\d+\.\s/g, '');
+}
+
 const badgeColors = {
   open: 'bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200/70',
   closed: 'bg-rose-50 text-rose-900 ring-1 ring-rose-200/70',
@@ -24,8 +40,10 @@ export default function WorkshopCard({ workshop }) {
         </span>
       </div>
       <p className="line-clamp-3 flex-1 text-sm leading-relaxed text-slate-600">
-        {workshop.description?.substring(0, 150)}
-        {workshop.description?.length > 150 ? '…' : ''}
+        {(() => {
+          const plain = stripMarkdown(workshop.description);
+          return plain.length > 150 ? plain.substring(0, 150) + '…' : plain;
+        })()}
       </p>
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-medium text-slate-500">
         <span>{workshop.date}</span>

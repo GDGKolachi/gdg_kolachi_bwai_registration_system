@@ -97,10 +97,13 @@ export class RegistrationsService {
 
   async exportCsv(workshopId: string): Promise<string> {
     const registrations = await this.findByWorkshop(workshopId);
-    const header = 'Name,Email,Phone,Organization,GitHub,LinkedIn,CNIC,Gender,Defines You Best,Motivation,Status,Acknowledged,Checked In,Registered At\n';
+    const header = 'Name,Email,Phone,Organization,GitHub,LinkedIn,CNIC,Gender,Profile,Motivation,Status,Acknowledged,Checked In,Registered At\n';
     const rows = registrations.map(r => {
       const a = r.attendee;
-      return `"${a?.name}","${a?.email}","${a?.phone}","${a?.university_org}","${a?.github || ''}","${a?.linkedin || ''}","${a?.cnic}","${a?.gender || ''}","${a?.defines_you_best || ''}","${r.motivation}","${r.status}","${r.acknowledged}","${r.checked_in}","${r.registered_at}"`;
+      const registeredAt = r.registered_at
+        ? new Date(r.registered_at).toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, ' UTC')
+        : '';
+      return `"${a?.name}","${a?.email}","${a?.phone}","${a?.university_org}","${a?.github || ''}","${a?.linkedin || ''}","${a?.cnic}","${a?.gender || ''}","${a?.defines_you_best || ''}","${(r.motivation || '').replace(/"/g, '""')}","${r.status}","${r.acknowledged}","${r.checked_in}","${registeredAt}"`;
     }).join('\n');
     return header + rows;
   }

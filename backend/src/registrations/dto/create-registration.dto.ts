@@ -7,8 +7,8 @@ export class CreateRegistrationDto {
   @IsEmail()
   email: string;
 
-  @Matches(/^(\+?\d{1,4}[\s-]?)?(\(?\d{1,4}\)?[\s-]?)?\d{6,14}$/, {
-    message: 'Please provide a valid phone number (e.g. +92 300 1234567)',
+  @Matches(/^(\+?92[\s-]?|0)3\d{2}[\s-]?\d{7}$/, {
+    message: 'Please provide a valid Pakistani phone number (e.g. 03XX-XXXXXXX)',
   })
   phone: string;
 
@@ -22,7 +22,9 @@ export class CreateRegistrationDto {
   @IsString()
   linkedin: string;
 
-  @IsString()
+  @Matches(/^\d{5}-?\d{7}-?\d{1}$/, {
+    message: 'CNIC must be 13 digits in format XXXXX-XXXXXXX-X',
+  })
   cnic: string;
 
   @IsString()
