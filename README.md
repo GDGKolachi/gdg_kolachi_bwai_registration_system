@@ -229,7 +229,7 @@ Edit `.env` with your database credentials, JWT secret, admin credentials, and R
 npm run start:dev
 ```
 
-The backend will auto-create all tables via TypeORM synchronize and seed the first admin account.
+The backend will run TypeORM migrations on startup (`migrationsRun: true`) to create all tables, and seed the first admin account.
 
 ### 4. Set up the frontend
 
@@ -305,7 +305,7 @@ npm run test:e2e:ui       # interactive UI
 - **Email templates** — Move email HTML to template files for easier customization
 - **Monitoring & alerts** — Set up uptime monitoring (e.g., Google Cloud Monitoring or UptimeRobot) and Slack alerts for downtime
 - **Horizontal scaling** — Move to Cloud Run or GKE if traffic outgrows the single VM
-- **Database migrations** — Switch from TypeORM `synchronize: true` to proper migrations for production safety
+- ~~**Database migrations** — Switch from TypeORM `synchronize: true` to proper migrations for production safety~~ ✅ Done
 - **Automated SSL renewal** — Add a cron job that stops the frontend container, runs `certbot renew`, and restarts it
 - **CDN** — Put Cloudflare or Cloud CDN in front of the nginx container for static asset caching and DDoS protection
 
