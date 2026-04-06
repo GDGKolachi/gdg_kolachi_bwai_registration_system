@@ -10,6 +10,7 @@ const badgeColors = {
   closed: 'bg-rose-50 text-rose-900 ring-1 ring-rose-200/70',
   upcoming: 'bg-sky-50 text-sky-900 ring-1 ring-sky-200/70',
   completed: 'bg-slate-100 text-slate-700 ring-1 ring-slate-200/80',
+  disabled: 'bg-amber-50 text-amber-900 ring-1 ring-amber-200/70',
 };
 
 export default function WorkshopCrud() {
@@ -389,6 +390,7 @@ export default function WorkshopCrud() {
                     <option value="open">Open</option>
                     <option value="closed">Closed</option>
                     <option value="completed">Completed</option>
+                    <option value="disabled">Disabled</option>
                   </select>
                 </div>
               </div>

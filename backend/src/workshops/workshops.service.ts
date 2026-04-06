@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import { Workshop } from '../entities/workshop.entity';
 import { Registration } from '../entities/registration.entity';
 
@@ -13,8 +13,9 @@ export class WorkshopsService {
     private registrationRepo: Repository<Registration>,
   ) {}
 
-  async findAll() {
-    const workshops = await this.workshopRepo.find({ order: { created_at: 'DESC' } });
+  async findAll(includeDisabled = false) {
+    const where = includeDisabled ? {} : { status: Not('disabled') };
+    const workshops = await this.workshopRepo.find({ where, order: { created_at: 'DESC' } });
     const result: Array<Workshop & { registered_count: number }> = [];
     for (const w of workshops) {
       const registeredCount = await this.registrationRepo.count({ where: { workshop_id: w.id } });

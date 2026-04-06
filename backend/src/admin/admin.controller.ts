@@ -31,7 +31,7 @@ export class AdminController {
         limit ? parseInt(limit) : 20,
       );
     }
-    return this.workshopsService.findAll();
+    return this.workshopsService.findAll(true);
   }
 
   @Post('workshops')
