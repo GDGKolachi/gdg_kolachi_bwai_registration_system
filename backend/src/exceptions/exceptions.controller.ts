@@ -8,7 +8,7 @@ export class ExceptionsController {
   constructor(private exceptionsService: ExceptionsService) {}
 
   @Post()
-  @Throttle({ strict: { ttl: 60000, limit: 5 } })
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   submit(@Body() dto: CreateExceptionDto) {
     return this.exceptionsService.submit(dto.email, dto.requested_workshop_id, dto.reason);
   }

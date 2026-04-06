@@ -21,8 +21,6 @@ import { ExceptionRequest } from './entities/exception-request.entity';
     ConfigModule.forRoot({ isGlobal: true }),
     ThrottlerModule.forRoot([
       { name: 'default', ttl: 60000, limit: 30 },
-      { name: 'strict', ttl: 60000, limit: 5 },
-      { name: 'loose', ttl: 60000, limit: 60 },
     ]),
     TypeOrmModule.forRoot({
       type: 'postgres',
