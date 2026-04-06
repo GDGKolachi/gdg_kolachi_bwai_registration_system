@@ -24,7 +24,10 @@ export default function QrScanView() {
         { fps: 10, qrbox: { width: 250, height: 250 } },
         decodedText => {
           handleScan(decodedText);
-          html5QrCode.stop().catch(() => {});
+          html5QrCode.stop().then(() => {
+            html5QrCode.clear();
+            html5QrRef.current = null;
+          }).catch(() => {});
           setScanning(false);
         },
         () => {}
@@ -38,6 +41,8 @@ export default function QrScanView() {
   const stopScanner = async () => {
     if (html5QrRef.current) {
       await html5QrRef.current.stop().catch(() => {});
+      html5QrRef.current.clear();
+      html5QrRef.current = null;
       setScanning(false);
     }
   };
@@ -46,7 +51,10 @@ export default function QrScanView() {
     return () => {
       if (html5QrRef.current) {
         html5QrRef.current.stop().catch(() => {});
+        html5QrRef.current.clear();
+        html5QrRef.current = null;
       }
+      setScanning(false);
     };
   }, []);
 

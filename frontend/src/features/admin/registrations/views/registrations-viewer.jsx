@@ -10,6 +10,7 @@ import {
   STATUS_FILTER_OPTIONS,
   BULK_STATUSES,
   ALL_STATUSES,
+  VALID_TRANSITIONS,
 } from '../../../../shared/constants/registration-status';
 import { formatDate } from '../../../../shared/utils/formatDate';
 
@@ -408,7 +409,6 @@ export default function RegistrationsViewer() {
               </thead>
               <tbody>
                 {registrations.map((r, idx) => {
-                  const allowed    = ALL_STATUSES.filter(s => s !== r.status);
                   const isSelected = selectedIds.has(r.id);
                   const a          = r.attendee || {};
                   return (

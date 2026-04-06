@@ -137,6 +137,14 @@ export class AdminService {
     };
   }
 
+  private static readonly VALID_TRANSITIONS: Record<string, string[]> = {
+    pending: ['shortlisted', 'rejected'],
+    shortlisted: ['confirmed', 'rejected'],
+    confirmed: ['attended'],
+    rejected: [],
+    attended: [],
+  };
+
   async updateRegistrationStatus(registrationId: string, newStatus: string) {
     const registration = await this.registrationRepo.findOne({
       where: { id: registrationId },
@@ -147,6 +155,13 @@ export class AdminService {
     const validStatuses = ['pending', 'confirmed', 'shortlisted', 'rejected', 'attended'];
     if (!validStatuses.includes(newStatus)) {
       throw new BadRequestException(`Invalid status: "${newStatus}"`);
+    }
+
+    const allowed = AdminService.VALID_TRANSITIONS[registration.status] || [];
+    if (!allowed.includes(newStatus)) {
+      throw new BadRequestException(
+        `Cannot transition from "${registration.status}" to "${newStatus}". Allowed: ${allowed.join(', ') || 'none (terminal state)'}`,
+      );
     }
 
     registration.status = newStatus;

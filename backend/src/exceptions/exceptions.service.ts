@@ -44,10 +44,27 @@ export class ExceptionsService {
   }
 
   async findAll() {
-    return this.exceptionRepo.find({
+    const exceptions = await this.exceptionRepo.find({
       relations: ['attendee', 'requested_workshop'],
       order: { created_at: 'DESC' },
     });
+
+    // Enrich each exception with the attendee's current workshop
+    const enriched = await Promise.all(
+      exceptions.map(async (ex) => {
+        const currentReg = await this.registrationRepo.findOne({
+          where: { attendee_id: ex.attendee_id },
+          relations: ['workshop'],
+          order: { registered_at: 'DESC' },
+        });
+        return {
+          ...ex,
+          current_workshop: currentReg?.workshop ?? null,
+        };
+      }),
+    );
+
+    return enriched;
   }
 
   async approve(id: string, adminId: string) {

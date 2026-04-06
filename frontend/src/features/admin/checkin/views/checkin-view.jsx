@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { useAdminWorkshops } from '../../workshop-management/admin-workshop-repository';
 import { checkinApi } from '../checkin-api';
@@ -10,26 +10,33 @@ export default function CheckinView() {
 
   const [selectedWorkshop, setSelectedWorkshop] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [results, setResults] = useState([]);
-  const [searching, setSearching] = useState(false);
+  const [allAttendees, setAllAttendees] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  const handleSearch = async () => {
-    if (!selectedWorkshop || !searchQuery.trim()) return;
-    setSearching(true);
-    try {
-      const data = await checkinApi.search(selectedWorkshop, searchQuery);
-      setResults(data);
-    } catch {
-      toast.error('Search failed');
-    } finally {
-      setSearching(false);
+  const loadAttendees = useCallback(async (workshopId) => {
+    if (!workshopId) {
+      setAllAttendees([]);
+      return;
     }
-  };
+    setLoading(true);
+    try {
+      const data = await checkinApi.getAll(workshopId);
+      setAllAttendees(data);
+    } catch {
+      toast.error('Failed to load attendees');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAttendees(selectedWorkshop);
+  }, [selectedWorkshop, loadAttendees]);
 
   const handleToggle = async registrationId => {
     try {
       const updated = await toggleMutation.mutateAsync(registrationId);
-      setResults(prev =>
+      setAllAttendees(prev =>
         prev.map(r =>
           r.id === registrationId ? { ...r, checked_in: updated.checked_in, checkedIn: updated.checked_in } : r
         )
@@ -40,7 +47,17 @@ export default function CheckinView() {
     }
   };
 
-  const checkedInCount = results.filter(r => r.checked_in ?? r.checkedIn).length;
+  const query = searchQuery.trim().toLowerCase();
+  const results = query
+    ? allAttendees.filter(r => {
+        const name = (r.attendee?.name || '').toLowerCase();
+        const email = (r.attendee?.email || '').toLowerCase();
+        return name.includes(query) || email.includes(query);
+      })
+    : allAttendees;
+
+  const totalCount = allAttendees.length;
+  const checkedInCount = allAttendees.filter(r => r.checked_in ?? r.checkedIn).length;
 
   const inputCls = 'ui-input';
 
@@ -48,7 +65,7 @@ export default function CheckinView() {
     <div>
       <div className="admin-page-head">
         <h1>Day-of check-in</h1>
-        <p>Search attendees by name or email and toggle check-in for the selected workshop.</p>
+        <p>Select a workshop to see all attendees. Use search to filter by name or email.</p>
       </div>
 
       <div className="mb-6 flex flex-wrap items-end gap-3">
@@ -62,7 +79,7 @@ export default function CheckinView() {
             value={selectedWorkshop}
             onChange={e => {
               setSelectedWorkshop(e.target.value);
-              setResults([]);
+              setSearchQuery('');
             }}
           >
             <option value="">Select workshop</option>
@@ -73,37 +90,47 @@ export default function CheckinView() {
             ))}
           </select>
         </div>
-        <div className="min-w-[12rem] flex-1">
-          <label className="ui-label" htmlFor="checkin-q">
-            Search
-          </label>
-          <input
-            id="checkin-q"
-            className={inputCls}
-            placeholder="Name or email…"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleSearch()}
-          />
-        </div>
-        <button
-          type="button"
-          className="ui-btn-primary"
-          onClick={handleSearch}
-          disabled={searching}
-        >
-          {searching ? 'Searching…' : 'Search'}
-        </button>
+        {selectedWorkshop && (
+          <div className="min-w-[12rem] flex-1">
+            <label className="ui-label" htmlFor="checkin-q">
+              Filter
+            </label>
+            <input
+              id="checkin-q"
+              className={inputCls}
+              placeholder="Filter by name or email…"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+            />
+          </div>
+        )}
       </div>
 
-      {results.length > 0 && (
+      {selectedWorkshop && !loading && (
         <div className="mb-4 text-sm font-medium text-slate-600">
           Checked in: <span className="tabular-nums text-slate-900">{checkedInCount}</span> /{' '}
-          <span className="tabular-nums">{results.length}</span>
+          <span className="tabular-nums">{totalCount}</span>
+          {query && (
+            <span className="ml-3 text-slate-400">
+              (showing {results.length} matching)
+            </span>
+          )}
         </div>
       )}
 
-      {results.length > 0 && (
+      {loading && (
+        <div className="flex justify-center py-16">
+          <div className="flex items-center gap-3 text-sm font-medium text-slate-500">
+            <span
+              className="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-gdg-blue"
+              aria-hidden
+            />
+            Loading attendees…
+          </div>
+        </div>
+      )}
+
+      {selectedWorkshop && !loading && results.length > 0 && (
         <div className="ui-table-wrap">
           <table className="ui-table min-w-[36rem]">
             <thead>
@@ -157,9 +184,15 @@ export default function CheckinView() {
         </div>
       )}
 
+      {selectedWorkshop && !loading && results.length === 0 && (
+        <div className="ui-card-quiet py-16 text-center text-sm font-medium text-slate-500">
+          {query ? 'No attendees match your filter' : 'No attendees registered for this workshop'}
+        </div>
+      )}
+
       {!selectedWorkshop && (
         <div className="ui-card-quiet py-16 text-center text-sm font-medium text-slate-500">
-          Select a workshop and search for attendees to check in
+          Select a workshop to view and check in attendees
         </div>
       )}
     </div>

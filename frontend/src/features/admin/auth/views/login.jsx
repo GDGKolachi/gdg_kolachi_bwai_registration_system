@@ -46,8 +46,12 @@ export default function Login() {
       saveToken(data.access_token);
       toast.success('Welcome back!');
       navigate('/admin');
-    } catch {
-      toast.error('Invalid credentials');
+    } catch (err) {
+      if (err.response?.status === 429) {
+        toast.error('Too many login attempts. Please try again in a few minutes.');
+      } else {
+        toast.error('Invalid credentials');
+      }
     } finally {
       setLoading(false);
     }

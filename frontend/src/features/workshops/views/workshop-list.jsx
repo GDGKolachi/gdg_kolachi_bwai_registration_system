@@ -4,7 +4,7 @@ import BrandLogo from '../../../shared/components/BrandLogo';
 import { BRAND_NAME, BRAND_SERIES } from '../../../shared/constants/branding';
 
 export default function WorkshopList() {
-  const { data: workshops, isLoading, error } = useWorkshops();
+  const { data: workshops, isLoading, error, isFetching } = useWorkshops();
 
   if (isLoading) {
     return (
@@ -20,10 +20,10 @@ export default function WorkshopList() {
     );
   }
 
-  if (error) {
+  if (error && !workshops) {
     return (
       <div className="ui-card border-rose-200/80 bg-rose-50/50 px-5 py-4 text-sm font-medium text-rose-800">
-        Failed to load workshops.
+        Failed to load workshops. Please refresh the page to try again.
       </div>
     );
   }
@@ -34,7 +34,7 @@ export default function WorkshopList() {
         <BrandLogo className="mx-auto mb-6 h-24 w-auto max-w-[280px] sm:h-28 sm:max-w-[320px]" />
         <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">{BRAND_SERIES}</h1>
         <p className="mx-auto mt-4 max-w-lg text-base leading-relaxed text-slate-600 sm:text-lg">
-          Workshop series by {BRAND_NAME}. Browse sessions and register for the one that fits you.
+          A workshop series by {BRAND_NAME}. Browse the sessions and register for the one that suits you best.
         </p>
       </div>
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">

@@ -1,6 +1,26 @@
+function formatPhone(value) {
+  const digits = value.replace(/\D/g, '');
+  if (digits.length <= 4) return digits;
+  return digits.slice(0, 4) + '-' + digits.slice(4, 11);
+}
+
+function formatCnic(value) {
+  const digits = value.replace(/\D/g, '');
+  if (digits.length <= 5) return digits;
+  if (digits.length <= 12) return digits.slice(0, 5) + '-' + digits.slice(5);
+  return digits.slice(0, 5) + '-' + digits.slice(5, 12) + '-' + digits.slice(12, 13);
+}
+
 export default function AttendeeFormFields({ formData, onChange, errors }) {
   const handleChange = e => {
-    onChange({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    if (name === 'phone') {
+      onChange({ ...formData, phone: formatPhone(value) });
+    } else if (name === 'cnic') {
+      onChange({ ...formData, cnic: formatCnic(value) });
+    } else {
+      onChange({ ...formData, [name]: value });
+    }
   };
 
   const inputCls = 'ui-input';
@@ -45,10 +65,11 @@ export default function AttendeeFormFields({ formData, onChange, errors }) {
           name="phone"
           value={formData.phone || ''}
           onChange={handleChange}
-          placeholder="+92 300 1234567"
+          placeholder="03XX-XXXXXXX"
+          maxLength={12}
           className={`${inputCls} ${errors?.phone ? 'border-rose-300 focus:border-gdg-red focus:ring-gdg-red/15' : ''}`}
         />
-        <p className="mt-1.5 text-xs text-slate-500">e.g. +92 300 1234567 or 03001234567</p>
+        <p className="mt-1.5 text-xs text-slate-500">Pakistani mobile number, e.g. 0312-3456789</p>
         {errors?.phone && <div className="mt-1 text-xs font-medium text-gdg-red">{errors.phone}</div>}
       </div>
       <div className="mb-5">
@@ -103,9 +124,11 @@ export default function AttendeeFormFields({ formData, onChange, errors }) {
           name="cnic"
           value={formData.cnic || ''}
           onChange={handleChange}
-          placeholder="12345-1234567-1"
+          placeholder="XXXXX-XXXXXXX-X"
+          maxLength={15}
           className={`${inputCls} ${errors?.cnic ? 'border-rose-300 focus:border-gdg-red focus:ring-gdg-red/15' : ''}`}
         />
+        <p className="mt-1.5 text-xs text-slate-500">13 digits, e.g. 42101-1234567-1</p>
         {errors?.cnic && <div className="mt-1 text-xs font-medium text-gdg-red">{errors.cnic}</div>}
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

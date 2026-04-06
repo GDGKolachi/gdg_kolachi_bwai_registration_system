@@ -33,8 +33,22 @@ export const STATUS_BUTTON_COLORS = {
   [RegistrationStatus.ATTENDED]:    'bg-gdg-green text-white shadow-sm shadow-emerald-500/20 hover:bg-green-600',
 };
 
+/** Valid status transitions (state machine) */
+export const VALID_TRANSITIONS = {
+  [RegistrationStatus.PENDING]:     [RegistrationStatus.SHORTLISTED, RegistrationStatus.REJECTED],
+  [RegistrationStatus.SHORTLISTED]: [RegistrationStatus.CONFIRMED, RegistrationStatus.REJECTED],
+  [RegistrationStatus.CONFIRMED]:   [RegistrationStatus.ATTENDED],
+  [RegistrationStatus.REJECTED]:    [],
+  [RegistrationStatus.ATTENDED]:    [],
+};
+
 /** All statuses shown in the bulk-action bar */
-export const BULK_STATUSES = ALL_STATUSES;
+export const BULK_STATUSES = [
+  RegistrationStatus.SHORTLISTED,
+  RegistrationStatus.CONFIRMED,
+  RegistrationStatus.REJECTED,
+  RegistrationStatus.ATTENDED,
+];
 
 /** Options for the Status filter dropdown */
 export const STATUS_FILTER_OPTIONS = ALL_STATUSES.map(value => ({

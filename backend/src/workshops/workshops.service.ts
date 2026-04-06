@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Workshop } from '../entities/workshop.entity';
@@ -36,6 +36,14 @@ export class WorkshopsService {
   }
 
   async update(id: string, data: Partial<Workshop>) {
+    if (data.max_capacity !== undefined) {
+      const registeredCount = await this.registrationRepo.count({ where: { workshop_id: id } });
+      if (data.max_capacity < registeredCount) {
+        throw new BadRequestException(
+          `Cannot set capacity to ${data.max_capacity}. There are already ${registeredCount} registrations.`,
+        );
+      }
+    }
     await this.workshopRepo.update(id, data);
     return this.findOne(id);
   }

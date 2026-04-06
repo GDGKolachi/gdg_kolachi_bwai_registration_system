@@ -295,9 +295,12 @@ export default function WorkshopCrud() {
                   id="w-map"
                   value={form.map_location}
                   onChange={e => setForm(f => ({ ...f, map_location: e.target.value }))}
-                  placeholder="Google Maps URL or lat,lng coordinates"
+                  placeholder="e.g. 24.8607,67.0011 or venue name"
                   className={inputCls}
                 />
+                <div className="mt-1 text-xs text-slate-400">
+                  Accepted formats: <strong>lat,lng</strong> (e.g. 24.8607,67.0011), <strong>Google Maps URL</strong> (e.g. https://maps.google.com/maps?q=...), or a <strong>place name</strong> (e.g. IBA Karachi Main Campus)
+                </div>
               </div>
               <div className="mb-5">
                 <div className="flex items-center justify-between mb-2">

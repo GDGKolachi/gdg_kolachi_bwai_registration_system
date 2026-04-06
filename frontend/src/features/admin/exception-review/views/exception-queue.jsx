@@ -85,17 +85,19 @@ export default function ExceptionQueue() {
                   <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row lg:flex-col lg:items-stretch">
                     <button
                       type="button"
-                      className="w-full rounded-xl bg-gdg-green px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-emerald-500/20 hover:bg-green-600 sm:w-auto lg:w-full"
+                      className="w-full rounded-xl bg-gdg-green px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-emerald-500/20 hover:bg-green-600 disabled:opacity-50 sm:w-auto lg:w-full"
                       onClick={() => handleApprove(ex.id)}
+                      disabled={approveMutation.isPending || rejectMutation.isPending}
                     >
-                      Approve
+                      {approveMutation.isPending ? 'Approving…' : 'Approve'}
                     </button>
                     <button
                       type="button"
-                      className="ui-btn-danger w-full px-4 py-2.5 sm:w-auto lg:w-full"
+                      className="ui-btn-danger w-full px-4 py-2.5 disabled:opacity-50 sm:w-auto lg:w-full"
                       onClick={() => handleReject(ex.id)}
+                      disabled={approveMutation.isPending || rejectMutation.isPending}
                     >
-                      Reject
+                      {rejectMutation.isPending ? 'Rejecting…' : 'Reject'}
                     </button>
                   </div>
                 </div>
