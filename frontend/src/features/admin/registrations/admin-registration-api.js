@@ -13,6 +13,10 @@ export const adminRegistrationApi = {
     if (params.university_org) query.set('university_org', params.university_org);
     if (params.checked_in !== undefined) query.set('checked_in', String(params.checked_in));
     if (params.acknowledged !== undefined) query.set('acknowledged', String(params.acknowledged));
+    if (params.date_from) query.set('date_from', params.date_from);
+    if (params.date_to) query.set('date_to', params.date_to);
+    if (params.sort_by) query.set('sort_by', params.sort_by);
+    if (params.sort_order) query.set('sort_order', params.sort_order);
     if (params.page) query.set('page', String(params.page));
     if (params.limit) query.set('limit', String(params.limit));
     return api.get(`/admin/registrations?${query.toString()}`).then(res => res.data);

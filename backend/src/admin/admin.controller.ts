@@ -63,6 +63,10 @@ export class AdminController {
     @Query('university_org') universityOrg?: string,
     @Query('checked_in') checkedIn?: string,
     @Query('acknowledged') acknowledged?: string,
+    @Query('date_from') dateFrom?: string,
+    @Query('date_to') dateTo?: string,
+    @Query('sort_by') sortBy?: string,
+    @Query('sort_order') sortOrder?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
@@ -78,6 +82,10 @@ export class AdminController {
       checked_in: checkedIn !== undefined && checkedIn !== '' ? checkedIn === 'true' : undefined,
       acknowledged:
         acknowledged !== undefined && acknowledged !== '' ? acknowledged === 'true' : undefined,
+      date_from: dateFrom || undefined,
+      date_to: dateTo || undefined,
+      sort_by: sortBy || undefined,
+      sort_order: sortOrder === 'ASC' ? 'ASC' : sortOrder === 'DESC' ? 'DESC' : undefined,
       page: page ? parseInt(page) : 1,
       limit: limit ? parseInt(limit) : 20,
     });
