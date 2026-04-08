@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import { useAdminWorkshops, useCreateWorkshop, useUpdateWorkshop, useDeleteWorkshop } from '../admin-workshop-repository';
 import { validateWorkshopForm } from '../admin-workshop-service';
 
-const emptyForm = { title: '', description: '', date: '', time: '', venue: '', map_location: '', speakers: [], max_capacity: '', status: 'upcoming' };
+const emptyForm = { title: '', description: '', date: '', time: '', venue: '', map_location: '', speakers: [], max_capacity: '', special_instructions: '', status: 'upcoming' };
 
 const badgeColors = {
   open: 'bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200/70',
@@ -43,6 +43,7 @@ export default function WorkshopCrud() {
       map_location: w.map_location ?? w.mapLocation ?? '',
       speakers: w.speakers ?? [],
       max_capacity: w.max_capacity ?? w.maxCapacity,
+      special_instructions: w.special_instructions ?? '',
       status: w.status,
     });
     setErrors({});
@@ -60,6 +61,7 @@ export default function WorkshopCrud() {
         ...form,
         max_capacity: Number(form.max_capacity),
         map_location: form.map_location || null,
+        special_instructions: form.special_instructions || null,
         speakers: form.speakers.filter(s => s.name.trim()),
       };
       if (editingId) {
@@ -361,6 +363,22 @@ export default function WorkshopCrud() {
                     No speakers added yet
                   </div>
                 )}
+              </div>
+              <div className="mb-5">
+                <label className="ui-label-sentence" htmlFor="w-special">
+                  Special Instructions (included in ticket email)
+                </label>
+                <textarea
+                  id="w-special"
+                  value={form.special_instructions}
+                  onChange={e => setForm(f => ({ ...f, special_instructions: e.target.value }))}
+                  rows={3}
+                  placeholder="e.g. Bring your laptop with Python 3.10+ installed. Wear comfortable shoes."
+                  className={`${inputCls} resize-y`}
+                />
+                <div className="mt-1 text-xs text-slate-400">
+                  This message will appear in the shortlisting email sent to participants. Supports line breaks.
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="mb-5">

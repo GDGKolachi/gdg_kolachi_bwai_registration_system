@@ -27,13 +27,133 @@ const INITIAL_FILTERS = {
   email: '',
   phone: '',
   cnic: '',
-  status: '',
-  defines_you_best: '',
-  gender: '',
+  status: [],
+  defines_you_best: [],
+  gender: [],
   university_org: '',
   checked_in: '',
   acknowledged: '',
 };
+
+const PROFILE_OPTIONS = [
+  'Student',
+  'Young Professional',
+  'Intermediate Expert',
+  'Senior Expert',
+  'Freelancer',
+  'Other',
+];
+
+const GENDER_OPTIONS = ['Male', 'Female', 'Non-Binary', 'Prefer not to say'];
+
+function MultiSelect({ label, options, value, onChange, renderLabel }) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const toggle = (opt) => {
+    if (value.includes(opt)) {
+      onChange(value.filter(v => v !== opt));
+    } else {
+      onChange([...value, opt]);
+    }
+  };
+
+  const filtered = options.filter(opt => {
+    const optLabel = (opt.label ?? opt).toString().toLowerCase();
+    return optLabel.includes(search.toLowerCase());
+  });
+
+  return (
+    <div className="relative">
+      <label className="ui-label">{label}</label>
+      <button
+        type="button"
+        onClick={() => { setOpen(o => !o); setSearch(''); }}
+        className="ui-input flex w-full items-center justify-between gap-1 text-left"
+      >
+        {value.length === 0 ? (
+          <span className="text-slate-400">All</span>
+        ) : (
+          <span className="flex flex-wrap gap-1 overflow-hidden">
+            {value.map(v => (
+              <span
+                key={v}
+                className="inline-flex items-center gap-0.5 rounded-md bg-gdg-blue/10 px-1.5 py-0.5 text-[0.65rem] font-semibold text-gdg-blue"
+              >
+                {renderLabel ? renderLabel(v) : v}
+                <button
+                  type="button"
+                  onClick={e => { e.stopPropagation(); toggle(v); }}
+                  className="ml-0.5 text-gdg-blue/60 hover:text-gdg-blue"
+                >
+                  &times;
+                </button>
+              </span>
+            ))}
+          </span>
+        )}
+        <svg className="h-4 w-4 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => { setOpen(false); setSearch(''); }} />
+          <div className="absolute left-0 right-0 top-full z-20 mt-1 rounded-xl border border-slate-200 bg-white shadow-lg">
+            <div className="border-b border-slate-100 px-3 py-2">
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search..."
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-sm outline-none placeholder:text-slate-400 focus:border-gdg-blue focus:ring-1 focus:ring-gdg-blue/30"
+                autoFocus
+                onClick={e => e.stopPropagation()}
+              />
+            </div>
+            <div className="max-h-48 overflow-y-auto py-1">
+              {filtered.length === 0 && (
+                <div className="px-3 py-2 text-center text-xs text-slate-400">No matches</div>
+              )}
+              {filtered.map(opt => {
+                const selected = value.includes(opt.value ?? opt);
+                const optValue = opt.value ?? opt;
+                const optLabel = opt.label ?? opt;
+                return (
+                  <button
+                    key={optValue}
+                    type="button"
+                    onClick={() => toggle(optValue)}
+                    className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-slate-50 ${selected ? 'bg-gdg-blue/5 font-semibold text-gdg-blue' : 'text-slate-700'}`}
+                  >
+                    <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${selected ? 'border-gdg-blue bg-gdg-blue text-white' : 'border-slate-300'}`}>
+                      {selected && (
+                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </span>
+                    {optLabel}
+                  </button>
+                );
+              })}
+            </div>
+            {value.length > 0 && (
+              <div className="border-t border-slate-100 px-3 py-2">
+                <button
+                  type="button"
+                  onClick={() => onChange([])}
+                  className="text-xs font-semibold text-gdg-red hover:underline"
+                >
+                  Clear selection
+                </button>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 export default function RegistrationsViewer() {
   const { data: workshops } = useAdminWorkshops();
@@ -44,29 +164,31 @@ export default function RegistrationsViewer() {
   const [appliedFilters, setAppliedFilters] = useState(INITIAL_FILTERS);
 
   const [page, setPage]           = useState(1);
+  const [limit, setLimit]         = useState(20);
   const [selectedIds, setSelectedIds] = useState(new Set());
 
   const updateStatusMutation = useUpdateRegistrationStatus();
   const bulkUpdateMutation   = useBulkUpdateStatus();
 
   const hasDraftChanges    = JSON.stringify(draftFilters) !== JSON.stringify(appliedFilters);
-  const activeAppliedCount = Object.values(appliedFilters).filter(v => v !== '').length;
-  const activeDraftCount   = Object.values(draftFilters).filter(v => v !== '').length;
+  const isActive = v => Array.isArray(v) ? v.length > 0 : v !== '';
+  const activeAppliedCount = Object.values(appliedFilters).filter(isActive).length;
+  const activeDraftCount   = Object.values(draftFilters).filter(isActive).length;
 
   const params = {
     name:            appliedFilters.name            || undefined,
     email:           appliedFilters.email           || undefined,
     phone:           appliedFilters.phone           || undefined,
     cnic:            appliedFilters.cnic            || undefined,
-    status:          appliedFilters.status          || undefined,
-    defines_you_best:appliedFilters.defines_you_best|| undefined,
-    gender:          appliedFilters.gender          || undefined,
+    status:          appliedFilters.status.length > 0 ? appliedFilters.status.join(',') : undefined,
+    defines_you_best:appliedFilters.defines_you_best.length > 0 ? appliedFilters.defines_you_best.join(',') : undefined,
+    gender:          appliedFilters.gender.length > 0 ? appliedFilters.gender.join(',') : undefined,
     university_org:  appliedFilters.university_org  || undefined,
     checked_in:      appliedFilters.checked_in !== '' ? appliedFilters.checked_in === 'true' : undefined,
     acknowledged:
       appliedFilters.acknowledged !== '' ? appliedFilters.acknowledged === 'true' : undefined,
-    page,
-    limit: 20,
+    page: limit === 0 ? 1 : page,
+    limit: limit === 0 ? 999999 : limit,
   };
 
   const { data: result, isLoading } = useAdminRegistrations(selectedWorkshop, params);
@@ -231,37 +353,25 @@ export default function RegistrationsViewer() {
               <label className={labelCls}>CNIC</label>
               <input className={inputCls} placeholder="Search CNIC..." value={draftFilters.cnic} onChange={e => setDraftFilter('cnic', e.target.value)} />
             </div>
-            <div>
-              <label className={labelCls}>Status</label>
-              <select className={inputCls} value={draftFilters.status} onChange={e => setDraftFilter('status', e.target.value)}>
-                <option value="">All Statuses</option>
-                {STATUS_FILTER_OPTIONS.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Profile</label>
-              <select className={inputCls} value={draftFilters.defines_you_best} onChange={e => setDraftFilter('defines_you_best', e.target.value)}>
-                <option value="">All Profiles</option>
-                <option value="Student">Student</option>
-                <option value="Young Professional">Young Professional</option>
-                <option value="Intermediate Expert">Intermediate Expert</option>
-                <option value="Senior Expert">Senior Expert</option>
-                <option value="Freelancer">Freelancer</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Gender</label>
-              <select className={inputCls} value={draftFilters.gender} onChange={e => setDraftFilter('gender', e.target.value)}>
-                <option value="">All Genders</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Non-Binary">Non-Binary</option>
-                <option value="Prefer not to say">Prefer not to say</option>
-              </select>
-            </div>
+            <MultiSelect
+              label="Status"
+              options={STATUS_FILTER_OPTIONS}
+              value={draftFilters.status}
+              onChange={v => setDraftFilter('status', v)}
+              renderLabel={v => STATUS_LABELS[v] ?? v}
+            />
+            <MultiSelect
+              label="Profile"
+              options={PROFILE_OPTIONS}
+              value={draftFilters.defines_you_best}
+              onChange={v => setDraftFilter('defines_you_best', v)}
+            />
+            <MultiSelect
+              label="Gender"
+              options={GENDER_OPTIONS}
+              value={draftFilters.gender}
+              onChange={v => setDraftFilter('gender', v)}
+            />
             <div>
               <label className={labelCls}>University / Org</label>
               <input className={inputCls} placeholder="Search organization..." value={draftFilters.university_org} onChange={e => setDraftFilter('university_org', e.target.value)} />
@@ -347,8 +457,29 @@ export default function RegistrationsViewer() {
 
       {selectedWorkshop && !isLoading && (
         <>
-          <div className="mb-3 text-sm font-medium text-slate-600">
-            Showing {registrations.length} of {total} registrations
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <span className="text-sm font-medium text-slate-600">
+              Showing {registrations.length} of {total} registrations
+            </span>
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-slate-500" htmlFor="per-page-select">Per page</label>
+              <select
+                id="per-page-select"
+                className="ui-input !w-auto !py-1.5 !px-2.5 !text-xs"
+                value={limit}
+                onChange={e => {
+                  const val = Number(e.target.value);
+                  setLimit(val);
+                  setPage(1);
+                  setSelectedIds(new Set());
+                }}
+              >
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={0}>All</option>
+              </select>
+            </div>
           </div>
 
           <div className="ui-table-wrap">
@@ -426,7 +557,7 @@ export default function RegistrationsViewer() {
 
                       {/* Row number */}
                       <td className="border-b border-slate-100 py-2.5 px-3 whitespace-nowrap text-slate-600">
-                        {(page - 1) * 20 + idx + 1}
+                        {(limit === 0 ? 0 : (page - 1) * limit) + idx + 1}
                       </td>
 
                       {/* Name */}
@@ -512,7 +643,7 @@ export default function RegistrationsViewer() {
             </table>
           </div>
 
-          {totalPages > 1 && (
+          {limit !== 0 && totalPages > 1 && (
             <div className="mt-6 flex items-center justify-center gap-2">
               <button
                 type="button"

@@ -30,6 +30,9 @@ export class Workshop {
   @Column({ type: 'jsonb', nullable: true, default: [] })
   speakers: { name: string; role: string; photo_url?: string }[];
 
+  @Column({ type: 'text', nullable: true })
+  special_instructions: string;
+
   @Column({ default: 'upcoming' })
   status: string;
 

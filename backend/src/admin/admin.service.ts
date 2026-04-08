@@ -94,15 +94,30 @@ export class AdminService {
     }
 
     if (filters.status) {
-      qb.andWhere('r.status = :status', { status: filters.status });
+      const statuses = filters.status.split(',').map(s => s.trim()).filter(Boolean);
+      if (statuses.length === 1) {
+        qb.andWhere('r.status = :status', { status: statuses[0] });
+      } else if (statuses.length > 1) {
+        qb.andWhere('r.status IN (:...statuses)', { statuses });
+      }
     }
 
     if (filters.defines_you_best) {
-      qb.andWhere('a.defines_you_best = :dyb', { dyb: filters.defines_you_best });
+      const profiles = filters.defines_you_best.split(',').map(s => s.trim()).filter(Boolean);
+      if (profiles.length === 1) {
+        qb.andWhere('a.defines_you_best = :dyb', { dyb: profiles[0] });
+      } else if (profiles.length > 1) {
+        qb.andWhere('a.defines_you_best IN (:...profiles)', { profiles });
+      }
     }
 
     if (filters.gender) {
-      qb.andWhere('a.gender = :gender', { gender: filters.gender });
+      const genders = filters.gender.split(',').map(s => s.trim()).filter(Boolean);
+      if (genders.length === 1) {
+        qb.andWhere('a.gender = :gender', { gender: genders[0] });
+      } else if (genders.length > 1) {
+        qb.andWhere('a.gender IN (:...genders)', { genders });
+      }
     }
 
     if (filters.university_org) {
