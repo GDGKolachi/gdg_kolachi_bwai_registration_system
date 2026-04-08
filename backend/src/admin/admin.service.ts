@@ -68,6 +68,10 @@ export class AdminService {
       university_org?: string;
       checked_in?: boolean;
       acknowledged?: boolean;
+      date_from?: string;
+      date_to?: string;
+      sort_by?: string;
+      sort_order?: 'ASC' | 'DESC';
       page?: number;
       limit?: number;
     },
@@ -134,11 +138,23 @@ export class AdminService {
       qb.andWhere('r.acknowledged = :acknowledged', { acknowledged: filters.acknowledged });
     }
 
+    if (filters.date_from) {
+      qb.andWhere('r.registered_at >= :dateFrom', { dateFrom: filters.date_from });
+    }
+
+    if (filters.date_to) {
+      // Include the entire end date by setting time to end of day
+      qb.andWhere('r.registered_at <= :dateTo', { dateTo: `${filters.date_to}T23:59:59.999` });
+    }
+
+    const sortOrder = filters.sort_order === 'ASC' ? 'ASC' : 'DESC';
+    const sortBy = filters.sort_by === 'registered_at' ? 'r.registered_at' : 'r.registered_at';
+
     const page = filters.page || 1;
     const limit = filters.limit || 20;
     const total = await qb.getCount();
     const data = await qb
-      .orderBy('r.registered_at', 'DESC')
+      .orderBy(sortBy, sortOrder)
       .skip((page - 1) * limit)
       .take(limit)
       .getMany();

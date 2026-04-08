@@ -33,6 +33,8 @@ const INITIAL_FILTERS = {
   university_org: '',
   checked_in: '',
   acknowledged: '',
+  date_from: '',
+  date_to: '',
 };
 
 const PROFILE_OPTIONS = [
@@ -166,6 +168,7 @@ export default function RegistrationsViewer() {
   const [page, setPage]           = useState(1);
   const [limit, setLimit]         = useState(20);
   const [selectedIds, setSelectedIds] = useState(new Set());
+  const [sortOrder, setSortOrder] = useState('DESC');
 
   const updateStatusMutation = useUpdateRegistrationStatus();
   const bulkUpdateMutation   = useBulkUpdateStatus();
@@ -187,6 +190,10 @@ export default function RegistrationsViewer() {
     checked_in:      appliedFilters.checked_in !== '' ? appliedFilters.checked_in === 'true' : undefined,
     acknowledged:
       appliedFilters.acknowledged !== '' ? appliedFilters.acknowledged === 'true' : undefined,
+    date_from:       appliedFilters.date_from || undefined,
+    date_to:         appliedFilters.date_to   || undefined,
+    sort_by:         'registered_at',
+    sort_order:      sortOrder,
     page: limit === 0 ? 1 : page,
     limit: limit === 0 ? 999999 : limit,
   };
@@ -384,6 +391,14 @@ export default function RegistrationsViewer() {
                 <option value="false">No</option>
               </select>
             </div>
+            <div>
+              <label className={labelCls}>Registered from</label>
+              <input type="date" className={inputCls} value={draftFilters.date_from} onChange={e => setDraftFilter('date_from', e.target.value)} />
+            </div>
+            <div>
+              <label className={labelCls}>Registered to</label>
+              <input type="date" className={inputCls} value={draftFilters.date_to} onChange={e => setDraftFilter('date_to', e.target.value)} />
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -527,8 +542,24 @@ export default function RegistrationsViewer() {
                   <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                     Motivation
                   </th>
-                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Registered
+                  <th
+                    className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 cursor-pointer select-none hover:text-gdg-blue transition-colors"
+                    onClick={() => {
+                      setSortOrder(prev => prev === 'DESC' ? 'ASC' : 'DESC');
+                      setPage(1);
+                    }}
+                    title={`Sort by date (${sortOrder === 'DESC' ? 'newest first' : 'oldest first'})`}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      Registered
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        {sortOrder === 'DESC' ? (
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                        ) : (
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                        )}
+                      </svg>
+                    </span>
                   </th>
                   <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                     Status
