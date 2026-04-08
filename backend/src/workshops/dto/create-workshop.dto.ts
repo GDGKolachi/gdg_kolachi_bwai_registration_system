@@ -45,5 +45,9 @@ export class CreateWorkshopDto {
 
   @IsOptional()
   @IsString()
+  special_instructions?: string;
+
+  @IsOptional()
+  @IsString()
   status?: string;
 }

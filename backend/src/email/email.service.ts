@@ -56,7 +56,7 @@ export class EmailService {
   async sendShortlistedEmail(
     email: string,
     name: string,
-    workshop: { title: string; date: string; time: string; venue: string },
+    workshop: { title: string; date: string; time: string; venue: string; special_instructions?: string },
     registrationId: string,
     qrData: string,
   ) {
@@ -82,6 +82,12 @@ export class EmailService {
           ✓ Confirm my spot
         </a>
       </div>
+      ${workshop.special_instructions ? `
+      <div style="background: #E8F0FE; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4285F4;">
+        <p style="margin: 0; color: #1A73E8;"><strong>📋 Special Instructions:</strong></p>
+        <div style="margin: 8px 0 0; color: #202124; white-space: pre-line;">${workshop.special_instructions}</div>
+      </div>
+      ` : ''}
       <div style="background: #FFF3CD; padding: 16px; border-radius: 8px; margin: 20px 0;">
         <p style="margin: 0; color: #856404;"><strong>⚠️ Important:</strong></p>
         <ul style="margin: 8px 0 0; color: #856404; padding-left: 20px;">
@@ -121,7 +127,7 @@ export class EmailService {
     recipients: Array<{
       email: string;
       name: string;
-      workshop: { title: string; date: string; time: string; venue: string };
+      workshop: { title: string; date: string; time: string; venue: string; special_instructions?: string };
       registrationId: string;
       qrData: string;
     }>,
@@ -149,6 +155,12 @@ export class EmailService {
               <p style="color: #5F6368; margin: 0 0 10px;">Please confirm that you will attend:</p>
               <a href="${acknowledgeUrl}" style="background: #34A853; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">✓ Confirm my spot</a>
             </div>
+            ${r.workshop.special_instructions ? `
+            <div style="background: #E8F0FE; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4285F4;">
+              <p style="margin: 0; color: #1A73E8;"><strong>📋 Special Instructions:</strong></p>
+              <div style="margin: 8px 0 0; color: #202124; white-space: pre-line;">${r.workshop.special_instructions}</div>
+            </div>
+            ` : ''}
           `);
           return {
             from: this.from,
