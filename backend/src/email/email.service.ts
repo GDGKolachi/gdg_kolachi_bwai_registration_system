@@ -111,7 +111,7 @@ export class EmailService {
     const { data, error } = await this.resend.emails.send({
       from: this.from,
       to: [email],
-      subject: `GDG Kolachi ${workshop.title}`,
+      subject: `🎉 You're Shortlisted! - GDG Kolachi's ${workshop.title}`,
       html,
       attachments: [
         {
@@ -173,7 +173,7 @@ export class EmailService {
           return {
             from: this.from,
             to: [r.email],
-            subject: `GDG Kolachi ${r.workshop.title}`,
+            subject: `🎉 You're Shortlisted! - GDG Kolachi's ${r.workshop.title}`,
             html,
             attachments: [
               {
