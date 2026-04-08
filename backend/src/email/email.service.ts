@@ -40,10 +40,18 @@ export class EmailService {
     `;
   }
 
+  private getDayName(dateStr: string): string {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const date = new Date(dateStr);
+    return days[date.getUTCDay()];
+  }
+
   private workshopDetailsBlock(workshop: { title: string; date: string; time: string; venue: string }): string {
+    const dayName = this.getDayName(workshop.date);
     return `
       <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4285F4;">
         <h3 style="margin: 0 0 12px; color: #202124;">${workshop.title}</h3>
+        <p style="margin: 4px 0;"><strong>📅 Day:</strong> ${dayName}, AM</p>
         <p style="margin: 4px 0;"><strong>📅 Date:</strong> ${workshop.date}</p>
         <p style="margin: 4px 0;"><strong>🕐 Time:</strong> ${workshop.time}</p>
         <p style="margin: 4px 0;"><strong>📍 Venue:</strong> ${workshop.venue}</p>
@@ -103,7 +111,7 @@ export class EmailService {
     const { data, error } = await this.resend.emails.send({
       from: this.from,
       to: [email],
-      subject: `🎉 You're Shortlisted! - ${workshop.title}`,
+      subject: `GDG Kolachi ${workshop.title}`,
       html,
       attachments: [
         {
@@ -165,7 +173,7 @@ export class EmailService {
           return {
             from: this.from,
             to: [r.email],
-            subject: `🎉 You're Shortlisted! - ${r.workshop.title}`,
+            subject: `GDG Kolachi ${r.workshop.title}`,
             html,
             attachments: [
               {
