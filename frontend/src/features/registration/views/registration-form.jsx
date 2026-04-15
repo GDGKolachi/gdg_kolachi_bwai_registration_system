@@ -108,23 +108,19 @@ export default function RegistrationForm() {
           </div>
         )}
 
-        {alreadyRegistered && (
+        {alreadyRegistered && workshop.allow_exceptions !== false && (
           <div className="mb-6 rounded-xl bg-rose-50 px-4 py-3 text-sm leading-relaxed text-rose-900 ring-1 ring-rose-200/70">
             This email is already registered for a workshop.{' '}
-            {workshop.allow_exceptions === false ? (
-              <span className="font-medium">This workshop is not accepting exception requests.</span>
-            ) : (
-              <Link
-                to={`/exception-request/${workshopId}`}
-                className="font-semibold text-gdg-blue underline decoration-gdg-blue/30 underline-offset-2 hover:decoration-gdg-blue"
-              >
-                Submit an exception request →
-              </Link>
-            )}
+            <Link
+              to={`/exception-request/${workshopId}`}
+              className="font-semibold text-gdg-blue underline decoration-gdg-blue/30 underline-offset-2 hover:decoration-gdg-blue"
+            >
+              Submit an exception request →
+            </Link>
           </div>
         )}
 
-        {canRegister && !alreadyRegistered && (
+        {canRegister && (!alreadyRegistered || workshop.allow_exceptions === false) && (
           <form onSubmit={handleSubmit}>
             <AttendeeFormFields formData={formData} onChange={setFormData} errors={errors} />
             <div onBlur={handleEmailBlur} />

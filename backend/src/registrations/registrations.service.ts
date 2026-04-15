@@ -39,7 +39,7 @@ export class RegistrationsService {
     if (regCount >= workshop.max_capacity) throw new BadRequestException('Workshop is at full capacity');
 
     let attendee = await this.attendeeRepo.findOne({ where: { email: dto.email } });
-    if (attendee) {
+    if (attendee && workshop.allow_exceptions !== false) {
       const existing = await this.registrationRepo.findOne({ where: { attendee_id: attendee.id } });
       if (existing) throw new BadRequestException('This email is already registered for a workshop. Please submit an exception request.');
     }
