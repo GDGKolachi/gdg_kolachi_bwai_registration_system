@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsArray, ValidateNested, Min } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsArray, IsBoolean, ValidateNested, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class SpeakerDto {
@@ -50,4 +50,8 @@ export class CreateWorkshopDto {
   @IsOptional()
   @IsString()
   status?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  allow_exceptions?: boolean;
 }

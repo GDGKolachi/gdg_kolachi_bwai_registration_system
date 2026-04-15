@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import { useAdminWorkshops, useCreateWorkshop, useUpdateWorkshop, useDeleteWorkshop } from '../admin-workshop-repository';
 import { validateWorkshopForm } from '../admin-workshop-service';
 
-const emptyForm = { title: '', description: '', date: '', time: '', venue: '', map_location: '', speakers: [], max_capacity: '', special_instructions: '', status: 'upcoming' };
+const emptyForm = { title: '', description: '', date: '', time: '', venue: '', map_location: '', speakers: [], max_capacity: '', special_instructions: '', status: 'upcoming', allow_exceptions: true };
 
 const badgeColors = {
   open: 'bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200/70',
@@ -45,6 +45,7 @@ export default function WorkshopCrud() {
       max_capacity: w.max_capacity ?? w.maxCapacity,
       special_instructions: w.special_instructions ?? '',
       status: w.status,
+      allow_exceptions: w.allow_exceptions ?? true,
     });
     setErrors({});
     setShowModal(true);
@@ -413,6 +414,23 @@ export default function WorkshopCrud() {
                     <option value="completed">Completed</option>
                     <option value="disabled">Disabled</option>
                   </select>
+                </div>
+              </div>
+              <div className="mb-5">
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input
+                    id="w-allow-exceptions"
+                    type="checkbox"
+                    checked={form.allow_exceptions}
+                    onChange={e => setForm(f => ({ ...f, allow_exceptions: e.target.checked }))}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-gdg-blue focus:ring-gdg-blue/30"
+                  />
+                  <span className="text-sm text-slate-700">
+                    Allow exception requests for this workshop
+                  </span>
+                </label>
+                <div className="mt-1 ml-6 text-xs text-slate-400">
+                  When unchecked, attendees cannot submit exception requests targeting this workshop.
                 </div>
               </div>
               <div className="mt-6 flex justify-end gap-3">
