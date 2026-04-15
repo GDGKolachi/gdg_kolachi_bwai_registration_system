@@ -36,6 +36,9 @@ export class Workshop {
   @Column({ default: 'upcoming' })
   status: string;
 
+  @Column({ type: 'boolean', default: true })
+  allow_exceptions: boolean;
+
   @CreateDateColumn()
   created_at: Date;
 

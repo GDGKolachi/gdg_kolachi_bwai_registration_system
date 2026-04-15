@@ -47,6 +47,25 @@ export default function ExceptionRequestForm() {
     );
   }
 
+  if (workshop && workshop.allow_exceptions === false) {
+    return (
+      <div className="mx-auto max-w-md text-center">
+        <div className="ui-card px-8 py-12 sm:px-10 sm:py-14">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-50 text-2xl ring-1 ring-rose-200/70">
+            ⛔
+          </div>
+          <h1 className="mb-3 text-2xl font-bold tracking-tight text-slate-900">Not accepting exceptions</h1>
+          <p className="mb-8 text-sm leading-relaxed text-slate-600">
+            <strong className="text-slate-900">{workshop.title}</strong> is not accepting exception requests at this time.
+          </p>
+          <Link to="/" className="ui-btn-primary px-8 no-underline">
+            Back to workshops
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   if (submitted) {
     return (
       <div className="mx-auto max-w-md text-center">

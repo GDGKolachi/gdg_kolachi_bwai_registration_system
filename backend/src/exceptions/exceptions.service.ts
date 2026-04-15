@@ -28,6 +28,10 @@ export class ExceptionsService {
     const workshop = await this.workshopRepo.findOne({ where: { id: requestedWorkshopId } });
     if (!workshop) throw new NotFoundException('Workshop not found');
 
+    if (workshop.allow_exceptions === false) {
+      throw new BadRequestException('This workshop does not accept exception requests');
+    }
+
     const existingException = await this.exceptionRepo.findOne({
       where: { attendee_id: attendee.id, requested_workshop_id: requestedWorkshopId, status: 'pending' },
     });
