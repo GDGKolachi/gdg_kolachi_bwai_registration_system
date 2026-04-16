@@ -39,6 +39,9 @@ export class Workshop {
   @Column({ type: 'boolean', default: true })
   allow_exceptions: boolean;
 
+  @Column({ type: 'boolean', default: false })
+  is_online: boolean;
+
   @CreateDateColumn()
   created_at: Date;
 

@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import { useAdminWorkshops, useCreateWorkshop, useUpdateWorkshop, useDeleteWorkshop } from '../admin-workshop-repository';
 import { validateWorkshopForm } from '../admin-workshop-service';
 
-const emptyForm = { title: '', description: '', date: '', time: '', venue: '', map_location: '', speakers: [], max_capacity: '', special_instructions: '', status: 'upcoming', allow_exceptions: true };
+const emptyForm = { title: '', description: '', date: '', time: '', venue: '', map_location: '', speakers: [], max_capacity: '', special_instructions: '', status: 'upcoming', allow_exceptions: true, is_online: false };
 
 const badgeColors = {
   open: 'bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200/70',
@@ -46,6 +46,7 @@ export default function WorkshopCrud() {
       special_instructions: w.special_instructions ?? '',
       status: w.status,
       allow_exceptions: w.allow_exceptions ?? true,
+      is_online: w.is_online ?? false,
     });
     setErrors({});
     setShowModal(true);
@@ -290,6 +291,20 @@ export default function WorkshopCrud() {
                   className={inputCls}
                 />
                 {errors.venue && <div className="mt-1 text-xs font-medium text-gdg-red">{errors.venue}</div>}
+              </div>
+              <div className="mb-5">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.is_online}
+                    onChange={e => setForm(f => ({ ...f, is_online: e.target.checked }))}
+                    className="h-4 w-4 rounded border-slate-300 text-gdg-blue focus:ring-gdg-blue/30"
+                  />
+                  <span className="text-sm text-slate-700">This is an online event</span>
+                </label>
+                <div className="mt-1 ml-6 text-xs text-slate-400">
+                  When checked, shortlisting emails will skip the QR ticket and show a join-link instead.
+                </div>
               </div>
               <div className="mb-5">
                 <label className="ui-label-sentence" htmlFor="w-map">
