@@ -46,17 +46,32 @@ export class EmailService {
     return days[date.getUTCDay()];
   }
 
-  private workshopDetailsBlock(workshop: { title: string; date: string; time: string; venue: string }): string {
+  private workshopDetailsBlock(workshop: { title: string; date: string; time: string; venue: string; is_online?: boolean }): string {
     const dayName = this.getDayName(workshop.date);
+    const isOnline = !!workshop.is_online;
+    const venueLabel = isOnline ? '💻 Venue' : '📍 Venue';
+    const venueHtml = isOnline
+      ? this.formatOnlineVenue(workshop.venue)
+      : workshop.venue;
+
     return `
       <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4285F4;">
         <h3 style="margin: 0 0 12px; color: #202124;">${workshop.title}</h3>
         <p style="margin: 4px 0;"><strong>📅 Day:</strong> ${dayName}, AM</p>
         <p style="margin: 4px 0;"><strong>📅 Date:</strong> ${workshop.date}</p>
         <p style="margin: 4px 0;"><strong>🕐 Time:</strong> ${workshop.time}</p>
-        <p style="margin: 4px 0;"><strong>📍 Venue:</strong> ${workshop.venue}</p>
+        <p style="margin: 4px 0;"><strong>${venueLabel}:</strong> ${venueHtml}</p>
       </div>
     `;
+  }
+
+  private formatOnlineVenue(venue: string): string {
+    const urlMatch = venue.match(/(https?:\/\/\S+)/);
+    if (urlMatch) {
+      const url = urlMatch[1];
+      return `Online — <a href="${url}" style="color: #1A73E8;">${url}</a>`;
+    }
+    return venue;
   }
 
   // Sent when admin shortlists — QR ticket + acknowledge spot button
@@ -64,26 +79,54 @@ export class EmailService {
   async sendShortlistedEmail(
     email: string,
     name: string,
-    workshop: { title: string; date: string; time: string; venue: string; special_instructions?: string },
+    workshop: { title: string; date: string; time: string; venue: string; special_instructions?: string; is_online?: boolean },
     registrationId: string,
     qrData: string,
   ) {
     const appUrl = process.env.APP_URL || 'http://localhost:3000';
     const acknowledgeUrl = `${appUrl}/api/registrations/${registrationId}/acknowledge`;
 
-    const qrDataUrl = await this.generateQRCode(qrData);
-    const qrBase64 = qrDataUrl.replace('data:image/png;base64,', '');
+    const isOnline = !!workshop.is_online;
 
-    const html = this.emailWrapper('#34A853', "You've Been Shortlisted!", `
-      <h2 style="color: #202124;">Congratulations ${name}! 🎉</h2>
-      <p>You have been <span style="background: #D4EDDA; color: #155724; padding: 2px 8px; border-radius: 4px; font-weight: bold;">Shortlisted</span> for <strong>${workshop.title}</strong>!</p>
-      ${this.workshopDetailsBlock(workshop)}
+    let qrBase64 = '';
+    if (!isOnline) {
+      const qrDataUrl = await this.generateQRCode(qrData);
+      qrBase64 = qrDataUrl.replace('data:image/png;base64,', '');
+    }
+
+    const ticketBlock = isOnline ? '' : `
       <div style="background: white; padding: 24px; border-radius: 8px; margin: 20px 0; text-align: center; border: 2px dashed #34A853;">
         <h3 style="margin: 0 0 8px; color: #202124;">🎫 Your Event Ticket</h3>
         <p style="color: #5F6368; margin: 0 0 16px;">Present this QR code at the venue for check-in</p>
         <img src="cid:qrcode" alt="QR Code" style="width: 200px; height: 200px;" />
         <p style="margin: 12px 0 0; font-size: 12px; color: #9AA0A6;">Registration ID: ${registrationId}</p>
       </div>
+    `;
+
+    const importantBlock = isOnline ? `
+      <div style="background: #E8F5E9; padding: 16px; border-radius: 8px; margin: 20px 0;">
+        <p style="margin: 0; color: #2E7D32;"><strong>💻 This is an online event</strong></p>
+        <ul style="margin: 8px 0 0; color: #2E7D32; padding-left: 20px;">
+          <li>Join using the link in the event details above</li>
+          <li>Be ready a few minutes before the scheduled time</li>
+        </ul>
+      </div>
+    ` : `
+      <div style="background: #FFF3CD; padding: 16px; border-radius: 8px; margin: 20px 0;">
+        <p style="margin: 0; color: #856404;"><strong>⚠️ Important:</strong></p>
+        <ul style="margin: 8px 0 0; color: #856404; padding-left: 20px;">
+          <li>Save or screenshot this email — you'll need the QR code for entry</li>
+          <li>Arrive 15 minutes before the scheduled time</li>
+          <li>Bring a valid ID matching your registration</li>
+        </ul>
+      </div>
+    `;
+
+    const html = this.emailWrapper('#34A853', "You've Been Shortlisted!", `
+      <h2 style="color: #202124;">Congratulations ${name}! 🎉</h2>
+      <p>You have been <span style="background: #D4EDDA; color: #155724; padding: 2px 8px; border-radius: 4px; font-weight: bold;">Shortlisted</span> for <strong>${workshop.title}</strong>!</p>
+      ${this.workshopDetailsBlock(workshop)}
+      ${ticketBlock}
       <div style="text-align: center; margin: 24px 0;">
         <p style="color: #5F6368; margin: 0 0 12px; font-size: 14px;">Please confirm that you will attend:</p>
         <a href="${acknowledgeUrl}" style="background: #34A853; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-size: 16px; font-weight: bold; display: inline-block;">
@@ -96,31 +139,26 @@ export class EmailService {
         <div style="margin: 8px 0 0; color: #202124; white-space: pre-line;">${workshop.special_instructions}</div>
       </div>
       ` : ''}
-      <div style="background: #FFF3CD; padding: 16px; border-radius: 8px; margin: 20px 0;">
-        <p style="margin: 0; color: #856404;"><strong>⚠️ Important:</strong></p>
-        <ul style="margin: 8px 0 0; color: #856404; padding-left: 20px;">
-          <li>Save or screenshot this email — you'll need the QR code for entry</li>
-          <li>Arrive 15 minutes before the scheduled time</li>
-          <li>Bring a valid ID matching your registration</li>
-        </ul>
-      </div>
+      ${importantBlock}
     `);
 
     if (!this.resend) { this.logger.warn('Resend not configured, skipping email'); return; }
+
+    const attachments = isOnline ? [] : [
+      {
+        filename: 'ticket-qrcode.png',
+        content: qrBase64,
+        contentType: 'image/png',
+        contentId: 'qrcode',
+      },
+    ];
 
     const { data, error } = await this.resend.emails.send({
       from: this.from,
       to: [email],
       subject: `🎉 You're Shortlisted! - GDG Kolachi's ${workshop.title}`,
       html,
-      attachments: [
-        {
-          filename: 'ticket-qrcode.png',
-          content: qrBase64,
-          contentType: 'image/png',
-          contentId: 'qrcode',
-        },
-      ],
+      attachments,
     });
 
     if (error) {
@@ -135,7 +173,7 @@ export class EmailService {
     recipients: Array<{
       email: string;
       name: string;
-      workshop: { title: string; date: string; time: string; venue: string; special_instructions?: string };
+      workshop: { title: string; date: string; time: string; venue: string; special_instructions?: string; is_online?: boolean };
       registrationId: string;
       qrData: string;
     }>,
@@ -148,17 +186,37 @@ export class EmailService {
       const messages = await Promise.all(
         chunk.map(async (r) => {
           const acknowledgeUrl = `${appUrl}/api/registrations/${r.registrationId}/acknowledge`;
-          const qrDataUrl = await this.generateQRCode(r.qrData);
-          const qrBase64 = qrDataUrl.replace('data:image/png;base64,', '');
-          const html = this.emailWrapper('#34A853', "You've Been Shortlisted!", `
-            <h2 style="color: #202124;">Congratulations ${r.name}! 🎉</h2>
-            <p>You have been <span style="background: #D4EDDA; color: #155724; padding: 2px 8px; border-radius: 4px; font-weight: bold;">Shortlisted</span> for <strong>${r.workshop.title}</strong>!</p>
-            ${this.workshopDetailsBlock(r.workshop)}
+          const isOnline = !!r.workshop.is_online;
+
+          let qrBase64 = '';
+          if (!isOnline) {
+            const qrDataUrl = await this.generateQRCode(r.qrData);
+            qrBase64 = qrDataUrl.replace('data:image/png;base64,', '');
+          }
+
+          const ticketBlock = isOnline ? '' : `
             <div style="text-align: center; margin: 20px 0; border: 2px dashed #34A853; padding: 20px; border-radius: 8px;">
               <h3 style="margin: 0 0 8px;">🎫 Your Event Ticket</h3>
               <img src="cid:qrcode" alt="QR Code" style="width: 200px; height: 200px;" />
               <p style="font-size: 12px; color: #9AA0A6;">Registration ID: ${r.registrationId}</p>
             </div>
+          `;
+
+          const importantBlock = isOnline ? `
+            <div style="background: #E8F5E9; padding: 16px; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 0; color: #2E7D32;"><strong>💻 This is an online event</strong></p>
+              <ul style="margin: 8px 0 0; color: #2E7D32; padding-left: 20px;">
+                <li>Join using the link in the event details above</li>
+                <li>Be ready a few minutes before the scheduled time</li>
+              </ul>
+            </div>
+          ` : '';
+
+          const html = this.emailWrapper('#34A853', "You've Been Shortlisted!", `
+            <h2 style="color: #202124;">Congratulations ${r.name}! 🎉</h2>
+            <p>You have been <span style="background: #D4EDDA; color: #155724; padding: 2px 8px; border-radius: 4px; font-weight: bold;">Shortlisted</span> for <strong>${r.workshop.title}</strong>!</p>
+            ${this.workshopDetailsBlock(r.workshop)}
+            ${ticketBlock}
             <div style="text-align: center; margin: 20px 0;">
               <p style="color: #5F6368; margin: 0 0 10px;">Please confirm that you will attend:</p>
               <a href="${acknowledgeUrl}" style="background: #34A853; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">✓ Confirm my spot</a>
@@ -169,20 +227,24 @@ export class EmailService {
               <div style="margin: 8px 0 0; color: #202124; white-space: pre-line;">${r.workshop.special_instructions}</div>
             </div>
             ` : ''}
+            ${importantBlock}
           `);
+
+          const attachments = isOnline ? [] : [
+            {
+              filename: 'ticket-qrcode.png',
+              content: qrBase64,
+              contentType: 'image/png',
+              contentId: 'qrcode',
+            },
+          ];
+
           return {
             from: this.from,
             to: [r.email],
             subject: `🎉 You're Shortlisted! - GDG Kolachi's ${r.workshop.title}`,
             html,
-            attachments: [
-              {
-                filename: 'ticket-qrcode.png',
-                content: qrBase64,
-                contentType: 'image/png',
-                contentId: 'qrcode',
-              },
-            ],
+            attachments,
           };
         }),
       );

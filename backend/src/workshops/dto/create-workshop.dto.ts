@@ -54,4 +54,8 @@ export class CreateWorkshopDto {
   @IsOptional()
   @IsBoolean()
   allow_exceptions?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  is_online?: boolean;
 }

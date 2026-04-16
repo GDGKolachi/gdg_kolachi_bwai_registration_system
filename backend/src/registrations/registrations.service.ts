@@ -41,7 +41,15 @@ export class RegistrationsService {
     let attendee = await this.attendeeRepo.findOne({ where: { email: dto.email } });
     if (attendee && workshop.allow_exceptions !== false) {
       const existing = await this.registrationRepo.findOne({ where: { attendee_id: attendee.id } });
-      if (existing) throw new BadRequestException('This email is already registered for a workshop. Please submit an exception request.');
+      if (existing) {
+        if (workshop.allow_exceptions === false) {
+          if (existing.workshop_id === dto.workshop_id) {
+            throw new BadRequestException('This email is already registered for this workshop.');
+          }
+        } else {
+          throw new BadRequestException('This email is already registered for a workshop. Please submit an exception request.');
+        }
+      }
     }
 
     if (!attendee) {
