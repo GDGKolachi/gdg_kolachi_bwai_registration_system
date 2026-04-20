@@ -1,5 +1,7 @@
+import { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useAdminExceptions, useApproveException, useRejectException } from '../admin-exception-repository';
+import { useAdminWorkshops } from '../../workshop-management/admin-workshop-repository';
 
 const badgeColors = {
   pending: 'bg-amber-50 text-amber-900 ring-1 ring-amber-200/70',
@@ -7,10 +9,61 @@ const badgeColors = {
   rejected: 'bg-rose-50 text-rose-900 ring-1 ring-rose-200/70',
 };
 
+const getRequestedWorkshopId = ex =>
+  ex.requestedWorkshopId ??
+  ex.requested_workshop_id ??
+  ex.requestedWorkshop?.id ??
+  ex.requested_workshop?.id ??
+  null;
+
 export default function ExceptionQueue() {
   const { data: exceptions, isLoading } = useAdminExceptions();
+  const { data: workshops } = useAdminWorkshops();
   const approveMutation = useApproveException();
   const rejectMutation = useRejectException();
+
+  const [selectedWorkshop, setSelectedWorkshop] = useState('');
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [bulkPending, setBulkPending] = useState(false);
+
+  const scoped = useMemo(() => {
+    if (!exceptions) return [];
+    if (!selectedWorkshop) return exceptions;
+    return exceptions.filter(e => getRequestedWorkshopId(e) === selectedWorkshop);
+  }, [exceptions, selectedWorkshop]);
+
+  const pendingCountByWorkshop = useMemo(() => {
+    const map = new Map();
+    (exceptions || []).forEach(e => {
+      if (e.status !== 'pending') return;
+      const wid = getRequestedWorkshopId(e);
+      if (!wid) return;
+      map.set(wid, (map.get(wid) || 0) + 1);
+    });
+    return map;
+  }, [exceptions]);
+
+  const pending = scoped.filter(e => e.status === 'pending');
+  const reviewed = scoped.filter(e => e.status !== 'pending');
+
+  const allSelected = pending.length > 0 && pending.every(e => selectedIds.has(e.id));
+  const someSelected = pending.some(e => selectedIds.has(e.id)) && !allSelected;
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(pending.map(e => e.id)));
+    }
+  };
+
+  const toggleOne = id => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
 
   const handleApprove = async id => {
     try {
@@ -30,6 +83,27 @@ export default function ExceptionQueue() {
     }
   };
 
+  const handleBulk = async action => {
+    if (selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    const mutate = action === 'approve' ? approveMutation.mutateAsync : rejectMutation.mutateAsync;
+    setBulkPending(true);
+    try {
+      const results = await Promise.allSettled(ids.map(id => mutate(id)));
+      const succeeded = results.filter(r => r.status === 'fulfilled').length;
+      const failed = results.length - succeeded;
+      if (succeeded > 0) {
+        toast.success(`${succeeded} ${action === 'approve' ? 'approved' : 'rejected'}`);
+      }
+      if (failed > 0) {
+        toast.error(`${failed} could not be ${action === 'approve' ? 'approved' : 'rejected'}`);
+      }
+      setSelectedIds(new Set());
+    } finally {
+      setBulkPending(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-24">
@@ -44,8 +118,8 @@ export default function ExceptionQueue() {
     );
   }
 
-  const pending = exceptions?.filter(e => e.status === 'pending') || [];
-  const reviewed = exceptions?.filter(e => e.status !== 'pending') || [];
+  const rowActionsDisabled =
+    approveMutation.isPending || rejectMutation.isPending || bulkPending;
 
   return (
     <div>
@@ -54,60 +128,186 @@ export default function ExceptionQueue() {
         <p>Review and process requests from attendees who want to join an additional workshop.</p>
       </div>
 
-      {pending.length > 0 && (
+      {/* Workshop selector */}
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+        <div className="w-full min-w-0 sm:max-w-sm sm:flex-1">
+          <label className="ui-label" htmlFor="exc-workshop-select">
+            Workshop
+          </label>
+          <select
+            id="exc-workshop-select"
+            className="ui-input"
+            value={selectedWorkshop}
+            onChange={e => {
+              setSelectedWorkshop(e.target.value);
+              setSelectedIds(new Set());
+            }}
+          >
+            <option value="">All workshops</option>
+            {workshops?.map(w => {
+              const count = pendingCountByWorkshop.get(w.id) || 0;
+              return (
+                <option key={w.id} value={w.id}>
+                  {w.title}
+                  {count > 0 ? ` (${count} pending)` : ''}
+                </option>
+              );
+            })}
+          </select>
+        </div>
+      </div>
+
+      {/* Bulk action bar */}
+      {selectedIds.size > 0 && (
+        <div className="mb-4 flex flex-col gap-3 rounded-2xl bg-admin-sidebar px-3 py-3 text-white shadow-lg shadow-slate-900/15 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 sm:px-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-semibold">{selectedIds.size} selected</span>
+            <span className="hidden text-slate-500 sm:inline">|</span>
+            <span className="text-xs text-slate-400">Action:</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              onClick={() => handleBulk('approve')}
+              disabled={bulkPending}
+              className="rounded-lg bg-gdg-green px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-600 disabled:opacity-50"
+            >
+              Approve selected
+            </button>
+            <button
+              type="button"
+              onClick={() => handleBulk('reject')}
+              disabled={bulkPending}
+              className="rounded-lg bg-gdg-red px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-600 disabled:opacity-50"
+            >
+              Reject selected
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSelectedIds(new Set())}
+            className="text-left text-xs text-slate-400 hover:text-white sm:ml-auto sm:text-right"
+          >
+            Deselect all
+          </button>
+        </div>
+      )}
+
+      {pending.length > 0 ? (
         <>
           <h2 className="mb-4 text-lg font-semibold tracking-tight text-slate-900">
             Pending ({pending.length})
           </h2>
-          <div className="mb-10 flex flex-col gap-4">
-            {pending.map(ex => (
-              <div key={ex.id} className="ui-card p-6">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="min-w-0 flex-1 space-y-2">
-                    <div className="font-semibold text-slate-900">{ex.attendee?.name}</div>
-                    <div className="text-sm text-slate-600">{ex.attendee?.email}</div>
-                    <div className="text-sm text-slate-600">
-                      Requesting:{' '}
-                      <strong className="text-slate-900">
-                        {ex.requestedWorkshop?.title ?? ex.requested_workshop?.title}
-                      </strong>
-                    </div>
-                    <div className="text-sm text-slate-600">
-                      Currently registered for:{' '}
-                      <strong className="text-slate-900">
-                        {ex.currentWorkshop?.title ?? ex.current_workshop?.title ?? 'N/A'}
-                      </strong>
-                    </div>
-                    <div className="rounded-xl bg-slate-50 p-4 text-sm leading-relaxed text-slate-700 ring-1 ring-slate-100">
-                      {ex.reason}
-                    </div>
-                  </div>
-                  <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row lg:flex-col lg:items-stretch">
-                    <button
-                      type="button"
-                      className="w-full rounded-xl bg-gdg-green px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-emerald-500/20 hover:bg-green-600 disabled:opacity-50 sm:w-auto lg:w-full"
-                      onClick={() => handleApprove(ex.id)}
-                      disabled={approveMutation.isPending || rejectMutation.isPending}
+          <div className="ui-table-wrap mb-10">
+            <table className="w-full min-w-[56rem] border-collapse text-sm">
+              <thead>
+                <tr className="bg-slate-50/95">
+                  <th className="w-10 border-b border-slate-200 px-3 py-3">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      ref={el => {
+                        if (el) el.indeterminate = someSelected;
+                      }}
+                      onChange={toggleSelectAll}
+                      className="h-4 w-4 cursor-pointer rounded accent-gdg-blue"
+                    />
+                  </th>
+                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    #
+                  </th>
+                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Name
+                  </th>
+                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Email
+                  </th>
+                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Requesting
+                  </th>
+                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Currently registered
+                  </th>
+                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Reason
+                  </th>
+                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {pending.map((ex, idx) => {
+                  const isSelected = selectedIds.has(ex.id);
+                  const requested = ex.requestedWorkshop?.title ?? ex.requested_workshop?.title;
+                  const current = ex.currentWorkshop?.title ?? ex.current_workshop?.title ?? 'N/A';
+                  return (
+                    <tr
+                      key={ex.id}
+                      className={`transition-colors hover:bg-slate-50/90 ${isSelected ? 'bg-sky-50/70' : ''}`}
                     >
-                      {approveMutation.isPending ? 'Approving…' : 'Approve'}
-                    </button>
-                    <button
-                      type="button"
-                      className="ui-btn-danger w-full px-4 py-2.5 disabled:opacity-50 sm:w-auto lg:w-full"
-                      onClick={() => handleReject(ex.id)}
-                      disabled={approveMutation.isPending || rejectMutation.isPending}
-                    >
-                      {rejectMutation.isPending ? 'Rejecting…' : 'Reject'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
+                      <td className="border-b border-slate-100 px-3 py-2.5">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleOne(ex.id)}
+                          className="h-4 w-4 cursor-pointer rounded accent-gdg-blue"
+                        />
+                      </td>
+                      <td className="whitespace-nowrap border-b border-slate-100 px-3 py-2.5 text-slate-600">
+                        {idx + 1}
+                      </td>
+                      <td className="whitespace-nowrap border-b border-slate-100 px-3 py-2.5 font-medium">
+                        {ex.attendee?.name || '—'}
+                      </td>
+                      <td className="whitespace-nowrap border-b border-slate-100 px-3 py-2.5">
+                        {ex.attendee?.email || '—'}
+                      </td>
+                      <td
+                        className="max-w-[200px] truncate border-b border-slate-100 px-3 py-2.5"
+                        title={requested}
+                      >
+                        {requested || '—'}
+                      </td>
+                      <td
+                        className="max-w-[200px] truncate border-b border-slate-100 px-3 py-2.5"
+                        title={current}
+                      >
+                        {current}
+                      </td>
+                      <td className="max-w-[260px] border-b border-slate-100 px-3 py-2.5">
+                        <span className="block truncate" title={ex.reason}>
+                          {ex.reason || '—'}
+                        </span>
+                      </td>
+                      <td className="whitespace-nowrap border-b border-slate-100 px-3 py-2.5 text-right">
+                        <div className="inline-flex gap-1.5">
+                          <button
+                            type="button"
+                            className="rounded-lg bg-gdg-green px-2.5 py-1 text-xs font-semibold text-white hover:bg-green-600 disabled:opacity-50"
+                            onClick={() => handleApprove(ex.id)}
+                            disabled={rowActionsDisabled}
+                          >
+                            Approve
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded-lg bg-gdg-red px-2.5 py-1 text-xs font-semibold text-white hover:bg-red-600 disabled:opacity-50"
+                            onClick={() => handleReject(ex.id)}
+                            disabled={rowActionsDisabled}
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </>
-      )}
-
-      {pending.length === 0 && (
+      ) : (
         <div className="ui-card-quiet mb-10 py-10 text-center text-sm font-medium text-slate-500">
           No pending exception requests
         </div>
