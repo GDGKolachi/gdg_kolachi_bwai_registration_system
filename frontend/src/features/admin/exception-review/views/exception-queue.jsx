@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useAdminExceptions, useApproveException, useRejectException } from '../admin-exception-repository';
+import { useAdminWorkshops } from '../../workshop-management/admin-workshop-repository';
 
 const badgeColors = {
   pending: 'bg-amber-50 text-amber-900 ring-1 ring-amber-200/70',
@@ -8,16 +9,42 @@ const badgeColors = {
   rejected: 'bg-rose-50 text-rose-900 ring-1 ring-rose-200/70',
 };
 
+const getRequestedWorkshopId = ex =>
+  ex.requestedWorkshopId ??
+  ex.requested_workshop_id ??
+  ex.requestedWorkshop?.id ??
+  ex.requested_workshop?.id ??
+  null;
+
 export default function ExceptionQueue() {
   const { data: exceptions, isLoading } = useAdminExceptions();
+  const { data: workshops } = useAdminWorkshops();
   const approveMutation = useApproveException();
   const rejectMutation = useRejectException();
 
+  const [selectedWorkshop, setSelectedWorkshop] = useState('');
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [bulkPending, setBulkPending] = useState(false);
 
-  const pending = exceptions?.filter(e => e.status === 'pending') || [];
-  const reviewed = exceptions?.filter(e => e.status !== 'pending') || [];
+  const scoped = useMemo(() => {
+    if (!exceptions) return [];
+    if (!selectedWorkshop) return exceptions;
+    return exceptions.filter(e => getRequestedWorkshopId(e) === selectedWorkshop);
+  }, [exceptions, selectedWorkshop]);
+
+  const pendingCountByWorkshop = useMemo(() => {
+    const map = new Map();
+    (exceptions || []).forEach(e => {
+      if (e.status !== 'pending') return;
+      const wid = getRequestedWorkshopId(e);
+      if (!wid) return;
+      map.set(wid, (map.get(wid) || 0) + 1);
+    });
+    return map;
+  }, [exceptions]);
+
+  const pending = scoped.filter(e => e.status === 'pending');
+  const reviewed = scoped.filter(e => e.status !== 'pending');
 
   const allSelected = pending.length > 0 && pending.every(e => selectedIds.has(e.id));
   const someSelected = pending.some(e => selectedIds.has(e.id)) && !allSelected;
@@ -99,6 +126,35 @@ export default function ExceptionQueue() {
       <div className="admin-page-head">
         <h1>Exception requests</h1>
         <p>Review and process requests from attendees who want to join an additional workshop.</p>
+      </div>
+
+      {/* Workshop selector */}
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+        <div className="w-full min-w-0 sm:max-w-sm sm:flex-1">
+          <label className="ui-label" htmlFor="exc-workshop-select">
+            Workshop
+          </label>
+          <select
+            id="exc-workshop-select"
+            className="ui-input"
+            value={selectedWorkshop}
+            onChange={e => {
+              setSelectedWorkshop(e.target.value);
+              setSelectedIds(new Set());
+            }}
+          >
+            <option value="">All workshops</option>
+            {workshops?.map(w => {
+              const count = pendingCountByWorkshop.get(w.id) || 0;
+              return (
+                <option key={w.id} value={w.id}>
+                  {w.title}
+                  {count > 0 ? ` (${count} pending)` : ''}
+                </option>
+              );
+            })}
+          </select>
+        </div>
       </div>
 
       {/* Bulk action bar */}
