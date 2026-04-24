@@ -171,7 +171,7 @@ export class AdminService {
   private static readonly VALID_TRANSITIONS: Record<string, string[]> = {
     pending: ['shortlisted', 'rejected'],
     shortlisted: ['confirmed', 'rejected'],
-    confirmed: ['attended'],
+    confirmed: ['attended', 'shortlisted', 'rejected'],
     rejected: ['pending'],
     attended: [],
   };
