@@ -38,12 +38,13 @@ export const VALID_TRANSITIONS = {
   [RegistrationStatus.PENDING]:     [RegistrationStatus.SHORTLISTED, RegistrationStatus.REJECTED],
   [RegistrationStatus.SHORTLISTED]: [RegistrationStatus.CONFIRMED, RegistrationStatus.REJECTED],
   [RegistrationStatus.CONFIRMED]:   [RegistrationStatus.ATTENDED],
-  [RegistrationStatus.REJECTED]:    [],
+  [RegistrationStatus.REJECTED]:    [RegistrationStatus.PENDING],
   [RegistrationStatus.ATTENDED]:    [],
 };
 
 /** All statuses shown in the bulk-action bar */
 export const BULK_STATUSES = [
+  RegistrationStatus.PENDING,
   RegistrationStatus.SHORTLISTED,
   RegistrationStatus.CONFIRMED,
   RegistrationStatus.REJECTED,

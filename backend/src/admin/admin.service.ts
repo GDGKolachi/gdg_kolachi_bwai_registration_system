@@ -172,7 +172,7 @@ export class AdminService {
     pending: ['shortlisted', 'rejected'],
     shortlisted: ['confirmed', 'rejected'],
     confirmed: ['attended'],
-    rejected: [],
+    rejected: ['pending'],
     attended: [],
   };
 
