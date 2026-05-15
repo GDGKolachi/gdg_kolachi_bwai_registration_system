@@ -124,6 +124,15 @@ export class AdminController {
     return this.adminService.bulkUpdateStatus(ids, status);
   }
 
+  // Send reminder email (entry pass + custom message) to shortlisted/confirmed registrations
+  @Post('registrations/reminder')
+  sendReminder(
+    @Body('ids') ids: string[],
+    @Body('message') message: string,
+  ) {
+    return this.adminService.sendReminder(ids, message);
+  }
+
   // QR Scan
   @Post('qr-scan')
   scanQrCode(@Body('qr_data') qrData: string) {

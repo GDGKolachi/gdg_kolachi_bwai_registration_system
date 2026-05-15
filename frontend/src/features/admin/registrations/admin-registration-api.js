@@ -27,4 +27,9 @@ export const adminRegistrationApi = {
     ids: Array.isArray(ids) ? ids : [ids],
     status,
   }).then(res => res.data),
+  // Re-send entry pass + custom note to shortlisted/confirmed registrations
+  sendReminder: (ids, message) => api.post('/admin/registrations/reminder', {
+    ids: Array.isArray(ids) ? ids : [ids],
+    message: message || '',
+  }).then(res => res.data),
 };

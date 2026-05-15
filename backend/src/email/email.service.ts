@@ -168,6 +168,113 @@ export class EmailService {
     this.logger.log(`Shortlisted email sent to ${email}, id: ${data.id}`);
   }
 
+  // Reminder email — re-sends entry pass (QR) + workshop instructions + an admin-written note
+  // to recipients who are already shortlisted/confirmed. Uses Resend's batch API in chunks of 100.
+  async sendReminderBatch(
+    recipients: Array<{
+      email: string;
+      name: string;
+      workshop: { title: string; date: string; time: string; venue: string; special_instructions?: string; is_online?: boolean };
+      registrationId: string;
+      qrData: string;
+    }>,
+    customMessage: string,
+  ) {
+    if (!this.resend) {
+      this.logger.warn('Resend not configured, skipping reminder batch');
+      return { sent: 0 };
+    }
+
+    const safeMessage = (customMessage || '').trim();
+    const batchSize = 100;
+    let sentCount = 0;
+
+    for (let i = 0; i < recipients.length; i += batchSize) {
+      const chunk = recipients.slice(i, i + batchSize);
+
+      const messages = await Promise.all(
+        chunk.map(async (r) => {
+          const isOnline = !!r.workshop.is_online;
+
+          let qrBase64 = '';
+          if (!isOnline && r.qrData) {
+            const qrDataUrl = await this.generateQRCode(r.qrData);
+            qrBase64 = qrDataUrl.replace('data:image/png;base64,', '');
+          }
+
+          const ticketBlock = isOnline || !r.qrData ? '' : `
+            <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; border: 2px dashed #F4B400;">
+              <h3 style="margin: 0 0 8px; color: #202124;">🎫 Your Entry Pass</h3>
+              <p style="color: #5F6368; margin: 0 0 12px; font-size: 13px;">Present this QR code at the venue for check-in</p>
+              <img src="cid:qrcode" alt="QR Code" style="width: 180px; height: 180px;" />
+              <p style="margin: 10px 0 0; font-size: 12px; color: #9AA0A6;">Registration ID: ${r.registrationId}</p>
+            </div>
+          `;
+
+          const customBlock = safeMessage ? `
+            <div style="background: white; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #F4B400;">
+              <p style="margin: 0 0 6px; color: #B06000; font-weight: bold;">📌 A note from the organizers</p>
+              <div style="margin: 0; color: #202124; white-space: pre-line;">${this.escapeHtml(safeMessage)}</div>
+            </div>
+          ` : '';
+
+          const instructionsBlock = r.workshop.special_instructions ? `
+            <div style="background: #E8F0FE; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4285F4;">
+              <p style="margin: 0; color: #1A73E8;"><strong>📋 Workshop Instructions:</strong></p>
+              <div style="margin: 8px 0 0; color: #202124; white-space: pre-line;">${r.workshop.special_instructions}</div>
+            </div>
+          ` : '';
+
+          const html = this.emailWrapper('#F4B400', 'Reminder: Your spot is confirmed', `
+            <h2 style="color: #202124; margin: 0 0 10px;">Hi ${r.name} 👋</h2>
+            <p style="margin: 0;">This is a friendly reminder that you're shortlisted for <strong>${r.workshop.title}</strong>. We're sharing your entry pass and important info one more time so it's easy to find.</p>
+            ${this.workshopDetailsBlock(r.workshop)}
+            ${customBlock}
+            ${instructionsBlock}
+            ${ticketBlock}
+            <p style="color: #5F6368; font-size: 13px; margin: 20px 0 0;">See you there! 🎉</p>
+          `);
+
+          const attachments = isOnline || !r.qrData ? [] : [
+            {
+              filename: 'entry-pass.png',
+              content: qrBase64,
+              contentType: 'image/png',
+              contentId: 'qrcode',
+            },
+          ];
+
+          return {
+            from: this.from,
+            to: [r.email],
+            subject: `🔔 Reminder: ${r.workshop.title} — your entry pass`,
+            html,
+            attachments,
+          };
+        }),
+      );
+
+      const { data, error } = await this.resend.batch.send(messages);
+      if (error) {
+        this.logger.error(`Reminder batch send failed for chunk ${i}–${i + chunk.length}`, error);
+      } else {
+        sentCount += chunk.length;
+        this.logger.log(`Reminder batch sent ${chunk.length} emails, ids: ${data.data.map(d => d.id).join(', ')}`);
+      }
+    }
+
+    return { sent: sentCount };
+  }
+
+  private escapeHtml(s: string): string {
+    return s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   // Batch send — used when bulk shortlisting up to 100 registrations at once
   async sendShortlistedBatch(
     recipients: Array<{
