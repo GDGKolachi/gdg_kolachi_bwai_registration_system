@@ -112,7 +112,7 @@ erDiagram
 
     TEAM_FORMATION_CONFIGS {
         uuid id PK
-        uuid event_id FK UK "one config per Hackathon event"
+        uuid event_id FK "unique; one config per Hackathon event"
         int max_teams "default 25"
         int max_team_size "default 4"
         int target_developers_per_team "default 2"
@@ -142,7 +142,7 @@ erDiagram
     TEAM_MEMBERS {
         uuid id PK
         uuid team_id FK
-        uuid registration_id FK UK "one registration -> one team"
+        uuid registration_id FK "unique; one registration -> one team"
         string role_bucket_snapshot "the bucket at assignment time"
         string domain_snapshot "the domain at assignment time"
         boolean is_anchor "first member who set the team's primary_domain"
