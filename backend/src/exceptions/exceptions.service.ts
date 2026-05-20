@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ExceptionRequest } from '../entities/exception-request.entity';
 import { Attendee } from '../entities/attendee.entity';
-import { Workshop } from '../entities/workshop.entity';
+import { Event } from '../entities/event.entity';
 import { Registration } from '../entities/registration.entity';
 import { EmailService } from '../email/email.service';
 
@@ -14,56 +14,66 @@ export class ExceptionsService {
     private exceptionRepo: Repository<ExceptionRequest>,
     @InjectRepository(Attendee)
     private attendeeRepo: Repository<Attendee>,
-    @InjectRepository(Workshop)
-    private workshopRepo: Repository<Workshop>,
+    @InjectRepository(Event)
+    private eventRepo: Repository<Event>,
     @InjectRepository(Registration)
     private registrationRepo: Repository<Registration>,
     private emailService: EmailService,
   ) {}
 
-  async submit(email: string, requestedWorkshopId: string, reason: string) {
+  async submit(email: string, requestedEventId: string, reason: string) {
     const attendee = await this.attendeeRepo.findOne({ where: { email } });
     if (!attendee) throw new BadRequestException('No registration found for this email');
 
-    const workshop = await this.workshopRepo.findOne({ where: { id: requestedWorkshopId } });
-    if (!workshop) throw new NotFoundException('Workshop not found');
+    const event = await this.eventRepo.findOne({ where: { id: requestedEventId } });
+    if (!event) throw new NotFoundException('Event not found');
 
-    if (workshop.allow_exceptions === false) {
-      throw new BadRequestException('This workshop does not accept exception requests');
+    if (event.allow_exceptions === false) {
+      throw new BadRequestException('This event does not accept exception requests');
     }
 
     const existingException = await this.exceptionRepo.findOne({
-      where: { attendee_id: attendee.id, requested_workshop_id: requestedWorkshopId, status: 'pending' },
+      where: { attendee_id: attendee.id, requested_event_id: requestedEventId, status: 'pending' },
     });
-    if (existingException) throw new BadRequestException('You already have a pending exception request for this workshop');
+    if (existingException) {
+      throw new BadRequestException('You already have a pending exception request for this event');
+    }
 
     const exception = this.exceptionRepo.create({
       attendee_id: attendee.id,
-      requested_workshop_id: requestedWorkshopId,
+      requested_event_id: requestedEventId,
       reason,
     });
     const saved = await this.exceptionRepo.save(exception);
-
     return saved;
   }
 
   async findAll() {
     const exceptions = await this.exceptionRepo.find({
-      relations: ['attendee', 'requested_workshop'],
+      relations: ['attendee', 'requested_event', 'requested_event.event_type'],
       order: { created_at: 'DESC' },
     });
 
-    // Enrich each exception with the attendee's current workshop
+    // Enrich with the attendee's current registration in the same event type
     const enriched = await Promise.all(
       exceptions.map(async (ex) => {
-        const currentReg = await this.registrationRepo.findOne({
-          where: { attendee_id: ex.attendee_id },
-          relations: ['workshop'],
-          order: { registered_at: 'DESC' },
-        });
+        const requestedTypeId = ex.requested_event?.event_type_id;
+        let currentReg: Registration | null = null;
+        if (requestedTypeId) {
+          currentReg = await this.registrationRepo
+            .createQueryBuilder('r')
+            .leftJoinAndSelect('r.event', 'e')
+            .leftJoinAndSelect('e.event_type', 'et')
+            .where('r.attendee_id = :aid', { aid: ex.attendee_id })
+            .andWhere('e.event_type_id = :etid', { etid: requestedTypeId })
+            .orderBy('r.registered_at', 'DESC')
+            .getOne();
+        }
         return {
           ...ex,
-          current_workshop: currentReg?.workshop ?? null,
+          current_event: currentReg?.event ?? null,
+          // backwards-compat alias for any callers still using the old key
+          current_workshop: currentReg?.event ?? null,
         };
       }),
     );
@@ -74,7 +84,7 @@ export class ExceptionsService {
   async approve(id: string, adminId: string) {
     const exception = await this.exceptionRepo.findOne({
       where: { id },
-      relations: ['attendee', 'requested_workshop'],
+      relations: ['attendee', 'requested_event'],
     });
     if (!exception) throw new NotFoundException('Exception request not found');
     if (exception.status !== 'pending') throw new BadRequestException('Already processed');
@@ -86,11 +96,11 @@ export class ExceptionsService {
 
     const registration = this.registrationRepo.create({
       attendee_id: exception.attendee_id,
-      workshop_id: exception.requested_workshop_id,
+      event_id: exception.requested_event_id,
       motivation: `Exception approved: ${exception.reason}`,
       status: 'confirmed',
     });
-    const savedReg = await this.registrationRepo.save(registration);
+    await this.registrationRepo.save(registration);
 
     return exception;
   }
@@ -98,7 +108,7 @@ export class ExceptionsService {
   async reject(id: string, adminId: string) {
     const exception = await this.exceptionRepo.findOne({
       where: { id },
-      relations: ['attendee', 'requested_workshop'],
+      relations: ['attendee', 'requested_event'],
     });
     if (!exception) throw new NotFoundException('Exception request not found');
     if (exception.status !== 'pending') throw new BadRequestException('Already processed');

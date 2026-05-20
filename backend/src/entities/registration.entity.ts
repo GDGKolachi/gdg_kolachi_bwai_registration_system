@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { Attendee } from './attendee.entity';
-import { Workshop } from './workshop.entity';
+import { Event } from './event.entity';
 
 @Entity('registrations')
 export class Registration {
@@ -11,10 +11,10 @@ export class Registration {
   attendee_id: string;
 
   @Column()
-  workshop_id: string;
+  event_id: string;
 
-  @Column('text')
-  motivation: string;
+  @Column('text', { nullable: true })
+  motivation: string | null;
 
   @Column({ default: 'pending' })
   status: string;
@@ -31,15 +31,26 @@ export class Registration {
   @Column({ nullable: true })
   qr_code_data: string;
 
-  /** User tapped "Confirm" in the shortlisted email (spot acknowledgement). */
   @Column({ default: false })
   acknowledged: boolean;
+
+  @Column({ nullable: true })
+  domain: string | null;
+
+  @Column({ nullable: true })
+  track: string | null;
+
+  @Column({ nullable: true })
+  slot: string | null;
+
+  @Column({ nullable: true })
+  role_bucket: string | null;
 
   @ManyToOne(() => Attendee, (a) => a.registrations)
   @JoinColumn({ name: 'attendee_id' })
   attendee: Attendee;
 
-  @ManyToOne(() => Workshop, (w) => w.registrations)
-  @JoinColumn({ name: 'workshop_id' })
-  workshop: Workshop;
+  @ManyToOne(() => Event, (e) => e.registrations)
+  @JoinColumn({ name: 'event_id' })
+  event: Event;
 }

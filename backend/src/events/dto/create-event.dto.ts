@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsArray, IsBoolean, ValidateNested, Min } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsArray, IsBoolean, IsUUID, ValidateNested, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class SpeakerDto {
@@ -13,7 +13,10 @@ class SpeakerDto {
   photo_url?: string;
 }
 
-export class CreateWorkshopDto {
+export class CreateEventDto {
+  @IsUUID()
+  event_type_id: string;
+
   @IsString()
   title: string;
 
@@ -58,4 +61,14 @@ export class CreateWorkshopDto {
   @IsOptional()
   @IsBoolean()
   is_online?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tracks?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  slots?: string[];
 }

@@ -1,10 +1,16 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, OneToMany, OneToOne } from 'typeorm';
 import { Registration } from './registration.entity';
+import { EventType } from './event-type.entity';
+import { Team } from './team.entity';
+import { TeamFormationConfig } from './team-formation-config.entity';
 
-@Entity('workshops')
-export class Workshop {
+@Entity('events')
+export class Event {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Column()
+  event_type_id: string;
 
   @Column()
   title: string;
@@ -42,9 +48,25 @@ export class Workshop {
   @Column({ type: 'boolean', default: false })
   is_online: boolean;
 
+  @Column({ type: 'jsonb', nullable: true })
+  tracks: string[] | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  slots: string[] | null;
+
   @CreateDateColumn()
   created_at: Date;
 
-  @OneToMany(() => Registration, (r) => r.workshop)
+  @ManyToOne(() => EventType)
+  @JoinColumn({ name: 'event_type_id' })
+  event_type: EventType;
+
+  @OneToMany(() => Registration, (r) => r.event)
   registrations: Registration[];
+
+  @OneToMany(() => Team, (t) => t.event)
+  teams: Team[];
+
+  @OneToOne(() => TeamFormationConfig, (c) => c.event)
+  team_formation_config: TeamFormationConfig;
 }

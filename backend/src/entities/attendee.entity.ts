@@ -32,7 +32,7 @@ export class Attendee {
   gender: string;
 
   @Column({ nullable: true })
-  defines_you_best: string;
+  best_describes_you: string;
 
   @CreateDateColumn()
   created_at: Date;
