@@ -151,6 +151,35 @@ erDiagram
     }
 ```
 
+## Registration & check-in across event types
+
+**All four event types share the same `registrations` table.** The event type
+is inferred via `registrations.event_id → events.event_type_id`. Only the
+*fields populated* on a registration and the *check-in flow* differ per type.
+
+| | Workshop | Talks | Community Lounge | Hackathon |
+|---|---|---|---|---|
+| Stored in | `registrations` | `registrations` | `registrations` | `registrations` |
+| Linked event type | Workshop | Talks | Community Lounge | Hackathon |
+| Shared fields (`attendee_id`, `event_id`, `status`, `registered_at`, `qr_code_data`, `checked_in`, `acknowledged`) | ✓ | ✓ | ✓ | ✓ |
+| `motivation` | ✓ ("Why attend this workshop?") | ✓ ("Why attend this talk?") | hidden | ✓ ("How will you contribute…") |
+| `domain` (single-select, 11 options) | — | — | — | ✓ |
+| `role_bucket` (cached from `best_describes_you`) | — | — | — | ✓ |
+| `track`, `slot` | — | — | ✓ | — |
+| Exception requests | ✓ | ✓ | ✓ | ✓ |
+| Check-in flow | generic QR scan → mark present | generic QR scan → mark present | generic QR scan → mark present | **separate Hackathon check-in screen** → mark present + run team-formation engine |
+| `teams` / `team_members` | — | — | — | ✓ |
+
+### Listing registrations by event type
+
+```sql
+SELECT r.*
+FROM registrations r
+JOIN events       e  ON e.id = r.event_id
+JOIN event_types  et ON et.id = e.event_type_id
+WHERE et.slug = :type_slug;  -- 'workshop' | 'talks' | 'community-lounge' | 'hackathon'
+```
+
 ## Dynamic registration form by event type
 
 | Field | Workshop | Talks | Community Lounge | Hackathon |
