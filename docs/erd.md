@@ -34,22 +34,22 @@ erDiagram
 
     EVENTS {
         uuid id PK
-        uuid event_type_id FK
-        string title "shown dynamically (e.g. I/O DevFest Hackathon)"
-        text description
-        string date
-        string time
-        string venue
-        int max_capacity
-        string map_location "nullable"
-        jsonb speakers "[{name, role, photo_url}]"
-        text special_instructions "nullable"
-        string status "upcoming | registration_open | closed | disabled"
-        boolean allow_exceptions
-        boolean is_online
-        jsonb tracks "nullable; Community Lounge selectable tracks"
-        jsonb slots "nullable; Community Lounge selectable slots"
-        timestamp created_at
+        uuid event_type_id FK "NEW — links to event_types"
+        string title "KEPT — event name shown dynamically"
+        text description "KEPT"
+        string date "KEPT"
+        string time "KEPT"
+        string venue "KEPT"
+        int max_capacity "KEPT"
+        string map_location "KEPT — nullable"
+        jsonb speakers "KEPT — [{name, role, photo_url}]"
+        text special_instructions "KEPT — nullable"
+        string status "KEPT — upcoming|registration_open|closed|disabled"
+        boolean allow_exceptions "KEPT"
+        boolean is_online "KEPT"
+        jsonb tracks "NEW — nullable; Community Lounge track options"
+        jsonb slots "NEW — nullable; Community Lounge slot options"
+        timestamp created_at "KEPT"
     }
 
     ATTENDEES {
@@ -150,6 +150,32 @@ erDiagram
         string assigned_by "auto | admin_id (manual override)"
     }
 ```
+
+## Event creation form — all fields (admin)
+
+This is every field an admin fills in when creating or editing an event.
+**Nothing from the current workshop form is removed.** Fields marked NEW are additions.
+
+| Field | Type | Status | Notes |
+|---|---|---|---|
+| Event type | dropdown (event_types) | **NEW** | Workshop / Talks / Community Lounge / Hackathon. Determines which registration fields are shown and which admin panels appear. |
+| Title | text | KEPT | The event name, e.g. "I/O DevFest Workshop: Flutter" |
+| Description | rich text | KEPT | Full event description |
+| Date | date picker | KEPT | |
+| Time | text / time picker | KEPT | |
+| Venue | text | KEPT | Physical address or online link |
+| Max capacity | number | KEPT | |
+| Map location | text / embed URL | KEPT | Nullable; shown as embedded map |
+| Speakers | repeatable block `{name, role, photo_url}` | KEPT | |
+| Special instructions | text area | KEPT | Nullable; shown to registered attendees |
+| Status | dropdown | KEPT | upcoming / registration_open / closed / disabled |
+| Allow exceptions | toggle | KEPT | Whether exception requests are permitted |
+| Is online | toggle | KEPT | Online vs. in-person |
+| Tracks | tag/chip input (string list) | **NEW** | Community Lounge only; options attendees can select at registration |
+| Slots | tag/chip input (string list) | **NEW** | Community Lounge only; time-slot options for attendees |
+
+> `tracks` and `slots` are only shown in the admin form when Event Type = **Community Lounge**.
+> The Team Formation config panel (max teams, composition targets, weights) is only shown when Event Type = **Hackathon**.
 
 ## Registration & check-in across event types
 
