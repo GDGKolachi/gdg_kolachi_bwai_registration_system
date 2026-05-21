@@ -1,26 +1,31 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { useAdminWorkshops } from '../../workshop-management/admin-workshop-repository';
+import { useAdminEvents } from '../../event-management/admin-event-repository';
 import { checkinApi } from '../checkin-api';
 import { useToggleCheckin } from '../checkin-repository';
 
 export default function CheckinView() {
-  const { data: workshops } = useAdminWorkshops();
+  const { data: events } = useAdminEvents();
   const toggleMutation = useToggleCheckin();
 
-  const [selectedWorkshop, setSelectedWorkshop] = useState('');
+  const [selectedEvent, setSelectedEvent] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [allAttendees, setAllAttendees] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const loadAttendees = useCallback(async (workshopId) => {
-    if (!workshopId) {
+  const eventList = Array.isArray(events) ? events : events?.data || [];
+  const currentEvent = eventList.find((e) => e.id === selectedEvent);
+  const isHackathon = currentEvent?.event_type?.slug === 'hackathon';
+
+  const loadAttendees = useCallback(async (eventId) => {
+    if (!eventId) {
       setAllAttendees([]);
       return;
     }
     setLoading(true);
     try {
-      const data = await checkinApi.getAll(workshopId);
+      const data = await checkinApi.getAll(eventId);
       setAllAttendees(data);
     } catch {
       toast.error('Failed to load attendees');
@@ -30,16 +35,16 @@ export default function CheckinView() {
   }, []);
 
   useEffect(() => {
-    loadAttendees(selectedWorkshop);
-  }, [selectedWorkshop, loadAttendees]);
+    loadAttendees(selectedEvent);
+  }, [selectedEvent, loadAttendees]);
 
-  const handleToggle = async registrationId => {
+  const handleToggle = async (registrationId) => {
     try {
       const updated = await toggleMutation.mutateAsync(registrationId);
-      setAllAttendees(prev =>
-        prev.map(r =>
-          r.id === registrationId ? { ...r, checked_in: updated.checked_in, checkedIn: updated.checked_in } : r
-        )
+      setAllAttendees((prev) =>
+        prev.map((r) =>
+          r.id === registrationId ? { ...r, checked_in: updated.checked_in, checkedIn: updated.checked_in } : r,
+        ),
       );
       toast.success(updated.checked_in ? 'Checked in!' : 'Check-in removed');
     } catch {
@@ -49,7 +54,7 @@ export default function CheckinView() {
 
   const query = searchQuery.trim().toLowerCase();
   const results = query
-    ? allAttendees.filter(r => {
+    ? allAttendees.filter((r) => {
         const name = (r.attendee?.name || '').toLowerCase();
         const email = (r.attendee?.email || '').toLowerCase();
         return name.includes(query) || email.includes(query);
@@ -57,7 +62,7 @@ export default function CheckinView() {
     : allAttendees;
 
   const totalCount = allAttendees.length;
-  const checkedInCount = allAttendees.filter(r => r.checked_in ?? r.checkedIn).length;
+  const checkedInCount = allAttendees.filter((r) => r.checked_in ?? r.checkedIn).length;
 
   const inputCls = 'ui-input';
 
@@ -65,72 +70,66 @@ export default function CheckinView() {
     <div>
       <div className="admin-page-head">
         <h1>Day-of check-in</h1>
-        <p>Select a workshop to see all attendees. Use search to filter by name or email.</p>
+        <p>Select an event to see all attendees. Use search to filter by name or email.</p>
       </div>
 
       <div className="mb-6 flex flex-wrap items-end gap-3">
         <div className="max-w-xs flex-1">
-          <label className="ui-label" htmlFor="checkin-workshop">
-            Workshop
-          </label>
+          <label className="ui-label" htmlFor="checkin-event">Event</label>
           <select
-            id="checkin-workshop"
+            id="checkin-event"
             className={`${inputCls} max-w-md`}
-            value={selectedWorkshop}
-            onChange={e => {
-              setSelectedWorkshop(e.target.value);
+            value={selectedEvent}
+            onChange={(e) => {
+              setSelectedEvent(e.target.value);
               setSearchQuery('');
             }}
           >
-            <option value="">Select workshop</option>
-            {workshops?.map(w => (
+            <option value="">Select event</option>
+            {eventList.map((w) => (
               <option key={w.id} value={w.id}>
-                {w.title}
+                {w.title}{w.event_type?.name ? ` — ${w.event_type.name}` : ''}
               </option>
             ))}
           </select>
         </div>
-        {selectedWorkshop && (
+        {selectedEvent && !isHackathon && (
           <div className="min-w-[12rem] flex-1">
-            <label className="ui-label" htmlFor="checkin-q">
-              Filter
-            </label>
-            <input
-              id="checkin-q"
-              className={inputCls}
-              placeholder="Filter by name or email…"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-            />
+            <label className="ui-label" htmlFor="checkin-q">Filter</label>
+            <input id="checkin-q" className={inputCls} placeholder="Filter by name or email…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
           </div>
         )}
       </div>
 
-      {selectedWorkshop && !loading && (
+      {selectedEvent && isHackathon && (
+        <div className="ui-card-quiet mb-6 border-amber-200/80 bg-amber-50/40 px-5 py-4">
+          <div className="text-sm font-semibold text-amber-900">
+            Hackathon events use a dedicated check-in screen with automatic team formation.
+          </div>
+          <Link to={`/admin/hackathon-checkin/${selectedEvent}`} className="ui-btn-primary mt-3 inline-block no-underline">
+            Go to Hackathon Check-in →
+          </Link>
+        </div>
+      )}
+
+      {selectedEvent && !isHackathon && !loading && (
         <div className="mb-4 text-sm font-medium text-slate-600">
           Checked in: <span className="tabular-nums text-slate-900">{checkedInCount}</span> /{' '}
           <span className="tabular-nums">{totalCount}</span>
-          {query && (
-            <span className="ml-3 text-slate-400">
-              (showing {results.length} matching)
-            </span>
-          )}
+          {query && <span className="ml-3 text-slate-400">(showing {results.length} matching)</span>}
         </div>
       )}
 
       {loading && (
         <div className="flex justify-center py-16">
           <div className="flex items-center gap-3 text-sm font-medium text-slate-500">
-            <span
-              className="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-gdg-blue"
-              aria-hidden
-            />
+            <span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-gdg-blue" aria-hidden />
             Loading attendees…
           </div>
         </div>
       )}
 
-      {selectedWorkshop && !loading && results.length > 0 && (
+      {selectedEvent && !isHackathon && !loading && results.length > 0 && (
         <div className="ui-table-wrap">
           <table className="ui-table min-w-[36rem]">
             <thead>
@@ -143,7 +142,7 @@ export default function CheckinView() {
               </tr>
             </thead>
             <tbody>
-              {results.map(r => {
+              {results.map((r) => {
                 const isCheckedIn = r.checked_in ?? r.checkedIn;
                 return (
                   <tr key={r.id}>
@@ -184,15 +183,15 @@ export default function CheckinView() {
         </div>
       )}
 
-      {selectedWorkshop && !loading && results.length === 0 && (
+      {selectedEvent && !isHackathon && !loading && results.length === 0 && (
         <div className="ui-card-quiet py-16 text-center text-sm font-medium text-slate-500">
-          {query ? 'No attendees match your filter' : 'No attendees registered for this workshop'}
+          {query ? 'No attendees match your filter' : 'No attendees registered for this event'}
         </div>
       )}
 
-      {!selectedWorkshop && (
+      {!selectedEvent && (
         <div className="ui-card-quiet py-16 text-center text-sm font-medium text-slate-500">
-          Select a workshop to view and check in attendees
+          Select an event to view and check in attendees
         </div>
       )}
     </div>

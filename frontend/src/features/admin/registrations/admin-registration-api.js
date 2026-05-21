@@ -1,16 +1,18 @@
 import api from '../../../axios-instance';
 
 export const adminRegistrationApi = {
-  getByWorkshop: (workshopId, params = {}) => {
-    const query = new URLSearchParams({ workshop_id: workshopId });
+  getByEvent: (eventId, params = {}) => {
+    const query = new URLSearchParams({ event_id: eventId });
     if (params.name) query.set('name', params.name);
     if (params.email) query.set('email', params.email);
     if (params.phone) query.set('phone', params.phone);
     if (params.cnic) query.set('cnic', params.cnic);
     if (params.status) query.set('status', params.status);
-    if (params.defines_you_best) query.set('defines_you_best', params.defines_you_best);
+    if (params.best_describes_you) query.set('best_describes_you', params.best_describes_you);
     if (params.gender) query.set('gender', params.gender);
     if (params.university_org) query.set('university_org', params.university_org);
+    if (params.domain) query.set('domain', params.domain);
+    if (params.role_bucket) query.set('role_bucket', params.role_bucket);
     if (params.checked_in !== undefined) query.set('checked_in', String(params.checked_in));
     if (params.acknowledged !== undefined) query.set('acknowledged', String(params.acknowledged));
     if (params.date_from) query.set('date_from', params.date_from);
@@ -19,12 +21,18 @@ export const adminRegistrationApi = {
     if (params.sort_order) query.set('sort_order', params.sort_order);
     if (params.page) query.set('page', String(params.page));
     if (params.limit) query.set('limit', String(params.limit));
-    return api.get(`/admin/registrations?${query.toString()}`).then(res => res.data);
+    return api.get(`/admin/registrations?${query.toString()}`).then((res) => res.data);
   },
-  exportCsv: (workshopId) => api.get(`/admin/registrations/export?workshop_id=${workshopId}`, { responseType: 'blob' }).then(res => res.data),
-  // Unified status update — accepts one or more IDs via POST /registrations/status
-  updateStatus: (ids, status) => api.patch('/admin/registrations/status', {
-    ids: Array.isArray(ids) ? ids : [ids],
-    status,
-  }).then(res => res.data),
+  exportCsv: (eventId) =>
+    api.get(`/admin/registrations/export?event_id=${eventId}`, { responseType: 'blob' }).then((res) => res.data),
+  updateStatus: (ids, status) =>
+    api
+      .patch('/admin/registrations/status', {
+        ids: Array.isArray(ids) ? ids : [ids],
+        status,
+      })
+      .then((res) => res.data),
 };
+
+// Backwards-compat alias
+adminRegistrationApi.getByWorkshop = adminRegistrationApi.getByEvent;

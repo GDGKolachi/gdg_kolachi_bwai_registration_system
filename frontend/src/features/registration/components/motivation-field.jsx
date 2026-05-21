@@ -1,20 +1,25 @@
+import { motivationLabelFor, motivationPlaceholderFor } from '../registration-constants';
+
 const MAX_CHARS = 2000;
 
-export default function MotivationField({ value, onChange, error }) {
+export default function MotivationField({ value, onChange, error, eventTypeSlug }) {
   const charCount = (value || '').length;
   const isNearLimit = charCount > MAX_CHARS * 0.9;
   const isOverLimit = charCount > MAX_CHARS;
 
+  const label = motivationLabelFor(eventTypeSlug);
+  if (label === null) return null;
+
   return (
     <div className="mb-6">
       <label className="ui-label-sentence" htmlFor="motivation">
-        Why do you want to attend this workshop? *
+        {label}
       </label>
       <textarea
         id="motivation"
         value={value || ''}
         onChange={e => onChange(e.target.value)}
-        placeholder="Tell us what motivates you and what you hope to learn…"
+        placeholder={motivationPlaceholderFor(eventTypeSlug)}
         rows={4}
         maxLength={MAX_CHARS + 100}
         className={`ui-input min-h-28 resize-y ${error ? 'border-rose-300 focus:border-gdg-red focus:ring-gdg-red/15' : ''}`}

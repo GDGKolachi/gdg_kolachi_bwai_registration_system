@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
-import { useAdminWorkshops } from '../../workshop-management/admin-workshop-repository';
+import { useAdminEvents } from '../../event-management/admin-event-repository';
 import { useAdminRegistrations, useUpdateRegistrationStatus, useBulkUpdateStatus } from '../admin-registration-repository';
 import { adminRegistrationApi } from '../admin-registration-api';
 import {
@@ -28,8 +28,9 @@ const INITIAL_FILTERS = {
   phone: '',
   cnic: '',
   status: [],
-  defines_you_best: [],
+  best_describes_you: [],
   gender: [],
+  domain: [],
   university_org: '',
   checked_in: '',
   acknowledged: '',
@@ -44,6 +45,34 @@ const PROFILE_OPTIONS = [
   'Senior Expert',
   'Freelancer',
   'Other',
+  // Hackathon-only roles also visible in this filter
+  'Web Developer',
+  'Mobile App Developer',
+  'Software Developer',
+  'Full Stack Developer',
+  'Game Developer',
+  'Other Developer',
+  'UI/UX Designer',
+  'Product Designer',
+  'Game Designer',
+  'Other Designer',
+  'SQA Engineer/Tester',
+  'Software Sales Executive',
+  'Others',
+];
+
+const DOMAIN_OPTIONS = [
+  'Service & Software Solutions',
+  'Fintech & Digital Economy',
+  'Healthcare, EdTech & Skill Development',
+  'Logistics, Retail & E-commerce',
+  'Infrastructure, Smart City & Government Systems',
+  'Water, Energy & Waste Management',
+  'Social Impact, Accessibility & Inclusion',
+  'Environment & Climate Change Solutions',
+  'Cybersecurity & Digital Safety',
+  'AI, Automation & Emerging Technologies',
+  'SME & Startup Enablement',
 ];
 
 const GENDER_OPTIONS = ['Male', 'Female', 'Non-Binary', 'Prefer not to say'];
@@ -158,8 +187,8 @@ function MultiSelect({ label, options, value, onChange, renderLabel }) {
 }
 
 export default function RegistrationsViewer() {
-  const { data: workshops } = useAdminWorkshops();
-  const [selectedWorkshop, setSelectedWorkshop] = useState('');
+  const { data: events } = useAdminEvents();
+  const [selectedEvent, setSelectedEvent] = useState('');
 
   // draft = what user is editing; applied = what is sent to API
   const [draftFilters, setDraftFilters]     = useState(INITIAL_FILTERS);
@@ -184,8 +213,9 @@ export default function RegistrationsViewer() {
     phone:           appliedFilters.phone           || undefined,
     cnic:            appliedFilters.cnic            || undefined,
     status:          appliedFilters.status.length > 0 ? appliedFilters.status.join(',') : undefined,
-    defines_you_best:appliedFilters.defines_you_best.length > 0 ? appliedFilters.defines_you_best.join(',') : undefined,
+    best_describes_you: appliedFilters.best_describes_you.length > 0 ? appliedFilters.best_describes_you.join(',') : undefined,
     gender:          appliedFilters.gender.length > 0 ? appliedFilters.gender.join(',') : undefined,
+    domain:          appliedFilters.domain.length > 0 ? appliedFilters.domain.join(',') : undefined,
     university_org:  appliedFilters.university_org  || undefined,
     checked_in:      appliedFilters.checked_in !== '' ? appliedFilters.checked_in === 'true' : undefined,
     acknowledged:
@@ -198,7 +228,7 @@ export default function RegistrationsViewer() {
     limit: limit === 0 ? 999999 : limit,
   };
 
-  const { data: result, isLoading } = useAdminRegistrations(selectedWorkshop, params);
+  const { data: result, isLoading } = useAdminRegistrations(selectedEvent, params);
   const registrations = result?.data    || [];
   const totalPages    = result?.totalPages || 1;
   const total         = result?.total   || 0;
@@ -264,13 +294,13 @@ export default function RegistrationsViewer() {
   };
 
   const handleExport = async () => {
-    if (!selectedWorkshop) return;
+    if (!selectedEvent) return;
     try {
-      const blob = await adminRegistrationApi.exportCsv(selectedWorkshop);
+      const blob = await adminRegistrationApi.exportCsv(selectedEvent);
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement('a');
       a.href     = url;
-      a.download = `registrations-${selectedWorkshop}.csv`;
+      a.download = `registrations-${selectedEvent}.csv`;
       a.click();
       URL.revokeObjectURL(url);
       toast.success('CSV exported');
@@ -286,42 +316,40 @@ export default function RegistrationsViewer() {
     <div>
       <div className="admin-page-head">
         <h1>Registrations</h1>
-        <p>View, filter, and manage registrations per workshop.</p>
+        <p>View, filter, and manage registrations per event.</p>
       </div>
 
-      {/* Workshop selector */}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
         <div className="w-full min-w-0 sm:max-w-sm sm:flex-1">
-          <label className={labelCls} htmlFor="reg-workshop-select">
-            Workshop
+          <label className={labelCls} htmlFor="reg-event-select">
+            Event
           </label>
           <select
-            id="reg-workshop-select"
+            id="reg-event-select"
             className={inputCls}
-            value={selectedWorkshop}
+            value={selectedEvent}
             onChange={e => {
-              setSelectedWorkshop(e.target.value);
+              setSelectedEvent(e.target.value);
               setPage(1);
               setSelectedIds(new Set());
             }}
           >
-            <option value="">Select a workshop</option>
-            {workshops?.map(w => (
+            <option value="">Select an event</option>
+            {(Array.isArray(events) ? events : events?.data || [])?.map(w => (
               <option key={w.id} value={w.id}>
-                {w.title}
+                {w.title}{w.event_type?.name ? ` — ${w.event_type.name}` : ''}
               </option>
             ))}
           </select>
         </div>
-        {selectedWorkshop && (
+        {selectedEvent && (
           <button type="button" className="ui-btn-secondary w-full shrink-0 sm:w-auto" onClick={handleExport}>
             Export CSV
           </button>
         )}
       </div>
 
-      {/* Filters panel */}
-      {selectedWorkshop && (
+      {selectedEvent && (
         <div className="ui-card-quiet mb-6 p-4 sm:p-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <span className="text-sm font-bold text-slate-900">
@@ -368,16 +396,22 @@ export default function RegistrationsViewer() {
               renderLabel={v => STATUS_LABELS[v] ?? v}
             />
             <MultiSelect
-              label="Profile"
+              label="Best describes you"
               options={PROFILE_OPTIONS}
-              value={draftFilters.defines_you_best}
-              onChange={v => setDraftFilter('defines_you_best', v)}
+              value={draftFilters.best_describes_you}
+              onChange={v => setDraftFilter('best_describes_you', v)}
             />
             <MultiSelect
               label="Gender"
               options={GENDER_OPTIONS}
               value={draftFilters.gender}
               onChange={v => setDraftFilter('gender', v)}
+            />
+            <MultiSelect
+              label="Domain (Hackathon)"
+              options={DOMAIN_OPTIONS}
+              value={draftFilters.domain}
+              onChange={v => setDraftFilter('domain', v)}
             />
             <div>
               <label className={labelCls}>University / Org</label>
@@ -452,13 +486,13 @@ export default function RegistrationsViewer() {
         </div>
       )}
 
-      {!selectedWorkshop && (
+      {!selectedEvent && (
         <div className="ui-card-quiet py-16 text-center text-sm font-medium text-slate-500">
-          Select a workshop to view registrations
+          Select an event to view registrations
         </div>
       )}
 
-      {selectedWorkshop && isLoading && (
+      {selectedEvent && isLoading && (
         <div className="flex justify-center py-16">
           <div className="flex items-center gap-3 text-sm font-medium text-slate-500">
             <span
@@ -470,7 +504,7 @@ export default function RegistrationsViewer() {
         </div>
       )}
 
-      {selectedWorkshop && !isLoading && (
+      {selectedEvent && !isLoading && (
         <>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <span className="text-sm font-medium text-slate-600">

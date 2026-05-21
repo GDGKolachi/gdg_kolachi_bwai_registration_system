@@ -19,7 +19,7 @@ export function useRegister() {
       return registrationApi.register(payload);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['workshops'] });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
     },
   });
 }

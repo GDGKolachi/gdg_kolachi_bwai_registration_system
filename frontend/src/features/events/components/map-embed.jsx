@@ -54,7 +54,7 @@ export default function MapEmbed({ mapLocation }) {
           allowFullScreen
           loading="lazy"
           referrerPolicy="no-referrer-when-downgrade"
-          title="Workshop location"
+          title="Event location"
         />
       </div>
       <a

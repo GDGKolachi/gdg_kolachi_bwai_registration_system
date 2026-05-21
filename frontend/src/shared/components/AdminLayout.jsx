@@ -5,10 +5,12 @@ import { BRAND_NAME, BRAND_TAGLINE_ADMIN } from '../constants/branding';
 
 const navItems = [
   { path: '/admin', label: 'Dashboard', exact: true },
-  { path: '/admin/workshops', label: 'Workshops' },
+  { path: '/admin/events', label: 'Events' },
+  { path: '/admin/event-types', label: 'Event Types' },
   { path: '/admin/registrations', label: 'Registrations' },
   { path: '/admin/exceptions', label: 'Exceptions' },
   { path: '/admin/checkin', label: 'Check-in' },
+  { path: '/admin/hackathon-checkin', label: 'Hackathon Check-in' },
   { path: '/admin/qr-scan', label: 'QR Scan' },
   { path: '/admin/users', label: 'Users' },
 ];

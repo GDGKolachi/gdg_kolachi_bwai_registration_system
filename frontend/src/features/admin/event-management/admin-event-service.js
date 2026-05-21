@@ -1,5 +1,6 @@
-export function validateWorkshopForm(data) {
+export function validateEventForm(data) {
   const errors = {};
+  if (!data.event_type_id) errors.event_type_id = 'Event type is required';
   if (!data.title?.trim()) errors.title = 'Title is required';
   if (!data.description?.trim()) errors.description = 'Description is required';
   if (!data.date) errors.date = 'Date is required';

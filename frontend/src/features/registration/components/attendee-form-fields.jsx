@@ -1,3 +1,5 @@
+import { rolesForEventType } from '../registration-constants';
+
 function formatPhone(value) {
   const digits = value.replace(/\D/g, '');
   if (digits.length <= 4) return digits;
@@ -11,7 +13,9 @@ function formatCnic(value) {
   return digits.slice(0, 5) + '-' + digits.slice(5, 12) + '-' + digits.slice(12, 13);
 }
 
-export default function AttendeeFormFields({ formData, onChange, errors }) {
+export default function AttendeeFormFields({ formData, onChange, errors, eventTypeSlug }) {
+  const roleOptions = rolesForEventType(eventTypeSlug);
+
   const handleChange = e => {
     const { name, value } = e.target;
     if (name === 'phone') {
@@ -152,26 +156,23 @@ export default function AttendeeFormFields({ formData, onChange, errors }) {
           {errors?.gender && <div className="mt-1 text-xs font-medium text-gdg-red">{errors.gender}</div>}
         </div>
         <div className="mb-5">
-          <label className="ui-label-sentence" htmlFor="definesYouBest">
-            What defines you best? *
+          <label className="ui-label-sentence" htmlFor="bestDescribesYou">
+            What best describes you? *
           </label>
           <select
-            id="definesYouBest"
-            name="definesYouBest"
-            value={formData.definesYouBest || ''}
+            id="bestDescribesYou"
+            name="bestDescribesYou"
+            value={formData.bestDescribesYou || ''}
             onChange={handleChange}
-            className={`${inputCls} ${errors?.definesYouBest ? 'border-rose-300 focus:border-gdg-red focus:ring-gdg-red/15' : ''}`}
+            className={`${inputCls} ${errors?.bestDescribesYou ? 'border-rose-300 focus:border-gdg-red focus:ring-gdg-red/15' : ''}`}
           >
             <option value="">Select option</option>
-            <option value="Student">Student</option>
-            <option value="Young Professional">Young Professional</option>
-            <option value="Intermediate Expert">Intermediate Expert</option>
-            <option value="Senior Expert">Senior Expert</option>
-            <option value="Freelancer">Freelancer</option>
-            <option value="Other">Other</option>
+            {roleOptions.map((r) => (
+              <option key={r} value={r}>{r}</option>
+            ))}
           </select>
-          {errors?.definesYouBest && (
-            <div className="mt-1 text-xs font-medium text-gdg-red">{errors.definesYouBest}</div>
+          {errors?.bestDescribesYou && (
+            <div className="mt-1 text-xs font-medium text-gdg-red">{errors.bestDescribesYou}</div>
           )}
         </div>
       </div>

@@ -3,7 +3,9 @@ import { Link, useLocation, useSearchParams } from 'react-router-dom';
 export default function RegistrationConfirmation() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const { workshopTitle, email } = location.state || {};
+  const state = location.state || {};
+  const eventTitle = state.eventTitle ?? state.workshopTitle;
+  const { email } = state;
 
   const acknowledgedParam = searchParams.get('acknowledged');
   const isAcknowledge = acknowledgedParam !== null;
@@ -27,11 +29,11 @@ export default function RegistrationConfirmation() {
           </h1>
           <p className="mb-8 text-sm leading-relaxed text-slate-600">
             {acknowledgeSuccess
-              ? 'We have recorded your acknowledgement. See you at the workshop — bring your QR code from the email for check-in.'
+              ? 'We have recorded your acknowledgement. See you at the event — bring your QR code from the email for check-in.'
               : 'This link may be invalid, or you are not shortlisted yet. If you need help, contact the GDG Kolachi team.'}
           </p>
           <Link to="/" className="ui-btn-primary px-8 no-underline">
-            Browse workshops
+            Browse events
           </Link>
         </div>
       </div>
@@ -45,9 +47,9 @@ export default function RegistrationConfirmation() {
           ✓
         </div>
         <h1 className="mb-3 text-2xl font-bold tracking-tight text-slate-900">Registration submitted</h1>
-        {workshopTitle && (
+        {eventTitle && (
           <p className="mb-2 text-slate-700">
-            You have registered for <strong className="text-slate-900">{workshopTitle}</strong>
+            You have registered for <strong className="text-slate-900">{eventTitle}</strong>
           </p>
         )}
         {email && (
@@ -56,7 +58,7 @@ export default function RegistrationConfirmation() {
           </p>
         )}
         <Link to="/" className="ui-btn-primary px-8 no-underline">
-          Browse more workshops
+          Browse more events
         </Link>
       </div>
     </div>

@@ -1,8 +1,8 @@
-import { getCapacityPercentage, isWorkshopFull } from '../workshop-service';
+import { getCapacityPercentage, isEventFull } from '../event-service';
 
-export default function CapacityBadge({ workshop }) {
-  const percentage = getCapacityPercentage(workshop);
-  const full = isWorkshopFull(workshop);
+export default function CapacityBadge({ event }) {
+  const percentage = getCapacityPercentage(event);
+  const full = isEventFull(event);
   const barColor = full ? 'bg-gdg-red' : percentage > 80 ? 'bg-gdg-yellow' : 'bg-gdg-green';
 
   return (
@@ -14,7 +14,7 @@ export default function CapacityBadge({ workshop }) {
         />
       </div>
       <span className="shrink-0 text-xs font-semibold tabular-nums text-slate-500">
-        {workshop.registeredCount}/{workshop.maxCapacity}
+        {event.registeredCount}/{event.maxCapacity}
       </span>
     </div>
   );

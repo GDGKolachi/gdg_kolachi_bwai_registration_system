@@ -27,7 +27,7 @@ export default function Layout() {
               to="/"
               className="rounded-lg px-3 py-2 text-center text-sm font-semibold text-slate-600 no-underline transition hover:bg-slate-100 hover:text-gdg-blue"
             >
-              Workshops
+              Events
             </Link>
           </nav>
         </div>
