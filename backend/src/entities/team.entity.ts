@@ -14,16 +14,16 @@ export class Team {
   @Column({ type: 'int' })
   team_number: number;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   name: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   primary_domain: string | null;
 
   @Column({ default: 'forming' })
   status: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   created_by: string | null;
 
   @CreateDateColumn()

@@ -34,16 +34,16 @@ export class Registration {
   @Column({ default: false })
   acknowledged: boolean;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   domain: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   track: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   slot: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   role_bucket: string | null;
 
   @ManyToOne(() => Attendee, (a) => a.registrations)

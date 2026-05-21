@@ -13,10 +13,10 @@ export class TeamMember {
   @Column()
   registration_id: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   role_bucket_snapshot: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   domain_snapshot: string | null;
 
   @Column({ default: false })
