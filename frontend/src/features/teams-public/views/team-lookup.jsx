@@ -113,7 +113,9 @@ export default function TeamLookup() {
 
       {result && !result.found && (
         <div className="mt-6 rounded-xl bg-amber-50 px-5 py-6 text-center text-sm font-medium text-amber-900 ring-1 ring-amber-200/70">
-          {result.reason === 'not_assigned'
+          {result.reason === 'not_published'
+            ? "Team assignments for this hackathon haven't been published yet. Please check back later."
+            : result.reason === 'not_assigned'
             ? "You're registered, but you haven't been assigned to a team yet. Check back after check-in."
             : "We couldn't find a registration with that name and email for this hackathon. Double-check your details."}
         </div>

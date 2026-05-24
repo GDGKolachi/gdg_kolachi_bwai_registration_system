@@ -71,6 +71,16 @@ export default function TeamsManagement() {
     }
   };
 
+  const togglePublish = async () => {
+    const next = !config?.teams_published;
+    try {
+      await updateConfig.mutateAsync({ teams_published: next });
+      toast.success(next ? 'Teams published to attendees' : 'Teams hidden from attendees');
+    } catch {
+      toast.error('Failed to update visibility');
+    }
+  };
+
   const handleMove = async (registrationId) => {
     const targetTeamId = moveTargetTeam[registrationId];
     if (!targetTeamId) return;
@@ -94,10 +104,25 @@ export default function TeamsManagement() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className={config?.teams_published ? 'ui-btn-secondary' : 'ui-btn-primary'}
+            onClick={togglePublish}
+            disabled={updateConfig.isPending}
+          >
+            {config?.teams_published ? 'Hide from My Team page' : 'Publish to My Team page'}
+          </button>
           <button type="button" className="ui-btn-secondary" onClick={openConfig}>Edit formation rules</button>
           <button type="button" className="ui-btn-secondary" onClick={handleOptimize} disabled={optimize.isPending}>Optimize</button>
           <button type="button" className="ui-btn-danger" onClick={handleLock} disabled={lock.isPending}>Lock teams</button>
         </div>
+      </div>
+
+      <div className={`mb-6 flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium ${config?.teams_published ? 'bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200/70' : 'bg-slate-50 text-slate-600 ring-1 ring-slate-200/80'}`}>
+        <span className={`inline-block h-2 w-2 rounded-full ${config?.teams_published ? 'bg-emerald-500' : 'bg-slate-400'}`} aria-hidden />
+        {config?.teams_published
+          ? 'Teams are visible on the public “My Team” lookup page.'
+          : 'Teams are hidden — attendees cannot see their assignments on the public “My Team” page yet.'}
       </div>
 
       {isLoading ? (

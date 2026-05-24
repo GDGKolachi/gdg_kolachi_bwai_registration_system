@@ -42,6 +42,9 @@ export class TeamFormationConfig {
   @Column({ default: 'hybrid' })
   assignment_mode: string;
 
+  @Column({ type: 'boolean', default: false })
+  teams_published: boolean;
+
   @UpdateDateColumn()
   updated_at: Date;
 

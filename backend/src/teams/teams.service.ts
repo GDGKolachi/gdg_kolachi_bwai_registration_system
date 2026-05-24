@@ -76,6 +76,11 @@ export class TeamsService {
       throw new BadRequestException('Team lookup is only available for Hackathon events.');
     }
 
+    const config = await this.configRepo.findOne({ where: { event_id: eventId } });
+    if (!config?.teams_published) {
+      return { found: false, reason: 'not_published' as const };
+    }
+
     const registration = await this.registrationRepo
       .createQueryBuilder('r')
       .leftJoinAndSelect('r.attendee', 'a')
