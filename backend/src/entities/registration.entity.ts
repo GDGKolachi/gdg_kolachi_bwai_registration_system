@@ -46,6 +46,9 @@ export class Registration {
   @Column({ type: 'varchar', nullable: true })
   role_bucket: string | null;
 
+  @Column('text', { nullable: true })
+  ambassador: string | null;
+
   @ManyToOne(() => Attendee, (a) => a.registrations)
   @JoinColumn({ name: 'attendee_id' })
   attendee: Attendee;

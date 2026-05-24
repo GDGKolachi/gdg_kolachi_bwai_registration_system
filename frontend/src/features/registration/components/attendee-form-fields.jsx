@@ -176,6 +176,20 @@ export default function AttendeeFormFields({ formData, onChange, errors, eventTy
           )}
         </div>
       </div>
+      <div className="mb-5 mt-5">
+        <label className="ui-label-sentence" htmlFor="ambassador">
+          Referred by (Ambassador)
+        </label>
+        <input
+          id="ambassador"
+          name="ambassador"
+          value={formData.ambassador || ''}
+          onChange={handleChange}
+          placeholder="Name of the ambassador who referred you (optional)"
+          className={inputCls}
+        />
+        <p className="mt-1.5 text-xs text-slate-500">Optional — leave blank if no one referred you.</p>
+      </div>
     </>
   );
 }

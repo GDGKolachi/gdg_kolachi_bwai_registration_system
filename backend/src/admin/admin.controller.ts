@@ -87,6 +87,7 @@ export class AdminController {
     @Query('university_org') universityOrg?: string,
     @Query('domain') domain?: string,
     @Query('role_bucket') roleBucket?: string,
+    @Query('ambassador') ambassador?: string,
     @Query('checked_in') checkedIn?: string,
     @Query('acknowledged') acknowledged?: string,
     @Query('date_from') dateFrom?: string,
@@ -107,6 +108,7 @@ export class AdminController {
       university_org: universityOrg,
       domain,
       role_bucket: roleBucket,
+      ambassador,
       checked_in: checkedIn !== undefined && checkedIn !== '' ? checkedIn === 'true' : undefined,
       acknowledged:
         acknowledged !== undefined && acknowledged !== '' ? acknowledged === 'true' : undefined,
@@ -117,6 +119,14 @@ export class AdminController {
       page: page ? parseInt(page) : 1,
       limit: limit ? parseInt(limit) : 20,
     });
+  }
+
+  @Get('registrations/ambassadors')
+  getAmbassadors(
+    @Query('event_id') eventId: string,
+    @Query('workshop_id') legacyEventId: string,
+  ) {
+    return this.adminService.getAmbassadors(eventId || legacyEventId);
   }
 
   @Get('registrations/export')

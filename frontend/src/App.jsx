@@ -6,6 +6,7 @@ import EventDetail from './features/events/views/event-detail';
 import RegistrationForm from './features/registration/views/registration-form';
 import RegistrationConfirmation from './features/registration/views/registration-confirmation';
 import ExceptionRequestForm from './features/exceptions/views/exception-request-form';
+import TeamLookup from './features/teams-public/views/team-lookup';
 import Login from './features/admin/auth/views/login';
 import DashboardHome from './features/admin/dashboard/views/dashboard-home';
 import EventCrud from './features/admin/event-management/views/event-crud';
@@ -30,6 +31,7 @@ function App() {
         <Route path="/registration/confirmation" element={<RegistrationConfirmation />} />
         <Route path="/exception-request/:eventId" element={<ExceptionRequestForm />} />
         <Route path="/exception-request/workshop/:workshopId" element={<ExceptionRequestForm />} />
+        <Route path="/my-team" element={<TeamLookup />} />
       </Route>
       <Route path="/admin/login" element={<Login />} />
       <Route path="/admin" element={<AdminLayout />}>

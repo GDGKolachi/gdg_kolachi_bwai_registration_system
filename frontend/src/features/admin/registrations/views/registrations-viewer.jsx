@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { useAdminEvents } from '../../event-management/admin-event-repository';
-import { useAdminRegistrations, useUpdateRegistrationStatus, useBulkUpdateStatus } from '../admin-registration-repository';
+import { useAdminRegistrations, useUpdateRegistrationStatus, useBulkUpdateStatus, useEventAmbassadors } from '../admin-registration-repository';
 import { adminRegistrationApi } from '../admin-registration-api';
 import {
   STATUS_COLORS,
@@ -31,6 +31,7 @@ const INITIAL_FILTERS = {
   best_describes_you: [],
   gender: [],
   domain: [],
+  ambassador: [],
   university_org: '',
   checked_in: '',
   acknowledged: '',
@@ -189,6 +190,7 @@ function MultiSelect({ label, options, value, onChange, renderLabel }) {
 export default function RegistrationsViewer() {
   const { data: events } = useAdminEvents();
   const [selectedEvent, setSelectedEvent] = useState('');
+  const { data: ambassadorOptions } = useEventAmbassadors(selectedEvent);
 
   // draft = what user is editing; applied = what is sent to API
   const [draftFilters, setDraftFilters]     = useState(INITIAL_FILTERS);
@@ -216,6 +218,7 @@ export default function RegistrationsViewer() {
     best_describes_you: appliedFilters.best_describes_you.length > 0 ? appliedFilters.best_describes_you.join(',') : undefined,
     gender:          appliedFilters.gender.length > 0 ? appliedFilters.gender.join(',') : undefined,
     domain:          appliedFilters.domain.length > 0 ? appliedFilters.domain.join(',') : undefined,
+    ambassador:      appliedFilters.ambassador.length > 0 ? appliedFilters.ambassador.join(',') : undefined,
     university_org:  appliedFilters.university_org  || undefined,
     checked_in:      appliedFilters.checked_in !== '' ? appliedFilters.checked_in === 'true' : undefined,
     acknowledged:
@@ -413,6 +416,12 @@ export default function RegistrationsViewer() {
               value={draftFilters.domain}
               onChange={v => setDraftFilter('domain', v)}
             />
+            <MultiSelect
+              label="Ambassador"
+              options={ambassadorOptions || []}
+              value={draftFilters.ambassador}
+              onChange={v => setDraftFilter('ambassador', v)}
+            />
             <div>
               <label className={labelCls}>University / Org</label>
               <input className={inputCls} placeholder="Search organization..." value={draftFilters.university_org} onChange={e => setDraftFilter('university_org', e.target.value)} />
@@ -568,6 +577,9 @@ export default function RegistrationsViewer() {
                     University / Org
                   </th>
                   <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Ambassador
+                  </th>
+                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                     GitHub
                   </th>
                   <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -645,6 +657,11 @@ export default function RegistrationsViewer() {
                         {a.university_org || '—'}
                       </td>
 
+                      {/* Ambassador */}
+                      <td className="py-2.5 px-3 border-b border-slate-100 max-w-[160px] truncate" title={r.ambassador}>
+                        {r.ambassador || '—'}
+                      </td>
+
                       {/* GitHub */}
                       <td className="py-2.5 px-3 border-b border-slate-100 whitespace-nowrap">
                         {a.github ? (
@@ -699,7 +716,7 @@ export default function RegistrationsViewer() {
                 })}
                 {registrations.length === 0 && (
                   <tr>
-                    <td colSpan={14} className="py-8 text-center text-sm text-slate-500">
+                    <td colSpan={15} className="py-8 text-center text-sm text-slate-500">
                       No registrations found
                     </td>
                   </tr>

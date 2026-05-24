@@ -9,6 +9,14 @@ export function useAdminRegistrations(eventId, params = {}) {
   });
 }
 
+export function useEventAmbassadors(eventId) {
+  return useQuery({
+    queryKey: ['admin-ambassadors', eventId],
+    queryFn: () => adminRegistrationApi.getAmbassadors(eventId),
+    enabled: !!eventId,
+  });
+}
+
 // Unified hook — works for a single ID or an array of IDs
 export function useUpdateRegistrationStatus() {
   const qc = useQueryClient();

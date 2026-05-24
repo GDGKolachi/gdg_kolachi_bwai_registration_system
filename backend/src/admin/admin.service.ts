@@ -71,6 +71,7 @@ export class AdminService {
       university_org?: string;
       domain?: string;
       role_bucket?: string;
+      ambassador?: string;
       checked_in?: boolean;
       acknowledged?: boolean;
       date_from?: string;
@@ -125,6 +126,12 @@ export class AdminService {
       else if (buckets.length > 1) qb.andWhere('r.role_bucket IN (:...buckets)', { buckets });
     }
 
+    if (filters.ambassador) {
+      const ambassadors = filters.ambassador.split(',').map(s => s.trim()).filter(Boolean);
+      if (ambassadors.length === 1) qb.andWhere('r.ambassador = :ambassador', { ambassador: ambassadors[0] });
+      else if (ambassadors.length > 1) qb.andWhere('r.ambassador IN (:...ambassadors)', { ambassadors });
+    }
+
     if (filters.checked_in !== undefined) qb.andWhere('r.checked_in = :checkedIn', { checkedIn: filters.checked_in });
     if (filters.acknowledged !== undefined) qb.andWhere('r.acknowledged = :acknowledged', { acknowledged: filters.acknowledged });
     if (filters.date_from) qb.andWhere('r.registered_at >= :dateFrom', { dateFrom: filters.date_from });
@@ -143,6 +150,17 @@ export class AdminService {
       .getMany();
 
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
+
+  async getAmbassadors(eventId: string): Promise<string[]> {
+    const qb = this.registrationRepo
+      .createQueryBuilder('r')
+      .select('DISTINCT r.ambassador', 'ambassador')
+      .where('r.ambassador IS NOT NULL')
+      .andWhere("TRIM(r.ambassador) <> ''");
+    if (eventId) qb.andWhere('r.event_id = :eventId', { eventId });
+    const rows = await qb.orderBy('r.ambassador', 'ASC').getRawMany();
+    return rows.map((row) => row.ambassador).filter(Boolean);
   }
 
   private static readonly VALID_TRANSITIONS: Record<string, string[]> = {

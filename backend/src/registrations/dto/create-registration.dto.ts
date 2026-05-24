@@ -59,4 +59,9 @@ export class CreateRegistrationDto {
   @IsOptional()
   @IsString()
   slot?: string;
+
+  // Optional referral — name of the ambassador who referred the attendee.
+  @IsOptional()
+  @IsString()
+  ambassador?: string;
 }

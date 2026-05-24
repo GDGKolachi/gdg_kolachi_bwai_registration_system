@@ -13,6 +13,7 @@ export const adminRegistrationApi = {
     if (params.university_org) query.set('university_org', params.university_org);
     if (params.domain) query.set('domain', params.domain);
     if (params.role_bucket) query.set('role_bucket', params.role_bucket);
+    if (params.ambassador) query.set('ambassador', params.ambassador);
     if (params.checked_in !== undefined) query.set('checked_in', String(params.checked_in));
     if (params.acknowledged !== undefined) query.set('acknowledged', String(params.acknowledged));
     if (params.date_from) query.set('date_from', params.date_from);
@@ -25,6 +26,8 @@ export const adminRegistrationApi = {
   },
   exportCsv: (eventId) =>
     api.get(`/admin/registrations/export?event_id=${eventId}`, { responseType: 'blob' }).then((res) => res.data),
+  getAmbassadors: (eventId) =>
+    api.get(`/admin/registrations/ambassadors?event_id=${eventId}`).then((res) => res.data),
   updateStatus: (ids, status) =>
     api
       .patch('/admin/registrations/status', {

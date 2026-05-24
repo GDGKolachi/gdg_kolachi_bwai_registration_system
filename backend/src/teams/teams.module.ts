@@ -9,6 +9,7 @@ import { Attendee } from '../entities/attendee.entity';
 import { RoleCategory } from '../entities/role-category.entity';
 import { TeamsService } from './teams.service';
 import { TeamsController } from './teams.controller';
+import { PublicTeamsController } from './public-teams.controller';
 import { TeamAssignmentService } from './team-assignment.service';
 
 @Module({
@@ -23,7 +24,7 @@ import { TeamAssignmentService } from './team-assignment.service';
       RoleCategory,
     ]),
   ],
-  controllers: [TeamsController],
+  controllers: [TeamsController, PublicTeamsController],
   providers: [TeamsService, TeamAssignmentService],
   exports: [TeamsService, TeamAssignmentService],
 })
