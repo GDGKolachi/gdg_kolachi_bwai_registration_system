@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import api from '../../../../axios-instance';
 import { useAdminEvents } from '../../event-management/admin-event-repository';
 import { checkinApi } from '../../checkin/checkin-api';
 import { useToggleCheckin } from '../../checkin/checkin-repository';
@@ -17,6 +18,9 @@ export default function HackathonCheckinView() {
   const [allAttendees, setAllAttendees] = useState([]);
   const [loading, setLoading] = useState(false);
   const [lastAssignment, setLastAssignment] = useState(null);
+  const [scanning, setScanning] = useState(false);
+  const [scanLookup, setScanLookup] = useState(false);
+  const html5QrRef = useRef(null);
 
   const toggleMutation = useToggleCheckin();
   const hackathonCheckin = useHackathonCheckin(selectedEvent);
@@ -65,6 +69,70 @@ export default function HackathonCheckinView() {
       toast.error(err.response?.data?.message || 'Assignment failed');
     }
   };
+
+  const stopScanner = useCallback(async () => {
+    if (html5QrRef.current) {
+      await html5QrRef.current.stop().catch(() => {});
+      html5QrRef.current.clear();
+      html5QrRef.current = null;
+    }
+    setScanning(false);
+  }, []);
+
+  const handleQrScan = async (qrData) => {
+    setScanLookup(true);
+    try {
+      const res = await api.post('/admin/qr-scan', { qr_data: qrData });
+      const registration = allAttendees.find((r) => r.id === res.data.registrationId);
+      if (!registration) {
+        toast.error('This attendee is not registered for the selected hackathon');
+        return;
+      }
+      await handleHackathonCheckin(registration);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Invalid QR code');
+    } finally {
+      setScanLookup(false);
+    }
+  };
+
+  const startScanner = async () => {
+    if (!selectedEvent) {
+      toast.error('Select a hackathon event first');
+      return;
+    }
+    try {
+      const { Html5Qrcode } = await import('html5-qrcode');
+      if (html5QrRef.current) {
+        await html5QrRef.current.stop().catch(() => {});
+      }
+      const html5QrCode = new Html5Qrcode('hc-qr-reader');
+      html5QrRef.current = html5QrCode;
+      setScanning(true);
+      await html5QrCode.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        (decodedText) => {
+          stopScanner();
+          handleQrScan(decodedText);
+        },
+        () => {},
+      );
+    } catch {
+      toast.error('Camera access denied or not available');
+      setScanning(false);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (html5QrRef.current) {
+        html5QrRef.current.stop().catch(() => {});
+        html5QrRef.current.clear();
+        html5QrRef.current = null;
+      }
+    };
+  }, []);
 
   const query = searchQuery.trim().toLowerCase();
   const results = query
@@ -121,6 +189,27 @@ export default function HackathonCheckinView() {
             <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Event</div>
             <div className="mt-1 truncate text-sm font-semibold text-slate-900" title={currentEvent?.title}>{currentEvent?.title || '—'}</div>
           </div>
+        </div>
+      )}
+
+      {selectedEvent && (
+        <div className="ui-card mb-6 p-4 sm:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold tracking-tight text-slate-900">Scan to check in</h2>
+              <p className="mt-0.5 text-sm text-slate-500">Scan a participant QR code to check in and auto-assign a team.</p>
+            </div>
+            {!scanning ? (
+              <button type="button" className="ui-btn-primary" onClick={startScanner} disabled={scanLookup}>
+                {scanLookup ? 'Assigning…' : 'Start scanner'}
+              </button>
+            ) : (
+              <button type="button" className="ui-btn-danger" onClick={stopScanner}>
+                Stop scanner
+              </button>
+            )}
+          </div>
+          <div id="hc-qr-reader" className={`mt-4 w-full overflow-hidden rounded-xl ring-1 ring-slate-200 ${scanning ? '' : 'hidden'}`} />
         </div>
       )}
 
