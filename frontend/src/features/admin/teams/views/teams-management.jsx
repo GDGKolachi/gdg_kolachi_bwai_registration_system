@@ -5,7 +5,6 @@ import {
   useTeams,
   useTeamFormationConfig,
   useUpdateTeamFormationConfig,
-  useOptimizeTeams,
   useLockTeams,
   useUnlockTeam,
   useMoveMember,
@@ -28,7 +27,6 @@ export default function TeamsManagement() {
   const { data: teams = [], isLoading } = useTeams(eventId);
   const { data: config } = useTeamFormationConfig(eventId);
   const updateConfig = useUpdateTeamFormationConfig(eventId);
-  const optimize = useOptimizeTeams(eventId);
   const lock = useLockTeams(eventId);
   const unlock = useUnlockTeam(eventId);
   const moveMember = useMoveMember(eventId);
@@ -49,15 +47,6 @@ export default function TeamsManagement() {
       setConfigOpen(false);
     } catch {
       toast.error('Failed to update config');
-    }
-  };
-
-  const handleOptimize = async () => {
-    try {
-      const result = await optimize.mutateAsync();
-      toast.success(`Optimized — ${result.swapped} swaps`);
-    } catch {
-      toast.error('Optimize failed');
     }
   };
 
@@ -113,7 +102,6 @@ export default function TeamsManagement() {
             {config?.teams_published ? 'Hide from My Team page' : 'Publish to My Team page'}
           </button>
           <button type="button" className="ui-btn-secondary" onClick={openConfig}>Edit formation rules</button>
-          <button type="button" className="ui-btn-secondary" onClick={handleOptimize} disabled={optimize.isPending}>Optimize</button>
           <button type="button" className="ui-btn-danger" onClick={handleLock} disabled={lock.isPending}>Lock teams</button>
         </div>
       </div>
@@ -207,11 +195,6 @@ export default function TeamsManagement() {
                 ['target_developers_per_team', 'Target developers / team'],
                 ['target_designers_per_team', 'Target designers / team'],
                 ['target_others_per_team', 'Target others / team'],
-                ['soft_cap_developers_per_team', 'Soft cap developers / team'],
-                ['domain_match_weight', 'Domain match weight'],
-                ['role_gap_weight', 'Role-gap weight'],
-                ['role_overflow_penalty', 'Role-overflow penalty'],
-                ['near_full_penalty', 'Near-full penalty'],
               ].map(([key, label]) => (
                 <div key={key} className="mb-3">
                   <label className="ui-label-sentence" htmlFor={`cfg-${key}`}>{label}</label>
