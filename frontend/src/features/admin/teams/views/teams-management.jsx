@@ -201,14 +201,6 @@ export default function TeamsManagement() {
                   <input id={`cfg-${key}`} type="number" className="ui-input" value={draft[key] ?? ''} onChange={(e) => setDraft((d) => ({ ...d, [key]: Number(e.target.value) }))} />
                 </div>
               ))}
-              <div className="mb-3 sm:col-span-2">
-                <label className="ui-label-sentence" htmlFor="cfg-mode">Assignment mode</label>
-                <select id="cfg-mode" className="ui-input" value={draft.assignment_mode || 'hybrid'} onChange={(e) => setDraft((d) => ({ ...d, assignment_mode: e.target.value }))}>
-                  <option value="streaming">Streaming (instant assignment)</option>
-                  <option value="batch">Batch (assign all after check-in window)</option>
-                  <option value="hybrid">Hybrid (streaming + rebalance)</option>
-                </select>
-              </div>
             </div>
             <div className="mt-4 flex justify-end gap-3">
               <button type="button" className="ui-btn-secondary" onClick={() => setConfigOpen(false)}>Cancel</button>
