@@ -85,9 +85,15 @@ export class TeamAssignmentService {
 
     const openTeams = teams.filter((t) => t.status !== 'locked' && (t.members?.length ?? 0) < cfg.max_team_size);
 
-    // Pick a team via scoring.
+    // Hard domain filter: only consider teams whose primary_domain matches the
+    // incoming member's domain. When no domain is set fall back to all open teams.
+    const candidateTeams = registration.domain
+      ? openTeams.filter((t) => t.primary_domain === registration.domain)
+      : openTeams;
+
+    // Score within the domain-compatible candidates by role composition.
     let best: { team: Team; score: number } | null = null;
-    for (const team of openTeams) {
+    for (const team of candidateTeams) {
       const score = this.scoreTeam(team, roleBucket, registration.domain, cfg);
       if (best === null || score > best.score) best = { team, score };
     }
@@ -95,28 +101,38 @@ export class TeamAssignmentService {
     let chosenTeam: Team;
     let isNewTeam = false;
 
-    if (!best || best.score < 0) {
-      // Try to create a new team if cap allows.
-      if (teams.length < cfg.max_teams) {
-        const nextNumber = (teams[teams.length - 1]?.team_number ?? 0) + 1;
-        chosenTeam = this.teamRepo.create({
-          event_id: registration.event_id,
-          team_number: nextNumber,
-          primary_domain: registration.domain || null,
-          status: 'forming',
-          created_by: adminId || null,
-        });
-        chosenTeam = await this.teamRepo.save(chosenTeam);
-        isNewTeam = true;
-      } else if (best) {
-        chosenTeam = best.team;
+    if (best && best.score >= 0) {
+      // A domain-matching team with a positive role score exists — use it.
+      chosenTeam = best.team;
+    } else if (teams.length < cfg.max_teams) {
+      // No suitable domain-matching team → start a new one seeded with this domain.
+      const nextNumber = (teams[teams.length - 1]?.team_number ?? 0) + 1;
+      chosenTeam = this.teamRepo.create({
+        event_id: registration.event_id,
+        team_number: nextNumber,
+        primary_domain: registration.domain || null,
+        status: 'forming',
+        created_by: adminId || null,
+      });
+      chosenTeam = await this.teamRepo.save(chosenTeam);
+      isNewTeam = true;
+    } else if (best) {
+      // At team cap but a domain-matching team exists — use it even if role score is suboptimal.
+      chosenTeam = best.team;
+    } else {
+      // Absolute last resort: best team from all open teams (domain cap exceeded).
+      let anyBest: { team: Team; score: number } | null = null;
+      for (const team of openTeams) {
+        const score = this.scoreTeam(team, roleBucket, registration.domain, cfg);
+        if (anyBest === null || score > anyBest.score) anyBest = { team, score };
+      }
+      if (anyBest) {
+        chosenTeam = anyBest.team;
       } else {
         throw new BadRequestException(
           `All ${cfg.max_teams} teams are at full capacity (${cfg.max_team_size} members each). Manual placement required.`,
         );
       }
-    } else {
-      chosenTeam = best.team;
     }
 
     const member = this.memberRepo.create({
@@ -205,6 +221,12 @@ export class TeamAssignmentService {
           const b = teams[j];
           for (const ma of a.members || []) {
             for (const mb of b.members || []) {
+              // Domain hard constraint: only swap when each member is compatible
+              // with the target team's domain.
+              const aCanGoToB = !ma.domain_snapshot || !b.primary_domain || ma.domain_snapshot === b.primary_domain;
+              const bCanGoToA = !mb.domain_snapshot || !a.primary_domain || mb.domain_snapshot === a.primary_domain;
+              if (!aCanGoToB || !bCanGoToA) continue;
+
               const before =
                 this.scoreTeamRaw(a, cfg) + this.scoreTeamRaw(b, cfg);
               // Swap snapshots
@@ -245,10 +267,15 @@ export class TeamAssignmentService {
     if ((counts['developer'] || 0) > cfg.soft_cap_developers_per_team) {
       score -= ((counts['developer'] || 0) - cfg.soft_cap_developers_per_team) * cfg.role_overflow_penalty;
     }
-    // Domain cohesion: members matching primary_domain
+    // Domain cohesion: reward matches, heavily penalise mismatches.
     if (team.primary_domain) {
-      const matching = members.filter((m) => m.domain_snapshot === team.primary_domain).length;
-      score += matching * cfg.domain_match_weight;
+      for (const m of members) {
+        if (m.domain_snapshot === team.primary_domain) {
+          score += cfg.domain_match_weight;
+        } else if (m.domain_snapshot) {
+          score -= cfg.domain_match_weight * 3;
+        }
+      }
     }
     return score;
   }
