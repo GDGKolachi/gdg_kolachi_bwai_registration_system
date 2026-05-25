@@ -85,13 +85,16 @@ export class TeamAssignmentService {
 
     const openTeams = teams.filter((t) => t.status !== 'locked' && (t.members?.length ?? 0) < cfg.max_team_size);
 
-    // Hard domain filter: only consider teams whose primary_domain matches the
-    // incoming member's domain. When no domain is set fall back to all open teams.
-    const candidateTeams = registration.domain
-      ? openTeams.filter((t) => t.primary_domain === registration.domain)
-      : openTeams;
+    // Hard constraints: a candidate team must (a) match the member's domain and
+    // (b) still have room for the member's role group under its per-team target.
+    const roleTarget = this.targetFor(roleBucket, cfg);
+    const candidateTeams = openTeams.filter((t) => {
+      if (registration.domain && t.primary_domain !== registration.domain) return false;
+      if (this.roleGroupCount(t.members || [], roleBucket) >= roleTarget) return false;
+      return true;
+    });
 
-    // Score within the domain-compatible candidates by role composition.
+    // Score within the hard-constrained candidates by role composition.
     let best: { team: Team; score: number } | null = null;
     for (const team of candidateTeams) {
       const score = this.scoreTeam(team, roleBucket, registration.domain, cfg);
@@ -101,11 +104,11 @@ export class TeamAssignmentService {
     let chosenTeam: Team;
     let isNewTeam = false;
 
-    if (best && best.score >= 0) {
-      // A domain-matching team with a positive role score exists — use it.
+    if (best) {
+      // A team satisfying domain + role-target constraints exists — use the best.
       chosenTeam = best.team;
     } else if (teams.length < cfg.max_teams) {
-      // No suitable domain-matching team → start a new one seeded with this domain.
+      // No constraint-satisfying team → start a new one seeded with this domain.
       const nextNumber = (teams[teams.length - 1]?.team_number ?? 0) + 1;
       chosenTeam = this.teamRepo.create({
         event_id: registration.event_id,
@@ -116,13 +119,15 @@ export class TeamAssignmentService {
       });
       chosenTeam = await this.teamRepo.save(chosenTeam);
       isNewTeam = true;
-    } else if (best) {
-      // At team cap but a domain-matching team exists — use it even if role score is suboptimal.
-      chosenTeam = best.team;
     } else {
-      // Absolute last resort: best team from all open teams (domain cap exceeded).
+      // Absolute last resort: team cap reached and no constraint-satisfying team.
+      // Prefer a domain-matching open team, otherwise any open team.
+      const domainOpen = registration.domain
+        ? openTeams.filter((t) => t.primary_domain === registration.domain)
+        : openTeams;
+      const pool = domainOpen.length > 0 ? domainOpen : openTeams;
       let anyBest: { team: Team; score: number } | null = null;
-      for (const team of openTeams) {
+      for (const team of pool) {
         const score = this.scoreTeam(team, roleBucket, registration.domain, cfg);
         if (anyBest === null || score > anyBest.score) anyBest = { team, score };
       }
@@ -167,15 +172,14 @@ export class TeamAssignmentService {
       score += cfg.domain_match_weight;
     }
 
-    const bucketCounts = this.bucketCounts(members);
     const target = this.targetFor(roleBucket, cfg);
-    const current = bucketCounts[roleBucket] || 0;
+    const current = this.roleGroupCount(members, roleBucket);
 
     if (current < target) score += cfg.role_gap_weight;
     else score -= cfg.role_overflow_penalty;
 
     // Developer soft cap
-    if (roleBucket === 'developer' && (bucketCounts['developer'] || 0) >= cfg.soft_cap_developers_per_team) {
+    if (roleBucket === 'developer' && this.roleGroupCount(members, 'developer') >= cfg.soft_cap_developers_per_team) {
       score -= cfg.role_overflow_penalty * 2;
     }
 
@@ -194,10 +198,42 @@ export class TeamAssignmentService {
     return counts;
   }
 
+  /** Resolve which target group a bucket belongs to. */
+  private roleGroup(bucket: string): 'developer' | 'designer' | 'other' {
+    if (bucket === 'developer') return 'developer';
+    if (bucket === 'designer' || bucket === 'product_designer') return 'designer';
+    return 'other';
+  }
+
+  /** Count members sharing the same target group as the given bucket. */
+  private roleGroupCount(members: TeamMember[], bucket: string): number {
+    const group = this.roleGroup(bucket);
+    return members.filter((m) => this.roleGroup(m.role_bucket_snapshot || 'other') === group).length;
+  }
+
   private targetFor(bucket: string, cfg: TeamFormationConfig): number {
-    if (bucket === 'developer') return cfg.target_developers_per_team;
-    if (bucket === 'designer' || bucket === 'product_designer') return cfg.target_designers_per_team;
+    const group = this.roleGroup(bucket);
+    if (group === 'developer') return cfg.target_developers_per_team;
+    if (group === 'designer') return cfg.target_designers_per_team;
     return cfg.target_others_per_team;
+  }
+
+  /** True when a member set exceeds any per-team role-group target. */
+  private exceedsRoleTargets(members: TeamMember[], cfg: TeamFormationConfig): boolean {
+    let dev = 0;
+    let des = 0;
+    let oth = 0;
+    for (const m of members) {
+      const group = this.roleGroup(m.role_bucket_snapshot || 'other');
+      if (group === 'developer') dev++;
+      else if (group === 'designer') des++;
+      else oth++;
+    }
+    return (
+      dev > cfg.target_developers_per_team ||
+      des > cfg.target_designers_per_team ||
+      oth > cfg.target_others_per_team
+    );
   }
 
   /** Pairwise swap pass: trade members between teams when it improves global score. */
@@ -232,6 +268,8 @@ export class TeamAssignmentService {
               // Swap snapshots
               const aMembersAfter = (a.members || []).map((m) => (m.id === ma.id ? mb : m));
               const bMembersAfter = (b.members || []).map((m) => (m.id === mb.id ? ma : m));
+              // Role-target hard constraint: never swap into an over-target composition.
+              if (this.exceedsRoleTargets(aMembersAfter, cfg) || this.exceedsRoleTargets(bMembersAfter, cfg)) continue;
               const after =
                 this.scoreTeamRaw({ ...a, members: aMembersAfter } as Team, cfg) +
                 this.scoreTeamRaw({ ...b, members: bMembersAfter } as Team, cfg);
