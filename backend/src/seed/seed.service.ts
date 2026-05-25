@@ -26,8 +26,7 @@ const ROLE_CATEGORIES: Array<{ role_name: string; bucket: string }> = [
   { role_name: 'Game Designer', bucket: 'designer' },
   { role_name: 'Other Designer', bucket: 'designer' },
   { role_name: 'SQA Engineer/Tester', bucket: 'qa' },
-  { role_name: 'Product', bucket: 'other' },
-  { role_name: 'Marketing', bucket: 'sales' },
+  { role_name: 'Product and Marketing', bucket: 'sales' },
   { role_name: 'Freelancer', bucket: 'freelancer' },
   { role_name: 'Others', bucket: 'other' },
 ];

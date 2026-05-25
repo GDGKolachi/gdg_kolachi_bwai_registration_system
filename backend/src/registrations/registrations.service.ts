@@ -34,8 +34,7 @@ const HACKATHON_ROLES = [
   'Game Designer',
   'Other Designer',
   'SQA Engineer/Tester',
-  'Product',
-  'Marketing',
+  'Product and Marketing',
   'Freelancer',
   'Others',
 ];

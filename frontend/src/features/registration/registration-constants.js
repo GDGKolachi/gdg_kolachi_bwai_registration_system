@@ -22,8 +22,7 @@ export const HACKATHON_ROLE_OPTIONS = [
   'Game Designer',
   'Other Designer',
   'SQA Engineer/Tester',
-  'Product',
-  'Marketing',
+  'Product and Marketing',
   'Freelancer',
   'Others',
 ];
