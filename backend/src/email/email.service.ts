@@ -83,7 +83,7 @@ export class EmailService {
     registrationId: string,
     qrData: string,
   ) {
-    const appUrl = process.env.APP_URL || 'http://localhost:3000';
+    const appUrl = (process.env.APP_URL || 'http://localhost:3000').replace(/\/api\/?$/, '').replace(/\/$/, '');
     const acknowledgeUrl = `${appUrl}/api/registrations/${registrationId}/acknowledge`;
 
     const isOnline = !!event.is_online;
@@ -182,7 +182,7 @@ export class EmailService {
     for (let i = 0; i < recipients.length; i += batchSize) {
       const chunk = recipients.slice(i, i + batchSize);
 
-      const appUrl = process.env.APP_URL || 'http://localhost:3000';
+      const appUrl = (process.env.APP_URL || 'http://localhost:3000').replace(/\/api\/?$/, '').replace(/\/$/, '');
       const messages = await Promise.all(
         chunk.map(async (r) => {
           const acknowledgeUrl = `${appUrl}/api/registrations/${r.registrationId}/acknowledge`;
