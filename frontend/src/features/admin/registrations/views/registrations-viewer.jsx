@@ -58,7 +58,8 @@ const PROFILE_OPTIONS = [
   'Game Designer',
   'Other Designer',
   'SQA Engineer/Tester',
-  'Software Sales Executive',
+  'Product',
+  'Marketing',
   'Others',
 ];
 
