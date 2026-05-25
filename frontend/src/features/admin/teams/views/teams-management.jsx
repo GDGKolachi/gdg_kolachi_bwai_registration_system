@@ -188,24 +188,65 @@ export default function TeamsManagement() {
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-0 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setConfigOpen(false)}>
           <div className="ui-card max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-b-none rounded-t-2xl p-5 shadow-2xl sm:rounded-2xl sm:p-8" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
             <h2 className="mb-6 text-xl font-bold tracking-tight text-slate-900">Team formation rules</h2>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {[
-                ['max_teams', 'Max teams'],
-                ['max_team_size', 'Max members per team'],
-                ['target_developers_per_team', 'Target developers / team'],
-                ['target_designers_per_team', 'Target designers / team'],
-                ['target_others_per_team', 'Target others / team'],
-              ].map(([key, label]) => (
-                <div key={key} className="mb-3">
-                  <label className="ui-label-sentence" htmlFor={`cfg-${key}`}>{label}</label>
-                  <input id={`cfg-${key}`} type="number" className="ui-input" value={draft[key] ?? ''} onChange={(e) => setDraft((d) => ({ ...d, [key]: Number(e.target.value) }))} />
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 flex justify-end gap-3">
-              <button type="button" className="ui-btn-secondary" onClick={() => setConfigOpen(false)}>Cancel</button>
-              <button type="button" className="ui-btn-primary" disabled={updateConfig.isPending} onClick={saveConfig}>Save</button>
-            </div>
+            {(() => {
+              const maxSize = Number(draft.max_team_size) || 0;
+              const devTarget = Number(draft.target_developers_per_team) || 0;
+              const desTarget = Number(draft.target_designers_per_team) || 0;
+              const othTarget = Number(draft.target_others_per_team) || 0;
+              const rolesSum = devTarget + desTarget + othTarget;
+              const sumMismatch = rolesSum !== maxSize;
+              const anyOverMax = devTarget > maxSize || desTarget > maxSize || othTarget > maxSize;
+              const configInvalid = sumMismatch || anyOverMax;
+
+              return (
+                <>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="mb-3">
+                      <label className="ui-label-sentence" htmlFor="cfg-max_teams">Max teams</label>
+                      <input id="cfg-max_teams" type="number" min={1} className="ui-input" value={draft.max_teams ?? ''} onChange={(e) => setDraft((d) => ({ ...d, max_teams: Number(e.target.value) }))} />
+                    </div>
+                    <div className="mb-3">
+                      <label className="ui-label-sentence" htmlFor="cfg-max_team_size">Max members per team</label>
+                      <input id="cfg-max_team_size" type="number" min={1} className="ui-input" value={draft.max_team_size ?? ''} onChange={(e) => setDraft((d) => ({ ...d, max_team_size: Number(e.target.value) }))} />
+                    </div>
+                    {[
+                      ['target_developers_per_team', 'Target developers / team', devTarget],
+                      ['target_designers_per_team', 'Target designers / team', desTarget],
+                      ['target_others_per_team', 'Target others / team', othTarget],
+                    ].map(([key, label, val]) => {
+                      const over = Number(val) > maxSize;
+                      return (
+                        <div key={key} className="mb-3">
+                          <label className="ui-label-sentence" htmlFor={`cfg-${key}`}>{label}</label>
+                          <input
+                            id={`cfg-${key}`}
+                            type="number"
+                            min={0}
+                            max={maxSize || undefined}
+                            className={`ui-input ${over ? 'border-rose-300 focus:border-gdg-red focus:ring-gdg-red/15' : ''}`}
+                            value={draft[key] ?? ''}
+                            onChange={(e) => setDraft((d) => ({ ...d, [key]: Number(e.target.value) }))}
+                          />
+                          {over && <p className="mt-1 text-xs font-medium text-gdg-red">Cannot exceed max members per team ({maxSize})</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className={`mt-1 mb-4 flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium ${sumMismatch ? 'bg-rose-50 text-rose-900 ring-1 ring-rose-200/70' : 'bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200/70'}`}>
+                    <span>Role targets sum: <strong>{rolesSum}</strong> of <strong>{maxSize}</strong> slots</span>
+                    {sumMismatch
+                      ? <span className="text-xs">Must equal {maxSize}</span>
+                      : <span className="text-xs">✓ Valid</span>}
+                  </div>
+
+                  <div className="mt-4 flex justify-end gap-3">
+                    <button type="button" className="ui-btn-secondary" onClick={() => setConfigOpen(false)}>Cancel</button>
+                    <button type="button" className="ui-btn-primary" disabled={updateConfig.isPending || configInvalid} onClick={saveConfig}>Save</button>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}

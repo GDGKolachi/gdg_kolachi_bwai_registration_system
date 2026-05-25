@@ -38,6 +38,14 @@ export class TeamsService {
 
   async updateConfig(eventId: string, data: Partial<TeamFormationConfig>) {
     const cfg = await this.assignment.getOrCreateConfig(eventId);
+    const merged = { ...cfg, ...data };
+    const { max_team_size, target_developers_per_team, target_designers_per_team, target_others_per_team } = merged;
+    const sum = (target_developers_per_team ?? 0) + (target_designers_per_team ?? 0) + (target_others_per_team ?? 0);
+    if (sum !== max_team_size) {
+      throw new BadRequestException(
+        `Role targets must add up to max team size. ${target_developers_per_team} + ${target_designers_per_team} + ${target_others_per_team} = ${sum}, expected ${max_team_size}.`,
+      );
+    }
     Object.assign(cfg, data);
     return this.configRepo.save(cfg);
   }
