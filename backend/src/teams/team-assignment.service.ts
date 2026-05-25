@@ -351,6 +351,26 @@ export class TeamAssignmentService {
     }
     const member = await this.memberRepo.findOne({ where: { registration_id: registrationId } });
     if (!member) throw new NotFoundException('Member not found');
+
+    // Domain hard constraint: member's domain must match target team's domain.
+    if (member.domain_snapshot && target.primary_domain && member.domain_snapshot !== target.primary_domain) {
+      throw new BadRequestException(
+        `Cannot move member to a team with a different domain. Member domain: "${member.domain_snapshot}", Team domain: "${target.primary_domain}".`,
+      );
+    }
+
+    // Role-target hard constraint: target team must still have room in the member's role group.
+    const roleBucket = member.role_bucket_snapshot || 'other';
+    const roleTarget = this.targetFor(roleBucket, cfg);
+    // Exclude the member from their current team's count (they're moving out), but only count the target team's existing members.
+    const currentGroupCount = this.roleGroupCount(target.members || [], roleBucket);
+    if (currentGroupCount >= roleTarget) {
+      const group = this.roleGroup(roleBucket);
+      throw new BadRequestException(
+        `Target team already has its full quota of ${group} members (${currentGroupCount}/${roleTarget}). Move not allowed.`,
+      );
+    }
+
     member.team_id = teamId;
     member.assigned_by = `admin:${adminId}`;
     return this.memberRepo.save(member);

@@ -10,6 +10,24 @@ import {
   useMoveMember,
 } from '../teams-repository';
 
+function roleGroup(bucket) {
+  if (bucket === 'developer') return 'developer';
+  if (bucket === 'designer' || bucket === 'product_designer') return 'designer';
+  return 'other';
+}
+
+function roleGroupCount(members, bucket) {
+  const group = roleGroup(bucket);
+  return (members || []).filter((m) => roleGroup(m.role_bucket_snapshot || 'other') === group).length;
+}
+
+function targetForGroup(group, cfg) {
+  if (!cfg) return Infinity;
+  if (group === 'developer') return cfg.target_developers_per_team ?? Infinity;
+  if (group === 'designer') return cfg.target_designers_per_team ?? Infinity;
+  return cfg.target_others_per_team ?? Infinity;
+}
+
 const BUCKET_COLORS = {
   developer: 'bg-sky-50 text-sky-900 ring-1 ring-sky-200/70',
   designer: 'bg-violet-50 text-violet-900 ring-1 ring-violet-200/70',
@@ -158,9 +176,22 @@ export default function TeamsManagement() {
                           onChange={(e) => setMoveTargetTeam((s) => ({ ...s, [m.registration_id]: e.target.value }))}
                         >
                           <option value="">Move to…</option>
-                          {teams.filter((t) => t.id !== team.id && t.status !== 'locked').map((t) => (
-                            <option key={t.id} value={t.id}>Team #{t.team_number}</option>
-                          ))}
+                          {teams
+                            .filter((t) => t.id !== team.id && t.status !== 'locked')
+                            .filter((t) => {
+                              // Domain hard constraint
+                              if (m.domain_snapshot && t.primary_domain && m.domain_snapshot !== t.primary_domain) return false;
+                              // Role-target hard constraint
+                              const group = roleGroup(m.role_bucket_snapshot || 'other');
+                              const target = targetForGroup(group, config);
+                              if (roleGroupCount(t.members, m.role_bucket_snapshot || 'other') >= target) return false;
+                              // Size constraint
+                              if ((t.members || []).length >= (config?.max_team_size ?? Infinity)) return false;
+                              return true;
+                            })
+                            .map((t) => (
+                              <option key={t.id} value={t.id}>Team #{t.team_number}</option>
+                            ))}
                         </select>
                         <button type="button" disabled={!moveTargetTeam[m.registration_id] || moveMember.isPending} onClick={() => handleMove(m.registration_id)} className="ui-btn-secondary !px-2 !py-1 text-xs disabled:opacity-50">
                           Move
