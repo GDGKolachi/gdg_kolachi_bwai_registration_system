@@ -168,13 +168,13 @@ export class EmailService {
     this.logger.log(`Shortlisted email sent to ${email}, id: ${data.id}`);
   }
 
-  // Reminder email — re-sends entry pass (QR) + workshop instructions + an admin-written note
+  // Reminder email — re-sends entry pass (QR) + event instructions + an admin-written note
   // to recipients who are already shortlisted/confirmed. Uses Resend's batch API in chunks of 100.
   async sendReminderBatch(
     recipients: Array<{
       email: string;
       name: string;
-      workshop: { title: string; date: string; time: string; venue: string; special_instructions?: string; is_online?: boolean };
+      event: { title: string; date: string; time: string; venue: string; special_instructions?: string; is_online?: boolean };
       registrationId: string;
       qrData: string;
     }>,
@@ -194,7 +194,7 @@ export class EmailService {
 
       const messages = await Promise.all(
         chunk.map(async (r) => {
-          const isOnline = !!r.workshop.is_online;
+          const isOnline = !!r.event.is_online;
 
           let qrBase64 = '';
           if (!isOnline && r.qrData) {
@@ -218,17 +218,17 @@ export class EmailService {
             </div>
           ` : '';
 
-          const instructionsBlock = r.workshop.special_instructions ? `
+          const instructionsBlock = r.event.special_instructions ? `
             <div style="background: #E8F0FE; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4285F4;">
-              <p style="margin: 0; color: #1A73E8;"><strong>📋 Workshop Instructions:</strong></p>
-              <div style="margin: 8px 0 0; color: #202124; white-space: pre-line;">${r.workshop.special_instructions}</div>
+              <p style="margin: 0; color: #1A73E8;"><strong>📋 Event Instructions:</strong></p>
+              <div style="margin: 8px 0 0; color: #202124; white-space: pre-line;">${r.event.special_instructions}</div>
             </div>
           ` : '';
 
           const html = this.emailWrapper('#F4B400', 'Reminder: Your spot is confirmed', `
             <h2 style="color: #202124; margin: 0 0 10px;">Hi ${r.name} 👋</h2>
-            <p style="margin: 0;">This is a friendly reminder that you're shortlisted for <strong>${r.workshop.title}</strong>. We're sharing your entry pass and important info one more time so it's easy to find.</p>
-            ${this.workshopDetailsBlock(r.workshop)}
+            <p style="margin: 0;">This is a friendly reminder that you're shortlisted for <strong>${r.event.title}</strong>. We're sharing your entry pass and important info one more time so it's easy to find.</p>
+            ${this.eventDetailsBlock(r.event)}
             ${customBlock}
             ${instructionsBlock}
             ${ticketBlock}
@@ -247,7 +247,7 @@ export class EmailService {
           return {
             from: this.from,
             to: [r.email],
-            subject: `🔔 Reminder: ${r.workshop.title} — your entry pass`,
+            subject: `🔔 Reminder: ${r.event.title} — your entry pass`,
             html,
             attachments,
           };

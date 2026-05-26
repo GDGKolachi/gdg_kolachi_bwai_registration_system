@@ -232,7 +232,7 @@ export class AdminService {
     const eligible: Array<{
       email: string;
       name: string;
-      workshop: any;
+      event: any;
       registrationId: string;
       qrData: string;
     }> = [];
@@ -241,7 +241,7 @@ export class AdminService {
     for (const id of registrationIds) {
       const registration = await this.registrationRepo.findOne({
         where: { id },
-        relations: ['attendee', 'workshop'],
+        relations: ['attendee', 'event'],
       });
       if (!registration) {
         failed.push({ id, error: 'Registration not found' });
@@ -256,7 +256,7 @@ export class AdminService {
       }
 
       let qrData = registration.qr_code_data;
-      if (!qrData && !registration.workshop.is_online) {
+      if (!qrData && !registration.event.is_online) {
         qrData = JSON.stringify({
           registrationId: registration.id,
           name: registration.attendee.name,
@@ -271,7 +271,7 @@ export class AdminService {
       eligible.push({
         email: registration.attendee.email,
         name: registration.attendee.name,
-        workshop: registration.workshop,
+        event: registration.event,
         registrationId: registration.id,
         qrData: qrData || '',
       });
