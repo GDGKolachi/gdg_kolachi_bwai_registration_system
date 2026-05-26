@@ -5,7 +5,7 @@ export class CreateExceptionDto {
   email: string;
 
   @IsUUID()
-  requested_workshop_id: string;
+  requested_event_id: string;
 
   @IsString()
   @MinLength(20)

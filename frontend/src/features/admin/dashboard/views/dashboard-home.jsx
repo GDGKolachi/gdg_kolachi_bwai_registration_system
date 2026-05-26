@@ -11,7 +11,7 @@ const badgeColors = {
   completed: 'bg-slate-100 text-slate-700 ring-1 ring-slate-200/80',
 };
 
-function IconWorkshops(props) {
+function IconEvents(props) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden {...props}>
       <path
@@ -142,19 +142,19 @@ export default function DashboardHome() {
     queryFn: () => api.get('/admin/stats').then(res => res.data),
   });
 
-  const workshopList = stats?.workshops ?? [];
+  const eventList = stats?.events ?? stats?.workshops ?? [];
 
   const insights = useMemo(() => {
-    const totalCapacity = workshopList.reduce((sum, w) => sum + (w.maxCapacity ?? 0), 0);
+    const totalCapacity = eventList.reduce((sum, w) => sum + (w.maxCapacity ?? 0), 0);
     const totalRegs = stats?.totalRegistrations ?? 0;
     const fillPct = totalCapacity > 0 ? Math.min(100, Math.round((totalRegs / totalCapacity) * 100)) : 0;
-    const openForRegistration = workshopList.filter(w => w.status === 'open').length;
+    const openForRegistration = eventList.filter(w => w.status === 'open').length;
     let checkinOfRegistered = 0;
     if (totalRegs > 0 && stats?.checkedIn != null) {
       checkinOfRegistered = Math.min(100, Math.round((stats.checkedIn / totalRegs) * 100));
     }
     return { totalCapacity, fillPct, openForRegistration, checkinOfRegistered };
-  }, [workshopList, stats?.totalRegistrations, stats?.checkedIn]);
+  }, [eventList, stats?.totalRegistrations, stats?.checkedIn]);
 
   if (isLoading) {
     return (
@@ -177,7 +177,7 @@ export default function DashboardHome() {
           <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{BRAND_SERIES}</p>
           <h1>Dashboard</h1>
           <p>
-            Registrations, exceptions, and check-ins across your workshops. Use the shortcuts below to jump into
+            Registrations, exceptions, and check-ins across your events. Use the shortcuts below to jump into
             common tasks.
           </p>
         </div>
@@ -185,7 +185,7 @@ export default function DashboardHome() {
           <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Capacity snapshot</p>
           <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{insights.fillPct}%</p>
           <p className="mt-1 text-xs leading-relaxed text-slate-600">
-            Overall seat fill across all workshops
+            Overall seat fill across all events
             {insights.totalCapacity > 0 ? (
               <>
                 {' '}
@@ -200,10 +200,10 @@ export default function DashboardHome() {
 
       <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <QuickAction
-          to="/admin/workshops"
-          title="Workshops"
+          to="/admin/events"
+          title="Events"
           description="Create sessions, capacity, and status"
-          icon={IconWorkshops}
+          icon={IconEvents}
         />
         <QuickAction
           to="/admin/registrations"
@@ -214,7 +214,7 @@ export default function DashboardHome() {
         <QuickAction
           to="/admin/exceptions"
           title="Exceptions"
-          description="Approve or reject extra-workshop requests"
+          description="Approve or reject extra-event requests"
           icon={IconInbox}
         />
         <QuickAction
@@ -227,10 +227,10 @@ export default function DashboardHome() {
 
       <div className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
         <StatCard
-          label="Total workshops"
-          value={stats?.totalWorkshops ?? 0}
+          label="Total events"
+          value={stats?.totalEvents ?? stats?.totalWorkshops ?? 0}
           hint={`${insights.openForRegistration} open for registration`}
-          icon={IconWorkshops}
+          icon={IconEvents}
           accent="blue"
         />
         <StatCard
@@ -264,11 +264,11 @@ export default function DashboardHome() {
         />
       </div>
 
-      {workshopList.length > 0 ? (
+      {eventList.length > 0 ? (
         <div className="ui-card overflow-hidden">
           <div className="flex flex-col gap-1 border-b border-slate-100 px-4 py-4 sm:px-6 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-lg font-semibold tracking-tight text-slate-900">Workshops overview</h2>
+              <h2 className="text-lg font-semibold tracking-tight text-slate-900">Events overview</h2>
               <p className="mt-0.5 text-xs text-slate-500">Registration fill and check-in progress per session</p>
             </div>
           </div>
@@ -276,7 +276,8 @@ export default function DashboardHome() {
             <table className="ui-table min-w-[44rem]">
               <thead>
                 <tr>
-                  <th>Workshop</th>
+                  <th>Event</th>
+                  <th>Type</th>
                   <th>Status</th>
                   <th>Registered</th>
                   <th>Capacity</th>
@@ -285,7 +286,7 @@ export default function DashboardHome() {
                 </tr>
               </thead>
               <tbody>
-                {workshopList.map(w => {
+                {eventList.map(w => {
                   const cap = w.maxCapacity ?? 0;
                   const reg = w.registeredCount ?? 0;
                   const fillPct = cap > 0 ? (reg / cap) * 100 : 0;
@@ -296,6 +297,7 @@ export default function DashboardHome() {
                       <td className="max-w-[14rem]">
                         <span className="font-semibold text-slate-900">{w.title}</span>
                       </td>
+                      <td className="text-slate-600">{w.event_type || '—'}</td>
                       <td>
                         <span
                           className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${badgeColors[w.status] || ''}`}
@@ -323,16 +325,16 @@ export default function DashboardHome() {
         </div>
       ) : (
         <div className="ui-card-quiet flex flex-col items-center px-6 py-14 text-center">
-          <IconWorkshops className="mb-3 h-10 w-10 text-slate-400" />
-          <p className="font-semibold text-slate-800">No workshops yet</p>
+          <IconEvents className="mb-3 h-10 w-10 text-slate-400" />
+          <p className="font-semibold text-slate-800">No events yet</p>
           <p className="mt-1 max-w-sm text-sm text-slate-600">
-            Create your first workshop to start accepting  registrations.
+            Create your first event to start accepting registrations.
           </p>
           <Link
-            to="/admin/workshops"
+            to="/admin/events"
             className="ui-btn-primary mt-5 no-underline"
           >
-            Go to workshops
+            Go to events
           </Link>
         </div>
       )}

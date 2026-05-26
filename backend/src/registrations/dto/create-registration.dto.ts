@@ -33,15 +33,35 @@ export class CreateRegistrationDto {
   })
   gender: string;
 
+  // Validated dynamically in the service against the event's type
+  // (6-item list for Workshop/Talks/Community Lounge, 15-item for Hackathon).
   @IsString()
-  @IsIn(['Student', 'Young Professional', 'Intermediate Expert', 'Senior Expert', 'Freelancer', 'Other'], {
-    message: 'Please select what defines you best',
-  })
-  defines_you_best: string;
+  best_describes_you: string;
 
   @IsUUID()
-  workshop_id: string;
+  event_id: string;
 
+  @IsOptional()
   @IsString()
-  motivation: string;
+  motivation?: string;
+
+  // Hackathon only — validated in service.
+  @IsOptional()
+  @IsString()
+  domain?: string;
+
+  // Community Lounge only — validated against event.tracks in service.
+  @IsOptional()
+  @IsString()
+  track?: string;
+
+  // Community Lounge only — validated against event.slots in service.
+  @IsOptional()
+  @IsString()
+  slot?: string;
+
+  // Optional referral — name of the ambassador who referred the attendee.
+  @IsOptional()
+  @IsString()
+  ambassador?: string;
 }

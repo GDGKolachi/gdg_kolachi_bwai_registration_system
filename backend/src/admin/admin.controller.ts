@@ -2,17 +2,17 @@ import { Controller, Get, Post, Patch, Delete, Param, Query, Body, UseGuards, Re
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminService } from './admin.service';
-import { WorkshopsService } from '../workshops/workshops.service';
+import { EventsService } from '../events/events.service';
 import { RegistrationsService } from '../registrations/registrations.service';
 import { ExceptionsService } from '../exceptions/exceptions.service';
-import { CreateWorkshopDto } from '../workshops/dto/create-workshop.dto';
+import { CreateEventDto } from '../events/dto/create-event.dto';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard)
 export class AdminController {
   constructor(
     private adminService: AdminService,
-    private workshopsService: WorkshopsService,
+    private eventsService: EventsService,
     private registrationsService: RegistrationsService,
     private exceptionsService: ExceptionsService,
   ) {}
@@ -22,45 +22,72 @@ export class AdminController {
     return this.adminService.getStats();
   }
 
-  // Workshop CRUD
-  @Get('workshops')
-  getWorkshops(@Query('page') page?: string, @Query('limit') limit?: string) {
+  // Event CRUD
+  @Get('events')
+  getEvents(@Query('page') page?: string, @Query('limit') limit?: string) {
     if (page || limit) {
-      return this.adminService.getWorkshopsPaginated(
+      return this.adminService.getEventsPaginated(
         page ? parseInt(page) : 1,
         limit ? parseInt(limit) : 20,
       );
     }
-    return this.workshopsService.findAll(true);
+    return this.eventsService.findAll(true);
+  }
+
+  @Post('events')
+  createEvent(@Body() dto: CreateEventDto) {
+    return this.eventsService.create(dto);
+  }
+
+  @Patch('events/:id')
+  updateEvent(@Param('id') id: string, @Body() dto: Partial<CreateEventDto>) {
+    return this.eventsService.update(id, dto);
+  }
+
+  @Delete('events/:id')
+  deleteEvent(@Param('id') id: string) {
+    return this.eventsService.remove(id);
+  }
+
+  // Backwards-compat aliases on /admin/workshops* — same handlers, in case
+  // any legacy frontend bundle still calls the old paths during rollout.
+  @Get('workshops')
+  legacyGetWorkshops(@Query('page') page?: string, @Query('limit') limit?: string) {
+    return this.getEvents(page, limit);
   }
 
   @Post('workshops')
-  createWorkshop(@Body() dto: CreateWorkshopDto) {
-    return this.workshopsService.create(dto);
+  legacyCreateWorkshop(@Body() dto: CreateEventDto) {
+    return this.eventsService.create(dto);
   }
 
   @Patch('workshops/:id')
-  updateWorkshop(@Param('id') id: string, @Body() dto: Partial<CreateWorkshopDto>) {
-    return this.workshopsService.update(id, dto);
+  legacyUpdateWorkshop(@Param('id') id: string, @Body() dto: Partial<CreateEventDto>) {
+    return this.eventsService.update(id, dto);
   }
 
   @Delete('workshops/:id')
-  deleteWorkshop(@Param('id') id: string) {
-    return this.workshopsService.remove(id);
+  legacyDeleteWorkshop(@Param('id') id: string) {
+    return this.eventsService.remove(id);
   }
 
   // Registrations with search/filter/pagination
   @Get('registrations')
   getRegistrations(
-    @Query('workshop_id') workshopId: string,
+    @Query('event_id') eventId: string,
+    @Query('workshop_id') legacyEventId: string,
     @Query('name') name?: string,
     @Query('email') email?: string,
     @Query('phone') phone?: string,
     @Query('cnic') cnic?: string,
     @Query('status') status?: string,
-    @Query('defines_you_best') definesYouBest?: string,
+    @Query('best_describes_you') bestDescribesYou?: string,
+    @Query('defines_you_best') definesYouBestLegacy?: string,
     @Query('gender') gender?: string,
     @Query('university_org') universityOrg?: string,
+    @Query('domain') domain?: string,
+    @Query('role_bucket') roleBucket?: string,
+    @Query('ambassador') ambassador?: string,
     @Query('checked_in') checkedIn?: string,
     @Query('acknowledged') acknowledged?: string,
     @Query('date_from') dateFrom?: string,
@@ -70,15 +97,18 @@ export class AdminController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
-    return this.adminService.getRegistrations(workshopId, {
+    return this.adminService.getRegistrations(eventId || legacyEventId, {
       name,
       email,
       phone,
       cnic,
       status,
-      defines_you_best: definesYouBest,
+      best_describes_you: bestDescribesYou || definesYouBestLegacy,
       gender,
       university_org: universityOrg,
+      domain,
+      role_bucket: roleBucket,
+      ambassador,
       checked_in: checkedIn !== undefined && checkedIn !== '' ? checkedIn === 'true' : undefined,
       acknowledged:
         acknowledged !== undefined && acknowledged !== '' ? acknowledged === 'true' : undefined,
@@ -91,36 +121,40 @@ export class AdminController {
     });
   }
 
+  @Get('registrations/ambassadors')
+  getAmbassadors(
+    @Query('event_id') eventId: string,
+    @Query('workshop_id') legacyEventId: string,
+  ) {
+    return this.adminService.getAmbassadors(eventId || legacyEventId);
+  }
+
   @Get('registrations/export')
-  async exportRegistrations(@Query('workshop_id') workshopId: string, @Res() res: Response) {
-    const csv = await this.registrationsService.exportCsv(workshopId);
+  async exportRegistrations(
+    @Query('event_id') eventId: string,
+    @Query('workshop_id') legacyEventId: string,
+    @Res() res: Response,
+  ) {
+    const id = eventId || legacyEventId;
+    const csv = await this.registrationsService.exportCsv(id);
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename=registrations-${workshopId}.csv`);
+    res.setHeader('Content-Disposition', `attachment; filename=registrations-${id}.csv`);
     res.send(csv);
   }
 
   // Status transitions
   @Patch('registrations/status')
-  updateRegistrationsStatus(
-    @Body('ids') ids: string[],
-    @Body('status') status: string,
-  ) {
+  updateRegistrationsStatus(@Body('ids') ids: string[], @Body('status') status: string) {
     return this.adminService.bulkUpdateStatus(ids, status);
   }
 
   @Patch('registrations/:id/status')
-  updateRegistrationStatus(
-    @Param('id') id: string,
-    @Body('status') status: string,
-  ) {
+  updateRegistrationStatus(@Param('id') id: string, @Body('status') status: string) {
     return this.adminService.updateRegistrationStatus(id, status);
   }
 
   @Patch('registrations/bulk-status')
-  bulkUpdateStatus(
-    @Body('ids') ids: string[],
-    @Body('status') status: string,
-  ) {
+  bulkUpdateStatus(@Body('ids') ids: string[], @Body('status') status: string) {
     return this.adminService.bulkUpdateStatus(ids, status);
   }
 
@@ -162,8 +196,12 @@ export class AdminController {
 
   // Check-in
   @Get('checkin/search')
-  searchCheckin(@Query('workshop_id') workshopId: string, @Query('q') query: string) {
-    return this.adminService.searchCheckin(workshopId, query);
+  searchCheckin(
+    @Query('event_id') eventId: string,
+    @Query('workshop_id') legacyEventId: string,
+    @Query('q') query: string,
+  ) {
+    return this.adminService.searchCheckin(eventId || legacyEventId, query);
   }
 
   @Patch('checkin/:id/toggle')

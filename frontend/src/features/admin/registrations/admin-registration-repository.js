@@ -1,11 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminRegistrationApi } from './admin-registration-api';
 
-export function useAdminRegistrations(workshopId, params = {}) {
+export function useAdminRegistrations(eventId, params = {}) {
   return useQuery({
-    queryKey: ['admin-registrations', workshopId, params],
-    queryFn: () => adminRegistrationApi.getByWorkshop(workshopId, params),
-    enabled: !!workshopId,
+    queryKey: ['admin-registrations', eventId, params],
+    queryFn: () => adminRegistrationApi.getByEvent(eventId, params),
+    enabled: !!eventId,
+  });
+}
+
+export function useEventAmbassadors(eventId) {
+  return useQuery({
+    queryKey: ['admin-ambassadors', eventId],
+    queryFn: () => adminRegistrationApi.getAmbassadors(eventId),
+    enabled: !!eventId,
   });
 }
 
@@ -22,7 +30,6 @@ export function useUpdateRegistrationStatus() {
   });
 }
 
-// Alias kept so existing import { useBulkUpdateStatus } in the viewer still works
 export function useBulkUpdateStatus() {
   const qc = useQueryClient();
   return useMutation({

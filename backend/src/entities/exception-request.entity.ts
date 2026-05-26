@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { Attendee } from './attendee.entity';
-import { Workshop } from './workshop.entity';
+import { Event } from './event.entity';
 
 @Entity('exception_requests')
 export class ExceptionRequest {
@@ -11,7 +11,7 @@ export class ExceptionRequest {
   attendee_id: string;
 
   @Column()
-  requested_workshop_id: string;
+  requested_event_id: string;
 
   @Column('text')
   reason: string;
@@ -32,7 +32,7 @@ export class ExceptionRequest {
   @JoinColumn({ name: 'attendee_id' })
   attendee: Attendee;
 
-  @ManyToOne(() => Workshop)
-  @JoinColumn({ name: 'requested_workshop_id' })
-  requested_workshop: Workshop;
+  @ManyToOne(() => Event)
+  @JoinColumn({ name: 'requested_event_id' })
+  requested_event: Event;
 }

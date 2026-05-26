@@ -164,8 +164,9 @@ export default function QrScanView() {
                   ['Email', scanResult.email],
                   ['Phone', scanResult.phone],
                   ['CNIC', scanResult.cnic],
-                  ['Workshop', scanResult.workshop],
-                ].map(([label, val]) => (
+                  ['Event', scanResult.event ?? scanResult.workshop],
+                  scanResult.event_type ? ['Event type', scanResult.event_type] : null,
+                ].filter(Boolean).map(([label, val]) => (
                   <div key={label} className="flex justify-between gap-4 py-3 text-sm">
                     <span className="text-slate-500">{label}</span>
                     <span className="max-w-[60%] text-right font-medium text-slate-900">{val}</span>

@@ -1,20 +1,19 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Workshop } from '../entities/workshop.entity';
+import { Event } from '../entities/event.entity';
 import { Registration } from '../entities/registration.entity';
 import { ExceptionRequest } from '../entities/exception-request.entity';
 import { Attendee } from '../entities/attendee.entity';
 import { Admin } from '../entities/admin.entity';
 import { EmailService } from '../email/email.service';
-import * as QRCode from 'qrcode';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AdminService {
   constructor(
-    @InjectRepository(Workshop)
-    private workshopRepo: Repository<Workshop>,
+    @InjectRepository(Event)
+    private eventRepo: Repository<Event>,
     @InjectRepository(Registration)
     private registrationRepo: Repository<Registration>,
     @InjectRepository(ExceptionRequest)
@@ -27,45 +26,52 @@ export class AdminService {
   ) {}
 
   async getStats() {
-    const workshops = await this.workshopRepo.find();
+    const events = await this.eventRepo.find({ relations: ['event_type'] });
     const totalRegistrations = await this.registrationRepo.count();
     const pendingExceptions = await this.exceptionRepo.count({ where: { status: 'pending' } });
     const checkedIn = await this.registrationRepo.count({ where: { checked_in: true } });
 
-    const workshopStats: Array<{ id: string; title: string; status: string; maxCapacity: number; registeredCount: number; checkedInCount: number }> = [];
-    for (const w of workshops) {
-      const registeredCount = await this.registrationRepo.count({ where: { workshop_id: w.id } });
-      const checkedInCount = await this.registrationRepo.count({ where: { workshop_id: w.id, checked_in: true } });
-      workshopStats.push({
-        id: w.id,
-        title: w.title,
-        status: w.status,
-        maxCapacity: w.max_capacity,
+    const eventStats: Array<{ id: string; title: string; event_type?: string; status: string; maxCapacity: number; registeredCount: number; checkedInCount: number }> = [];
+    for (const e of events) {
+      const registeredCount = await this.registrationRepo.count({ where: { event_id: e.id } });
+      const checkedInCount = await this.registrationRepo.count({ where: { event_id: e.id, checked_in: true } });
+      eventStats.push({
+        id: e.id,
+        title: e.title,
+        event_type: e.event_type?.name,
+        status: e.status,
+        maxCapacity: e.max_capacity,
         registeredCount,
         checkedInCount,
       });
     }
 
     return {
-      totalWorkshops: workshops.length,
+      totalEvents: events.length,
       totalRegistrations,
       pendingExceptions,
       checkedIn,
-      workshops: workshopStats,
+      events: eventStats,
+      // backwards-compat alias for any frontend still using the old key
+      totalWorkshops: events.length,
+      workshops: eventStats,
     };
   }
 
   async getRegistrations(
-    workshopId: string,
+    eventId: string,
     filters: {
       name?: string;
       email?: string;
       phone?: string;
       cnic?: string;
       status?: string;
-      defines_you_best?: string;
+      best_describes_you?: string;
       gender?: string;
       university_org?: string;
+      domain?: string;
+      role_bucket?: string;
+      ambassador?: string;
       checked_in?: boolean;
       acknowledged?: boolean;
       date_from?: string;
@@ -79,73 +85,57 @@ export class AdminService {
     const qb = this.registrationRepo
       .createQueryBuilder('r')
       .leftJoinAndSelect('r.attendee', 'a')
-      .where('r.workshop_id = :workshopId', { workshopId });
+      .where('r.event_id = :eventId', { eventId });
 
-    if (filters.name) {
-      qb.andWhere('LOWER(a.name) LIKE :name', { name: `%${filters.name.toLowerCase()}%` });
-    }
-
-    if (filters.email) {
-      qb.andWhere('LOWER(a.email) LIKE :email', { email: `%${filters.email.toLowerCase()}%` });
-    }
-
-    if (filters.phone) {
-      qb.andWhere('LOWER(a.phone) LIKE :phone', { phone: `%${filters.phone.toLowerCase()}%` });
-    }
-
-    if (filters.cnic) {
-      qb.andWhere('LOWER(a.cnic) LIKE :cnic', { cnic: `%${filters.cnic.toLowerCase()}%` });
-    }
+    if (filters.name) qb.andWhere('LOWER(a.name) LIKE :name', { name: `%${filters.name.toLowerCase()}%` });
+    if (filters.email) qb.andWhere('LOWER(a.email) LIKE :email', { email: `%${filters.email.toLowerCase()}%` });
+    if (filters.phone) qb.andWhere('LOWER(a.phone) LIKE :phone', { phone: `%${filters.phone.toLowerCase()}%` });
+    if (filters.cnic) qb.andWhere('LOWER(a.cnic) LIKE :cnic', { cnic: `%${filters.cnic.toLowerCase()}%` });
 
     if (filters.status) {
       const statuses = filters.status.split(',').map(s => s.trim()).filter(Boolean);
-      if (statuses.length === 1) {
-        qb.andWhere('r.status = :status', { status: statuses[0] });
-      } else if (statuses.length > 1) {
-        qb.andWhere('r.status IN (:...statuses)', { statuses });
-      }
+      if (statuses.length === 1) qb.andWhere('r.status = :status', { status: statuses[0] });
+      else if (statuses.length > 1) qb.andWhere('r.status IN (:...statuses)', { statuses });
     }
 
-    if (filters.defines_you_best) {
-      const profiles = filters.defines_you_best.split(',').map(s => s.trim()).filter(Boolean);
-      if (profiles.length === 1) {
-        qb.andWhere('a.defines_you_best = :dyb', { dyb: profiles[0] });
-      } else if (profiles.length > 1) {
-        qb.andWhere('a.defines_you_best IN (:...profiles)', { profiles });
-      }
+    if (filters.best_describes_you) {
+      const profiles = filters.best_describes_you.split(',').map(s => s.trim()).filter(Boolean);
+      if (profiles.length === 1) qb.andWhere('a.best_describes_you = :bdy', { bdy: profiles[0] });
+      else if (profiles.length > 1) qb.andWhere('a.best_describes_you IN (:...profiles)', { profiles });
     }
 
     if (filters.gender) {
       const genders = filters.gender.split(',').map(s => s.trim()).filter(Boolean);
-      if (genders.length === 1) {
-        qb.andWhere('a.gender = :gender', { gender: genders[0] });
-      } else if (genders.length > 1) {
-        qb.andWhere('a.gender IN (:...genders)', { genders });
-      }
+      if (genders.length === 1) qb.andWhere('a.gender = :gender', { gender: genders[0] });
+      else if (genders.length > 1) qb.andWhere('a.gender IN (:...genders)', { genders });
     }
 
     if (filters.university_org) {
-      qb.andWhere('LOWER(a.university_org) LIKE :uorg', {
-        uorg: `%${filters.university_org.toLowerCase()}%`,
-      });
+      qb.andWhere('LOWER(a.university_org) LIKE :uorg', { uorg: `%${filters.university_org.toLowerCase()}%` });
     }
 
-    if (filters.checked_in !== undefined) {
-      qb.andWhere('r.checked_in = :checkedIn', { checkedIn: filters.checked_in });
+    if (filters.domain) {
+      const domains = filters.domain.split(',').map(s => s.trim()).filter(Boolean);
+      if (domains.length === 1) qb.andWhere('r.domain = :domain', { domain: domains[0] });
+      else if (domains.length > 1) qb.andWhere('r.domain IN (:...domains)', { domains });
     }
 
-    if (filters.acknowledged !== undefined) {
-      qb.andWhere('r.acknowledged = :acknowledged', { acknowledged: filters.acknowledged });
+    if (filters.role_bucket) {
+      const buckets = filters.role_bucket.split(',').map(s => s.trim()).filter(Boolean);
+      if (buckets.length === 1) qb.andWhere('r.role_bucket = :bucket', { bucket: buckets[0] });
+      else if (buckets.length > 1) qb.andWhere('r.role_bucket IN (:...buckets)', { buckets });
     }
 
-    if (filters.date_from) {
-      qb.andWhere('r.registered_at >= :dateFrom', { dateFrom: filters.date_from });
+    if (filters.ambassador) {
+      const ambassadors = filters.ambassador.split(',').map(s => s.trim()).filter(Boolean);
+      if (ambassadors.length === 1) qb.andWhere('r.ambassador = :ambassador', { ambassador: ambassadors[0] });
+      else if (ambassadors.length > 1) qb.andWhere('r.ambassador IN (:...ambassadors)', { ambassadors });
     }
 
-    if (filters.date_to) {
-      // Include the entire end date by setting time to end of day
-      qb.andWhere('r.registered_at <= :dateTo', { dateTo: `${filters.date_to}T23:59:59.999` });
-    }
+    if (filters.checked_in !== undefined) qb.andWhere('r.checked_in = :checkedIn', { checkedIn: filters.checked_in });
+    if (filters.acknowledged !== undefined) qb.andWhere('r.acknowledged = :acknowledged', { acknowledged: filters.acknowledged });
+    if (filters.date_from) qb.andWhere('r.registered_at >= :dateFrom', { dateFrom: filters.date_from });
+    if (filters.date_to) qb.andWhere('r.registered_at <= :dateTo', { dateTo: `${filters.date_to}T23:59:59.999` });
 
     const sortOrder = filters.sort_order === 'ASC' ? 'ASC' : 'DESC';
     const sortBy = filters.sort_by === 'registered_at' ? 'r.registered_at' : 'r.registered_at';
@@ -159,13 +149,18 @@ export class AdminService {
       .take(limit)
       .getMany();
 
-    return {
-      data,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    };
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
+
+  async getAmbassadors(eventId: string): Promise<string[]> {
+    const qb = this.registrationRepo
+      .createQueryBuilder('r')
+      .select('DISTINCT r.ambassador', 'ambassador')
+      .where('r.ambassador IS NOT NULL')
+      .andWhere("TRIM(r.ambassador) <> ''");
+    if (eventId) qb.andWhere('r.event_id = :eventId', { eventId });
+    const rows = await qb.orderBy('r.ambassador', 'ASC').getRawMany();
+    return rows.map((row) => row.ambassador).filter(Boolean);
   }
 
   private static readonly VALID_TRANSITIONS: Record<string, string[]> = {
@@ -179,14 +174,12 @@ export class AdminService {
   async updateRegistrationStatus(registrationId: string, newStatus: string) {
     const registration = await this.registrationRepo.findOne({
       where: { id: registrationId },
-      relations: ['attendee', 'workshop'],
+      relations: ['attendee', 'event'],
     });
     if (!registration) throw new NotFoundException('Registration not found');
 
     const validStatuses = ['pending', 'confirmed', 'shortlisted', 'rejected', 'attended'];
-    if (!validStatuses.includes(newStatus)) {
-      throw new BadRequestException(`Invalid status: "${newStatus}"`);
-    }
+    if (!validStatuses.includes(newStatus)) throw new BadRequestException(`Invalid status: "${newStatus}"`);
 
     const allowed = AdminService.VALID_TRANSITIONS[registration.status] || [];
     if (!allowed.includes(newStatus)) {
@@ -212,7 +205,7 @@ export class AdminService {
       await this.emailService.sendShortlistedEmail(
         registration.attendee.email,
         registration.attendee.name,
-        registration.workshop,
+        registration.event,
         registration.id,
         qrData,
       );
@@ -316,13 +309,11 @@ export class AdminService {
       throw new BadRequestException('Invalid QR code data');
     }
 
-    if (!parsed.registrationId) {
-      throw new BadRequestException('Invalid QR code: missing registration ID');
-    }
+    if (!parsed.registrationId) throw new BadRequestException('Invalid QR code: missing registration ID');
 
     const registration = await this.registrationRepo.findOne({
       where: { id: parsed.registrationId },
-      relations: ['attendee', 'workshop'],
+      relations: ['attendee', 'event', 'event.event_type'],
     });
 
     if (!registration) throw new NotFoundException('Registration not found');
@@ -333,7 +324,11 @@ export class AdminService {
       email: registration.attendee.email,
       phone: registration.attendee.phone,
       cnic: registration.attendee.cnic,
-      workshop: registration.workshop.title,
+      event: registration.event.title,
+      event_type: registration.event.event_type?.name,
+      event_type_slug: registration.event.event_type?.slug,
+      // backwards-compat alias
+      workshop: registration.event.title,
       status: registration.status,
       checkedIn: registration.checked_in,
     };
@@ -342,7 +337,7 @@ export class AdminService {
   async markAttendedFromScan(registrationId: string) {
     const registration = await this.registrationRepo.findOne({
       where: { id: registrationId },
-      relations: ['attendee', 'workshop'],
+      relations: ['attendee', 'event'],
     });
     if (!registration) throw new NotFoundException('Registration not found');
 
@@ -352,16 +347,14 @@ export class AdminService {
     return this.registrationRepo.save(registration);
   }
 
-  async searchCheckin(workshopId: string, query: string) {
+  async searchCheckin(eventId: string, query: string) {
     const qb = this.registrationRepo
       .createQueryBuilder('r')
       .leftJoinAndSelect('r.attendee', 'a')
-      .where('r.workshop_id = :workshopId', { workshopId });
+      .where('r.event_id = :eventId', { eventId });
 
     if (query) {
-      qb.andWhere('(LOWER(a.name) LIKE :q OR LOWER(a.email) LIKE :q)', {
-        q: `%${query.toLowerCase()}%`,
-      });
+      qb.andWhere('(LOWER(a.name) LIKE :q OR LOWER(a.email) LIKE :q)', { q: `%${query.toLowerCase()}%` });
     }
 
     return qb.orderBy('a.name', 'ASC').getMany();
@@ -375,7 +368,6 @@ export class AdminService {
     return this.registrationRepo.save(reg);
   }
 
-  // Users (Admin) CRUD
   async getUsers(page = 1, limit = 20) {
     const [data, total] = await this.adminRepo.findAndCount({
       order: { created_at: 'DESC' },
@@ -418,18 +410,18 @@ export class AdminService {
     return { deleted: true };
   }
 
-  // Workshops with pagination
-  async getWorkshopsPaginated(page = 1, limit = 20) {
-    const [workshops, total] = await this.workshopRepo.findAndCount({
+  async getEventsPaginated(page = 1, limit = 20) {
+    const [events, total] = await this.eventRepo.findAndCount({
+      relations: ['event_type'],
       order: { created_at: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
     });
 
     const data: Array<any> = [];
-    for (const w of workshops) {
-      const registeredCount = await this.registrationRepo.count({ where: { workshop_id: w.id } });
-      data.push({ ...w, registered_count: registeredCount });
+    for (const e of events) {
+      const registeredCount = await this.registrationRepo.count({ where: { event_id: e.id } });
+      data.push({ ...e, registered_count: registeredCount });
     }
 
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };

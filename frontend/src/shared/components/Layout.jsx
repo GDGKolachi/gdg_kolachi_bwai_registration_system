@@ -22,12 +22,18 @@ export default function Layout() {
               <span className="truncate text-[0.7rem] font-medium text-slate-500 sm:text-xs">{BRAND_SERIES}</span>
             </div>
           </Link>
-          <nav className="flex shrink-0 justify-end sm:justify-start">
+          <nav className="flex shrink-0 items-center justify-end gap-1 sm:justify-start">
             <Link
               to="/"
               className="rounded-lg px-3 py-2 text-center text-sm font-semibold text-slate-600 no-underline transition hover:bg-slate-100 hover:text-gdg-blue"
             >
-              Workshops
+              Events
+            </Link>
+            <Link
+              to="/my-team"
+              className="rounded-lg px-3 py-2 text-center text-sm font-semibold text-slate-600 no-underline transition hover:bg-slate-100 hover:text-gdg-blue"
+            >
+              My Team
             </Link>
           </nav>
         </div>

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useAdminExceptions, useApproveException, useRejectException } from '../admin-exception-repository';
-import { useAdminWorkshops } from '../../workshop-management/admin-workshop-repository';
+import { useAdminEvents } from '../../event-management/admin-event-repository';
 
 const badgeColors = {
   pending: 'bg-amber-50 text-amber-900 ring-1 ring-amber-200/70',
@@ -9,7 +9,11 @@ const badgeColors = {
   rejected: 'bg-rose-50 text-rose-900 ring-1 ring-rose-200/70',
 };
 
-const getRequestedWorkshopId = ex =>
+const getRequestedEventId = ex =>
+  ex.requestedEventId ??
+  ex.requested_event_id ??
+  ex.requestedEvent?.id ??
+  ex.requested_event?.id ??
   ex.requestedWorkshopId ??
   ex.requested_workshop_id ??
   ex.requestedWorkshop?.id ??
@@ -18,7 +22,8 @@ const getRequestedWorkshopId = ex =>
 
 export default function ExceptionQueue() {
   const { data: exceptions, isLoading } = useAdminExceptions();
-  const { data: workshops } = useAdminWorkshops();
+  const { data: eventsRaw } = useAdminEvents();
+  const workshops = Array.isArray(eventsRaw) ? eventsRaw : eventsRaw?.data || [];
   const approveMutation = useApproveException();
   const rejectMutation = useRejectException();
 
@@ -29,14 +34,14 @@ export default function ExceptionQueue() {
   const scoped = useMemo(() => {
     if (!exceptions) return [];
     if (!selectedWorkshop) return exceptions;
-    return exceptions.filter(e => getRequestedWorkshopId(e) === selectedWorkshop);
+    return exceptions.filter(e => getRequestedEventId(e) === selectedWorkshop);
   }, [exceptions, selectedWorkshop]);
 
   const pendingCountByWorkshop = useMemo(() => {
     const map = new Map();
     (exceptions || []).forEach(e => {
       if (e.status !== 'pending') return;
-      const wid = getRequestedWorkshopId(e);
+      const wid = getRequestedEventId(e);
       if (!wid) return;
       map.set(wid, (map.get(wid) || 0) + 1);
     });
@@ -125,17 +130,17 @@ export default function ExceptionQueue() {
     <div>
       <div className="admin-page-head">
         <h1>Exception requests</h1>
-        <p>Review and process requests from attendees who want to join an additional workshop.</p>
+        <p>Review and process requests from attendees who want to join an additional event.</p>
       </div>
 
-      {/* Workshop selector */}
+      {/* Event selector */}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
         <div className="w-full min-w-0 sm:max-w-sm sm:flex-1">
-          <label className="ui-label" htmlFor="exc-workshop-select">
-            Workshop
+          <label className="ui-label" htmlFor="exc-event-select">
+            Event
           </label>
           <select
-            id="exc-workshop-select"
+            id="exc-event-select"
             className="ui-input"
             value={selectedWorkshop}
             onChange={e => {
@@ -143,7 +148,7 @@ export default function ExceptionQueue() {
               setSelectedIds(new Set());
             }}
           >
-            <option value="">All workshops</option>
+            <option value="">All events</option>
             {workshops?.map(w => {
               const count = pendingCountByWorkshop.get(w.id) || 0;
               return (
@@ -239,8 +244,8 @@ export default function ExceptionQueue() {
               <tbody>
                 {pending.map((ex, idx) => {
                   const isSelected = selectedIds.has(ex.id);
-                  const requested = ex.requestedWorkshop?.title ?? ex.requested_workshop?.title;
-                  const current = ex.currentWorkshop?.title ?? ex.current_workshop?.title ?? 'N/A';
+                  const requested = ex.requestedEvent?.title ?? ex.requested_event?.title ?? ex.requestedWorkshop?.title ?? ex.requested_workshop?.title;
+                  const current = ex.currentEvent?.title ?? ex.current_event?.title ?? ex.currentWorkshop?.title ?? ex.current_workshop?.title ?? 'N/A';
                   return (
                     <tr
                       key={ex.id}
@@ -321,7 +326,7 @@ export default function ExceptionQueue() {
               <thead>
                 <tr>
                   <th>Attendee</th>
-                  <th>Requested workshop</th>
+                  <th>Requested event</th>
                   <th>Status</th>
                   <th>Reviewed at</th>
                 </tr>
@@ -332,7 +337,7 @@ export default function ExceptionQueue() {
                     <td className="text-slate-800">
                       {ex.attendee?.name} ({ex.attendee?.email})
                     </td>
-                    <td>{ex.requestedWorkshop?.title ?? ex.requested_workshop?.title}</td>
+                    <td>{ex.requestedEvent?.title ?? ex.requested_event?.title ?? ex.requestedWorkshop?.title ?? ex.requested_workshop?.title}</td>
                     <td>
                       <span
                         className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${badgeColors[ex.status] || ''}`}

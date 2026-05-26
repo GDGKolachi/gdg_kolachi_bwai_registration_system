@@ -46,20 +46,20 @@ export class EmailService {
     return days[date.getUTCDay()];
   }
 
-  private workshopDetailsBlock(workshop: { title: string; date: string; time: string; venue: string; is_online?: boolean }): string {
-    const dayName = this.getDayName(workshop.date);
-    const isOnline = !!workshop.is_online;
+  private eventDetailsBlock(event: { title: string; date: string; time: string; venue: string; is_online?: boolean }): string {
+    const dayName = this.getDayName(event.date);
+    const isOnline = !!event.is_online;
     const venueLabel = isOnline ? '💻 Venue' : '📍 Venue';
     const venueHtml = isOnline
-      ? this.formatOnlineVenue(workshop.venue)
-      : workshop.venue;
+      ? this.formatOnlineVenue(event.venue)
+      : event.venue;
 
     return `
       <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4285F4;">
-        <h3 style="margin: 0 0 12px; color: #202124;">${workshop.title}</h3>
+        <h3 style="margin: 0 0 12px; color: #202124;">${event.title}</h3>
         <p style="margin: 4px 0;"><strong>📅 Day:</strong> ${dayName}, AM</p>
-        <p style="margin: 4px 0;"><strong>📅 Date:</strong> ${workshop.date}</p>
-        <p style="margin: 4px 0;"><strong>🕐 Time:</strong> ${workshop.time}</p>
+        <p style="margin: 4px 0;"><strong>📅 Date:</strong> ${event.date}</p>
+        <p style="margin: 4px 0;"><strong>🕐 Time:</strong> ${event.time}</p>
         <p style="margin: 4px 0;"><strong>${venueLabel}:</strong> ${venueHtml}</p>
       </div>
     `;
@@ -79,14 +79,14 @@ export class EmailService {
   async sendShortlistedEmail(
     email: string,
     name: string,
-    workshop: { title: string; date: string; time: string; venue: string; special_instructions?: string; is_online?: boolean },
+    event: { title: string; date: string; time: string; venue: string; special_instructions?: string; is_online?: boolean },
     registrationId: string,
     qrData: string,
   ) {
-    const appUrl = process.env.APP_URL || 'http://localhost:3000';
+    const appUrl = (process.env.APP_URL || 'http://localhost:3000').replace(/\/api\/?$/, '').replace(/\/$/, '');
     const acknowledgeUrl = `${appUrl}/api/registrations/${registrationId}/acknowledge`;
 
-    const isOnline = !!workshop.is_online;
+    const isOnline = !!event.is_online;
 
     let qrBase64 = '';
     if (!isOnline) {
@@ -124,8 +124,8 @@ export class EmailService {
 
     const html = this.emailWrapper('#34A853', "You've Been Shortlisted!", `
       <h2 style="color: #202124;">Congratulations ${name}! 🎉</h2>
-      <p>You have been <span style="background: #D4EDDA; color: #155724; padding: 2px 8px; border-radius: 4px; font-weight: bold;">Shortlisted</span> for <strong>${workshop.title}</strong>!</p>
-      ${this.workshopDetailsBlock(workshop)}
+      <p>You have been <span style="background: #D4EDDA; color: #155724; padding: 2px 8px; border-radius: 4px; font-weight: bold;">Shortlisted</span> for <strong>${event.title}</strong>!</p>
+      ${this.eventDetailsBlock(event)}
       ${ticketBlock}
       <div style="text-align: center; margin: 24px 0;">
         <p style="color: #5F6368; margin: 0 0 12px; font-size: 14px;">Please confirm that you will attend:</p>
@@ -133,10 +133,10 @@ export class EmailService {
           ✓ Confirm my spot
         </a>
       </div>
-      ${workshop.special_instructions ? `
+      ${event.special_instructions ? `
       <div style="background: #E8F0FE; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4285F4;">
         <p style="margin: 0; color: #1A73E8;"><strong>📋 Special Instructions:</strong></p>
-        <div style="margin: 8px 0 0; color: #202124; white-space: pre-line;">${workshop.special_instructions}</div>
+        <div style="margin: 8px 0 0; color: #202124; white-space: pre-line;">${event.special_instructions}</div>
       </div>
       ` : ''}
       ${importantBlock}
@@ -156,7 +156,7 @@ export class EmailService {
     const { data, error } = await this.resend.emails.send({
       from: this.from,
       to: [email],
-      subject: `🎉 You're Shortlisted! - GDG Kolachi's ${workshop.title}`,
+      subject: `🎉 You're Shortlisted! - GDG Kolachi's ${event.title}`,
       html,
       attachments,
     });
@@ -280,7 +280,7 @@ export class EmailService {
     recipients: Array<{
       email: string;
       name: string;
-      workshop: { title: string; date: string; time: string; venue: string; special_instructions?: string; is_online?: boolean };
+      event: { title: string; date: string; time: string; venue: string; special_instructions?: string; is_online?: boolean };
       registrationId: string;
       qrData: string;
     }>,
@@ -289,11 +289,11 @@ export class EmailService {
     for (let i = 0; i < recipients.length; i += batchSize) {
       const chunk = recipients.slice(i, i + batchSize);
 
-      const appUrl = process.env.APP_URL || 'http://localhost:3000';
+      const appUrl = (process.env.APP_URL || 'http://localhost:3000').replace(/\/api\/?$/, '').replace(/\/$/, '');
       const messages = await Promise.all(
         chunk.map(async (r) => {
           const acknowledgeUrl = `${appUrl}/api/registrations/${r.registrationId}/acknowledge`;
-          const isOnline = !!r.workshop.is_online;
+          const isOnline = !!r.event.is_online;
 
           let qrBase64 = '';
           if (!isOnline) {
@@ -321,17 +321,17 @@ export class EmailService {
 
           const html = this.emailWrapper('#34A853', "You've Been Shortlisted!", `
             <h2 style="color: #202124;">Congratulations ${r.name}! 🎉</h2>
-            <p>You have been <span style="background: #D4EDDA; color: #155724; padding: 2px 8px; border-radius: 4px; font-weight: bold;">Shortlisted</span> for <strong>${r.workshop.title}</strong>!</p>
-            ${this.workshopDetailsBlock(r.workshop)}
+            <p>You have been <span style="background: #D4EDDA; color: #155724; padding: 2px 8px; border-radius: 4px; font-weight: bold;">Shortlisted</span> for <strong>${r.event.title}</strong>!</p>
+            ${this.eventDetailsBlock(r.event)}
             ${ticketBlock}
             <div style="text-align: center; margin: 20px 0;">
               <p style="color: #5F6368; margin: 0 0 10px;">Please confirm that you will attend:</p>
               <a href="${acknowledgeUrl}" style="background: #34A853; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">✓ Confirm my spot</a>
             </div>
-            ${r.workshop.special_instructions ? `
+            ${r.event.special_instructions ? `
             <div style="background: #E8F0FE; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4285F4;">
               <p style="margin: 0; color: #1A73E8;"><strong>📋 Special Instructions:</strong></p>
-              <div style="margin: 8px 0 0; color: #202124; white-space: pre-line;">${r.workshop.special_instructions}</div>
+              <div style="margin: 8px 0 0; color: #202124; white-space: pre-line;">${r.event.special_instructions}</div>
             </div>
             ` : ''}
             ${importantBlock}
@@ -349,7 +349,7 @@ export class EmailService {
           return {
             from: this.from,
             to: [r.email],
-            subject: `🎉 You're Shortlisted! - GDG Kolachi's ${r.workshop.title}`,
+            subject: `🎉 You're Shortlisted! - GDG Kolachi's ${r.event.title}`,
             html,
             attachments,
           };
