@@ -2,7 +2,6 @@ import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { useAdminEvents } from '../../event-management/admin-event-repository';
 import { useAdminRegistrations, useUpdateRegistrationStatus, useBulkUpdateStatus, useEventAmbassadors,useSendReminder } from '../admin-registration-repository';
-import { useAdminWorkshops } from '../../workshop-management/admin-workshop-repository';
 import { adminRegistrationApi } from '../admin-registration-api';
 import {
   STATUS_COLORS,
@@ -562,7 +561,7 @@ export default function RegistrationsViewer() {
               <div>
                 <h2 className="text-lg font-bold text-slate-900">Send reminder email</h2>
                 <p className="mt-1 text-xs text-slate-500">
-                  Re-sends the entry pass (QR code) + workshop instructions to shortlisted/confirmed recipients.
+                  Re-sends the entry pass (QR code) + event instructions to shortlisted/confirmed recipients.
                 </p>
               </div>
               <button
