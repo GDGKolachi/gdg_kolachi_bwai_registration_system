@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { useAdminEvents } from '../../event-management/admin-event-repository';
-import { useAdminRegistrations, useUpdateRegistrationStatus, useBulkUpdateStatus, useEventAmbassadors } from '../admin-registration-repository';
+import { useAdminRegistrations, useUpdateRegistrationStatus, useBulkUpdateStatus, useEventAmbassadors,useSendReminder } from '../admin-registration-repository';
+import { useAdminWorkshops } from '../../workshop-management/admin-workshop-repository';
 import { adminRegistrationApi } from '../admin-registration-api';
 import {
   STATUS_COLORS,
@@ -203,6 +204,11 @@ export default function RegistrationsViewer() {
 
   const updateStatusMutation = useUpdateRegistrationStatus();
   const bulkUpdateMutation   = useBulkUpdateStatus();
+  const sendReminderMutation = useSendReminder();
+
+  // Reminder modal state
+  const [reminderOpen, setReminderOpen] = useState(false);
+  const [reminderMessage, setReminderMessage] = useState('');
 
   const hasDraftChanges    = JSON.stringify(draftFilters) !== JSON.stringify(appliedFilters);
   const isActive = v => Array.isArray(v) ? v.length > 0 : v !== '';
@@ -284,6 +290,37 @@ export default function RegistrationsViewer() {
       setSelectedIds(new Set());
     } catch (err) {
       toast.error(err.response?.data?.message || 'Bulk update failed');
+    }
+  };
+
+  // How many of the currently selected rows are reminder-eligible
+  const reminderEligibleSelected = registrations.filter(
+    r => selectedIds.has(r.id) && (r.status === 'shortlisted' || r.status === 'confirmed'),
+  ).length;
+
+  const openReminderModal = () => {
+    if (selectedIds.size === 0) return;
+    setReminderMessage('');
+    setReminderOpen(true);
+  };
+
+  const sendReminder = async () => {
+    if (selectedIds.size === 0) return;
+    try {
+      const result = await sendReminderMutation.mutateAsync({
+        ids: Array.from(selectedIds),
+        message: reminderMessage,
+      });
+      if (result.failed?.length > 0) {
+        toast.success(`Reminder sent to ${result.sent} recipient(s)`);
+        toast.error(`${result.failed.length} skipped (not shortlisted/confirmed)`);
+      } else {
+        toast.success(`Reminder sent to ${result.sent} recipient(s)`);
+      }
+      setReminderOpen(false);
+      setSelectedIds(new Set());
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to send reminder');
     }
   };
 
@@ -485,13 +522,111 @@ export default function RegistrationsViewer() {
               </button>
             ))}
           </div>
-          <button
-            type="button"
-            onClick={() => setSelectedIds(new Set())}
-            className="text-left text-xs text-slate-400 hover:text-white sm:ml-auto sm:text-right"
+          <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+            <button
+              type="button"
+              onClick={openReminderModal}
+              disabled={reminderEligibleSelected === 0}
+              title={reminderEligibleSelected === 0
+                ? 'Reminder is only available for shortlisted or confirmed registrations'
+                : `Will send to ${reminderEligibleSelected} eligible recipient(s)`}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-2.5 py-1.5 text-[0.7rem] font-semibold text-white shadow-sm shadow-amber-500/25 hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50 sm:px-3 sm:text-xs"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+              Send reminder
+              {reminderEligibleSelected > 0 && (
+                <span className="rounded-full bg-white/20 px-1.5 py-0.5 text-[0.65rem]">{reminderEligibleSelected}</span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+              className="text-left text-xs text-slate-400 hover:text-white sm:text-right"
+            >
+              Deselect all
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Reminder modal */}
+      {reminderOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onClick={() => !sendReminderMutation.isPending && setReminderOpen(false)}>
+          <div
+            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={e => e.stopPropagation()}
           >
-            Deselect all
-          </button>
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Send reminder email</h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  Re-sends the entry pass (QR code) + workshop instructions to shortlisted/confirmed recipients.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReminderOpen(false)}
+                disabled={sendReminderMutation.isPending}
+                className="text-slate-400 hover:text-slate-600 disabled:opacity-50"
+                aria-label="Close"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900 ring-1 ring-amber-200/70">
+              <strong>{reminderEligibleSelected}</strong> of {selectedIds.size} selected registration(s) are eligible.
+              {selectedIds.size - reminderEligibleSelected > 0 && (
+                <span> {selectedIds.size - reminderEligibleSelected} will be skipped (not shortlisted/confirmed).</span>
+              )}
+            </div>
+
+            <label className="ui-label" htmlFor="reminder-message">
+              Custom message (optional)
+            </label>
+            <textarea
+              id="reminder-message"
+              className={`${inputCls} min-h-[120px] resize-y`}
+              placeholder="e.g. The venue entrance has moved to the side gate — please arrive 15 minutes early."
+              value={reminderMessage}
+              onChange={e => setReminderMessage(e.target.value)}
+              maxLength={2000}
+              disabled={sendReminderMutation.isPending}
+            />
+            <p className="mt-1 text-right text-[0.65rem] text-slate-400">
+              {reminderMessage.length}/2000
+            </p>
+
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setReminderOpen(false)}
+                disabled={sendReminderMutation.isPending}
+                className="ui-btn-secondary !px-4 !py-2 text-sm disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={sendReminder}
+                disabled={sendReminderMutation.isPending || reminderEligibleSelected === 0}
+                className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-amber-500/25 hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {sendReminderMutation.isPending ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/60 border-t-white" aria-hidden />
+                    Sending…
+                  </>
+                ) : (
+                  <>Send to {reminderEligibleSelected} recipient(s)</>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

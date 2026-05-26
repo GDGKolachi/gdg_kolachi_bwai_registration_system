@@ -220,6 +220,71 @@ export class AdminService {
     return registration;
   }
 
+  // Send a reminder email (entry pass + workshop instructions + admin's custom message)
+  // to a batch of registrations. Only shortlisted/confirmed registrations are eligible —
+  // anything else is reported back as a failure so the admin can see what was skipped.
+  async sendReminder(registrationIds: string[], customMessage: string) {
+    if (!Array.isArray(registrationIds) || registrationIds.length === 0) {
+      throw new BadRequestException('At least one registration ID is required');
+    }
+
+    const ELIGIBLE = new Set(['shortlisted', 'confirmed']);
+    const eligible: Array<{
+      email: string;
+      name: string;
+      workshop: any;
+      registrationId: string;
+      qrData: string;
+    }> = [];
+    const failed: { id: string; error: string }[] = [];
+
+    for (const id of registrationIds) {
+      const registration = await this.registrationRepo.findOne({
+        where: { id },
+        relations: ['attendee', 'workshop'],
+      });
+      if (!registration) {
+        failed.push({ id, error: 'Registration not found' });
+        continue;
+      }
+      if (!ELIGIBLE.has(registration.status)) {
+        failed.push({
+          id,
+          error: `Reminder only available for shortlisted/confirmed (was "${registration.status}")`,
+        });
+        continue;
+      }
+
+      let qrData = registration.qr_code_data;
+      if (!qrData && !registration.workshop.is_online) {
+        qrData = JSON.stringify({
+          registrationId: registration.id,
+          name: registration.attendee.name,
+          email: registration.attendee.email,
+          phone: registration.attendee.phone,
+          cnic: registration.attendee.cnic,
+        });
+        registration.qr_code_data = qrData;
+        await this.registrationRepo.save(registration);
+      }
+
+      eligible.push({
+        email: registration.attendee.email,
+        name: registration.attendee.name,
+        workshop: registration.workshop,
+        registrationId: registration.id,
+        qrData: qrData || '',
+      });
+    }
+
+    if (eligible.length === 0) {
+      return { sent: 0, failed };
+    }
+
+    const result = await this.emailService.sendReminderBatch(eligible, customMessage);
+    return { sent: result.sent, failed };
+  }
+
   async bulkUpdateStatus(registrationIds: string[], newStatus: string) {
     const succeeded: Registration[] = [];
     const failed: { id: string; error: string }[] = [];

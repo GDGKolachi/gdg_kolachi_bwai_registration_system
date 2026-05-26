@@ -23,7 +23,7 @@ export const adminRegistrationApi = {
     if (params.page) query.set('page', String(params.page));
     if (params.limit) query.set('limit', String(params.limit));
     return api.get(`/admin/registrations?${query.toString()}`).then((res) => res.data);
-  },
+},
   exportCsv: (eventId) =>
     api.get(`/admin/registrations/export?event_id=${eventId}`, { responseType: 'blob' }).then((res) => res.data),
   getAmbassadors: (eventId) =>
@@ -33,6 +33,14 @@ export const adminRegistrationApi = {
       .patch('/admin/registrations/status', {
         ids: Array.isArray(ids) ? ids : [ids],
         status,
+      })
+      .then((res) => res.data),
+  // Re-send entry pass + custom note to shortlisted/confirmed registrations
+  sendReminder: (ids, message) =>
+    api
+      .post('/admin/registrations/reminder', {
+        ids: Array.isArray(ids) ? ids : [ids],
+        message: message || '',
       })
       .then((res) => res.data),
 };

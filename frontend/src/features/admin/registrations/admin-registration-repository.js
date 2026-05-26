@@ -40,3 +40,9 @@ export function useBulkUpdateStatus() {
     },
   });
 }
+
+export function useSendReminder() {
+  return useMutation({
+    mutationFn: ({ ids, message }) => adminRegistrationApi.sendReminder(ids, message),
+  });
+}
