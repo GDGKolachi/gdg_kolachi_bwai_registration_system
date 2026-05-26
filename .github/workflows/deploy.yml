@@ -103,4 +103,4 @@ jobs:
             --project=${PROJECT_ID} \
             --ssh-key-expire-after=120s \
             --quiet \
-            --command="sudo tar xzf /tmp/app.tar.gz -C /opt/gdg-bwai && rm -f /tmp/app.tar.gz && cd /opt/gdg-bwai && sudo docker compose up --build -d --remove-orphans && echo 'Waiting for services...' && sleep 15 && sudo docker compose ps"
+            --command="sudo mkdir -p /opt/gdg-bwai && cd /opt/gdg-bwai && sudo find . -mindepth 1 -maxdepth 1 ! -name '.env' -exec rm -rf {} + && sudo tar xzf /tmp/app.tar.gz -C /opt/gdg-bwai && rm -f /tmp/app.tar.gz && sudo docker compose up --build -d --remove-orphans && echo 'Waiting for services...' && sleep 15 && sudo docker compose ps"
