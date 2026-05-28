@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ForwardT. — Supervised QA, on demand</title>
+<meta name="description" content="On-demand, NDA-bound testers for software you can't hand to a freelancer. Quote in 24 hours." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- =============== NAV =============== -->
+<nav class="top" id="topnav">
+  <div class="wrap">
+    <a href="#top" class="wordmark" data-screen-label="wordmark">Forward<span class="t">T</span><span class="dot">.</span></a>
+    <ul>
+      <li class="mid-link"><a href="#what">What we do</a></li>
+      <li class="mid-link"><a href="#how">How it works</a></li>
+      <li class="mid-link"><a href="#pricing">Pricing</a></li>
+      <li><button class="btn btn-accent" data-open-quote>Get a quote <span class="arrow">→</span></button></li>
+    </ul>
+  </div>
+</nav>
+
+<main id="top" data-screen-label="landing">
+
+<!-- =============== HERO =============== -->
+<section class="section hero" data-screen-label="hero">
+  <div class="wrap">
+    <div class="hero-grid">
+      <div class="reveal">
+        <span class="eyebrow">Supervised QA, on demand</span>
+        <h1>QA that ships as <em>fast</em> as your AI does.</h1>
+        <p class="lead">On-demand, NDA-bound testers for the software you <em>can't</em> hand to a freelancer. You ship faster than your QA can keep up — we close the gap, without scattering your credentials across the internet.</p>
+        <div class="cta-row">
+          <button class="btn btn-primary" data-open-quote>Get a quote in 24h <span class="arrow">→</span></button>
+          <a href="#how" class="btn btn-ghost">How it works</a>
+        </div>
+        <div class="trust-strip">
+          <span class="dotmark"></span>
+          <span>Built for B2B, fintech, and access-controlled software · NDA on every engagement</span>
+        </div>
+      </div>
+
+      <!-- Quote artifact card -->
+      <aside class="reveal" style="transition-delay: .12s">
+        <div class="quote-card" aria-hidden="true">
+          <div class="hdr">
+            <span class="ref">QUOTE · FT-2841</span>
+            <span class="pill">Returned in 14h</span>
+          </div>
+          <div class="stack">
+            <div class="row"><span class="k">Build</span><span class="v">Internal admin / fintech</span></div>
+            <div class="row"><span class="k">Access</span><span class="v">Brokered · staging</span></div>
+            <div class="row"><span class="k">Scope</span><span class="v">42 screens · high density</span></div>
+            <div class="row"><span class="k">Trust tier</span><span class="v">Tier 2 — remote supervised</span></div>
+            <div class="row"><span class="k">Turnaround</span><span class="v">72 hours</span></div>
+          </div>
+          <div class="ftr">
+            <span class="total">Fixed price · approved before start</span>
+            <span class="turn">→ Approve</span>
+          </div>
+        </div>
+        <div class="label-mono" style="text-align:right; margin-top: 14px; max-width: 420px; margin-left:auto;">Sample artifact · every quote priced before work begins</div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<!-- =============== PROBLEM =============== -->
+<section class="section problem" data-screen-label="problem">
+  <div class="wrap">
+    <div class="reveal">
+      <span class="eyebrow">01 / The gap</span>
+      <h2>You ship in days. <em>Verification takes weeks.</em></h2>
+      <p class="body">AI writes more of your code than ever — and it ships with more bugs, not fewer. The bottleneck moved from writing software to <em>verifying</em> it. For consumer apps you can crowd-test. For B2B, fintech, and internal tools, you can't hand login access to a stranger in another country — so QA becomes the thing that's blocking your release.</p>
+      <div class="stat-line">
+        <div class="stat"><strong>3.2×</strong>code shipped per engineer, 2024 → 2026</div>
+        <div class="stat"><strong>↓ 1</strong>QA hire per 5 eng hires, industry avg</div>
+        <div class="stat"><strong>= gap</strong>verification is now the bottleneck</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =============== CONTRAST =============== -->
+<section class="section contrast" id="what" data-screen-label="contrast">
+  <div class="wrap">
+    <div class="reveal">
+      <span class="eyebrow">02 / What we do</span>
+      <h2>Supervised QA. <em>Not crowdtesting.</em></h2>
+      <p class="lede">Crowd platforms hand your build to whoever's online. That works until your software needs real access — to a staging environment, to sensitive data, to anything under NDA. We don't scatter access across a crowd. We broker it: testers work inside a controlled session or on a secured device, access lives with us, never with an individual, and every result clears a review before it reaches you.</p>
+
+      <div class="vs-table" role="table" aria-label="Crowdtesting vs ForwardT">
+        <div class="vs-header" role="row">
+          <div class="h-l" role="columnheader">Crowdtesting</div>
+          <div class="h-r" role="columnheader">ForwardT.</div>
+        </div>
+        <div class="vs-row" role="row">
+          <div class="vs-cell l" role="cell">Build handed to anonymous crowd</div>
+          <div class="vs-cell r" role="cell">Vetted, NDA-bound testers</div>
+        </div>
+        <div class="vs-row" role="row">
+          <div class="vs-cell l" role="cell">Access shared with individuals</div>
+          <div class="vs-cell r" role="cell">Access brokered at org level — never scattered</div>
+        </div>
+        <div class="vs-row" role="row">
+          <div class="vs-cell l" role="cell">Opaque "contact us" pricing</div>
+          <div class="vs-cell r" role="cell">Quote in 24h, priced before work begins</div>
+        </div>
+        <div class="vs-row" role="row">
+          <div class="vs-cell l" role="cell">You manage triage</div>
+          <div class="vs-cell r" role="cell">Every result reviewed before it reaches you</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =============== HOW IT WORKS =============== -->
+<section class="section how" id="how" data-screen-label="how">
+  <div class="wrap">
+    <div class="reveal">
+      <span class="eyebrow">03 / How it works</span>
+      <h2>One request. One quote. <em>One reviewed result.</em></h2>
+      <p class="lede">A single workflow from intake to reviewed report. The 24-hour quote is the hook — the review pass is the guarantee.</p>
+    </div>
+    <div class="steps reveal">
+      <div class="step">
+        <div class="num"><strong>01</strong>Scope</div>
+        <h3>Send the build</h3>
+        <p>Share screens, flows, and access constraints. No call required.</p>
+      </div>
+      <div class="step featured">
+        <div class="num"><strong>02</strong>Quote</div>
+        <h3>Fixed price, 24 hours</h3>
+        <p>You get a price and turnaround inside a day. Approve before any work begins.</p>
+      </div>
+      <div class="step">
+        <div class="num"><strong>03</strong>Dispatch</div>
+        <h3>Vetted, domain-matched</h3>
+        <p>A tester picks it up — supervised, under NDA, scoped to the task.</p>
+      </div>
+      <div class="step">
+        <div class="num"><strong>04</strong>Review</div>
+        <h3>QA lead clears it</h3>
+        <p>Every report passes a senior review before it reaches your inbox.</p>
+      </div>
+      <div class="step">
+        <div class="num"><strong>05</strong>Ship</div>
+        <h3>Clear repro, severity</h3>
+        <p>Steps, visual evidence, severity tags. Re-test on demand.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =============== FIT =============== -->
+<section class="section fit" data-screen-label="fit">
+  <div class="wrap">
+    <div class="reveal">
+      <span class="eyebrow">04 / Best fit</span>
+      <h2>Built for software <em>crowdtesting can't touch.</em></h2>
+    </div>
+    <div class="fit-grid">
+      <div class="fit-col yes reveal">
+        <h4>Best fit</h4>
+        <ul>
+          <li><span class="mark"></span>B2B SaaS, fintech, healthcare-adjacent, or internal tools</li>
+          <li><span class="mark"></span>Software that needs privileged or staging access to test</li>
+          <li><span class="mark"></span>Teams shipping fast with AI and blocked on verification</li>
+          <li><span class="mark"></span>Anything under NDA or data-governance constraints</li>
+        </ul>
+      </div>
+      <div class="fit-col no reveal" style="transition-delay: .08s">
+        <h4>Not a fit</h4>
+        <ul>
+          <li><span class="mark"></span>Public consumer apps with no access constraint<em>A crowd platform will be cheaper — we'll tell you.</em></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =============== TRUST =============== -->
+<section class="section trust" data-screen-label="trust">
+  <div class="wrap">
+    <div class="reveal">
+      <span class="eyebrow">05 / How access works</span>
+      <h2>Your credentials <em>never leave</em> your control.</h2>
+    </div>
+    <div class="trust-grid reveal">
+      <div class="trust-cell">
+        <span class="badge">A · Brokered access</span>
+        <h3>Provisioned and revoked by us</h3>
+        <p>Testers work in a controlled session or on a secured device you approve. Access is scoped to the task and revoked the moment it ends.</p>
+      </div>
+      <div class="trust-cell">
+        <span class="badge">B · NDA on every engagement</span>
+        <h3>Every tester, every task</h3>
+        <p>Signed before access is granted. No exceptions, no informal handoffs, no shared credentials.</p>
+      </div>
+      <div class="trust-cell">
+        <span class="badge">C · Reviewed output</span>
+        <h3>A QA lead checks every result</h3>
+        <p>Nothing reaches you unfiltered. Bug reports clear a senior review for clarity, repro quality, and severity.</p>
+      </div>
+      <div class="trust-cell">
+        <span class="badge">D · Tiered trust</span>
+        <h3>Matched to how sensitive your software is</h3>
+        <p>From remote-supervised to on-site forward-deployed. The tier scales with your data-governance constraints.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =============== PRICING =============== -->
+<section class="section pricing" id="pricing" data-screen-label="pricing">
+  <div class="wrap">
+    <div class="reveal">
+      <span class="eyebrow">06 / Pricing</span>
+      <h2>Quoted in 24 hours. <em>Priced before we start.</em></h2>
+      <p class="lede">No retainers. No "contact sales" black box. Tell us your screens, flows, and access needs — we send a fixed price and turnaround within a day. You approve the number before any work begins.</p>
+
+      <div class="formula" aria-label="Pricing scales with">
+        <div class="var"><strong>Scope</strong>screens × density</div>
+        <span class="op">×</span>
+        <div class="var"><strong>Trust tier</strong>remote → on-site</div>
+        <span class="op">×</span>
+        <div class="var"><strong>Turnaround</strong>standard → expedited</div>
+      </div>
+
+      <div class="cta-row">
+        <button class="btn btn-accent" data-open-quote>Get your quote <span class="arrow">→</span></button>
+        <span class="note">Reply within one business day · no call required</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =============== FAQ =============== -->
+<section class="section faq" data-screen-label="faq">
+  <div class="wrap">
+    <div class="reveal">
+      <span class="eyebrow">07 / FAQ</span>
+      <h2>Questions <em>worth answering.</em></h2>
+    </div>
+    <div class="faq-list reveal" id="faqList">
+      <div class="faq-item open">
+        <button class="faq-q" aria-expanded="true">How is this different from crowdtesting like the big platforms?<span class="toggle" aria-hidden="true"></span></button>
+        <div class="faq-a"><div class="faq-a-inner">Crowd platforms hand your build to an anonymous pool and work best for consumer apps. We're built for software where access is the constraint: vetted NDA-bound testers, access brokered at the org level, every result reviewed by a QA lead before it reaches you.</div></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" aria-expanded="false">How do you handle access and credentials?<span class="toggle" aria-hidden="true"></span></button>
+        <div class="faq-a"><div class="faq-a-inner">Testers work in a controlled session or on a secured device. Access is scoped, provisioned, and revoked by us — never shared with an individual long-term, never sitting in someone's personal browser.</div></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" aria-expanded="false">How fast is a quote? A test cycle?<span class="toggle" aria-hidden="true"></span></button>
+        <div class="faq-a"><div class="faq-a-inner">Quote in 24 hours. Cycle turnaround is quoted per task and depends on scope — expedited options are available when you need to ship today.</div></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" aria-expanded="false">How are testers vetted?<span class="toggle" aria-hidden="true"></span></button>
+        <div class="faq-a"><div class="faq-a-inner">Paid skills screen on bug-report quality, domain tagging, background check, and NDA before any access. A probation period with shadow review precedes any solo work.</div></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" aria-expanded="false">What do I get back?<span class="toggle" aria-hidden="true"></span></button>
+        <div class="faq-a"><div class="faq-a-inner">Reproducible bug reports with clear repro steps, visual evidence, and severity tags — reviewed by a QA lead, not raw crowd output. Importable to Linear, Jira, or your tracker of choice.</div></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" aria-expanded="false">Can you test under HIPAA / data-governance constraints?<span class="toggle" aria-hidden="true"></span></button>
+        <div class="faq-a"><div class="faq-a-inner">Yes — that's the on-site / forward-deployed tier. Access stays inside your perimeter; testers come to your environment, not the other way around.</div></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" aria-expanded="false">What if it's not a fit?<span class="toggle" aria-hidden="true"></span></button>
+        <div class="faq-a"><div class="faq-a-inner">If your software is a public consumer app with no access constraint, we'll tell you a crowd platform is cheaper. We only take work where we're the right tool.</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =============== CLOSING =============== -->
+<section class="section closing" data-screen-label="closing">
+  <div class="wrap">
+    <div class="reveal">
+      <h2>Shipping faster than you can test? <em>Let's fix that.</em></h2>
+      <p>Tell us what needs testing and your access constraints. We'll send a quote in 24 hours — or tell you honestly if we're not the right fit.</p>
+      <div class="cta-row">
+        <button class="btn btn-primary" data-open-quote>Get a quote <span class="arrow">→</span></button>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- =============== FOOTER =============== -->
+<footer class="site" data-screen-label="footer">
+  <div class="wrap">
+    <div class="row">
+      <div>
+        <a href="#top" class="wordmark">Forward<span class="t">T</span><span class="dot">.</span></a>
+        <div class="links" style="margin-top: 16px;">
+          <a href="#what">What we do</a>
+          <a href="#how">How it works</a>
+          <a href="#pricing">Pricing</a>
+        </div>
+      </div>
+      <div class="meta">
+        <a href="mailto:hello@forwardt.com">hello@forwardt.com</a>
+        <a href="#">LinkedIn ↗</a>
+        <a href="#" class="tester-link">Are you a tester? Join the pool →</a>
+      </div>
+    </div>
+    <div class="bottom">
+      <span>Global · 24h quote turnaround</span>
+      <span>© ForwardT. 2026</span>
+    </div>
+  </div>
+</footer>
+
+<!-- =============== MODAL =============== -->
+<div class="modal-veil" id="quoteModal" role="dialog" aria-modal="true" aria-labelledby="quoteTitle">
+  <div class="modal" id="quoteModalInner">
+    <button class="close" data-close-quote aria-label="Close">×</button>
+    <span class="eyebrow">Get a quote</span>
+    <h3 id="quoteTitle">Tell us what needs testing.</h3>
+    <p class="sub">We'll reply within one business day with a fixed price and turnaround — or tell you honestly if we're not the right fit.</p>
+    <form id="quoteForm" novalidate>
+      <div class="field" data-field>
+        <label for="qf-build">Build description</label>
+        <textarea id="qf-build" name="build" rows="2" placeholder="e.g. Internal fintech admin, 40 screens, staging only" required minlength="10"></textarea>
+        <span class="err">Add a few words so we can scope it.</span>
+      </div>
+      <div class="field" data-field>
+        <label for="qf-access">Access constraint</label>
+        <select id="qf-access" name="access" required>
+          <option value="">Choose one…</option>
+          <option>Staging access only</option>
+          <option>Production-like, brokered session</option>
+          <option>On-site / inside your perimeter</option>
+          <option>Public app — no constraint</option>
+        </select>
+        <span class="err">Pick one — it determines the trust tier.</span>
+      </div>
+      <div class="field" data-field>
+        <label for="qf-turn">Turnaround needed</label>
+        <select id="qf-turn" name="turn" required>
+          <option value="">Choose one…</option>
+          <option>Standard (3–5 days)</option>
+          <option>Expedited (48h)</option>
+          <option>Same-day</option>
+        </select>
+        <span class="err">Pick a turnaround.</span>
+      </div>
+      <div class="field" data-field>
+        <label for="qf-email">Work email</label>
+        <input id="qf-email" name="email" type="email" placeholder="you@company.com" required />
+        <span class="err">We need a valid work email to reply.</span>
+      </div>
+      <div class="actions">
+        <span class="note">No call required</span>
+        <button type="submit" class="btn btn-primary">Send <span class="arrow">→</span></button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Page interactions (vanilla) -->
+<script>
+(function () {
+  // sticky nav border
+  const nav = document.getElementById('topnav');
+  const onScroll = () => nav.classList.toggle('scrolled', window.scrollY > 8);
+  onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+
+  // reveal on scroll
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+  // FAQ accordion
+  document.querySelectorAll('#faqList .faq-q').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const item = btn.parentElement;
+      const isOpen = item.classList.contains('open');
+      document.querySelectorAll('#faqList .faq-item').forEach(i => { i.classList.remove('open'); i.querySelector('.faq-q').setAttribute('aria-expanded', 'false'); });
+      if (!isOpen) { item.classList.add('open'); btn.setAttribute('aria-expanded', 'true'); }
+    });
+  });
+
+  // Modal
+  const veil = document.getElementById('quoteModal');
+  const form = document.getElementById('quoteForm');
+  const inner = document.getElementById('quoteModalInner');
+  const openModal = () => { veil.classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => { const f = veil.querySelector('textarea,input,select'); f && f.focus(); }, 50); };
+  const closeModal = () => { veil.classList.remove('open'); document.body.style.overflow = ''; resetForm(); };
+  const resetForm = () => {
+    if (!form) return;
+    form.reset();
+    form.querySelectorAll('.field').forEach(f => f.classList.remove('invalid'));
+    // restore form if previously replaced by success state
+    if (!document.getElementById('quoteForm')) {
+      inner.innerHTML = ORIGINAL_MODAL_HTML;
+      bindModal();
+    }
+  };
+  document.querySelectorAll('[data-open-quote]').forEach(b => b.addEventListener('click', openModal));
+  function bindModal() {
+    document.querySelectorAll('[data-close-quote]').forEach(b => b.addEventListener('click', closeModal));
+  }
+  bindModal();
+  veil.addEventListener('click', (e) => { if (e.target === veil) closeModal(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && veil.classList.contains('open')) closeModal(); });
+
+  const ORIGINAL_MODAL_HTML = inner.innerHTML;
+
+  // Validation + success
+  const validateField = (field) => {
+    const input = field.querySelector('input,textarea,select');
+    if (!input) return true;
+    let ok = input.checkValidity();
+    if (input.type === 'email' && ok) ok = /.+@.+\..+/.test(input.value);
+    if (input.tagName === 'TEXTAREA' && ok) ok = input.value.trim().length >= 10;
+    field.classList.toggle('invalid', !ok);
+    return ok;
+  };
+
+  document.addEventListener('submit', (e) => {
+    if (e.target.id !== 'quoteForm') return;
+    e.preventDefault();
+    let ok = true;
+    e.target.querySelectorAll('.field').forEach(f => { if (!validateField(f)) ok = false; });
+    if (!ok) return;
+    // success state
+    const data = Object.fromEntries(new FormData(e.target));
+    inner.innerHTML = `
+      <button class="close" data-close-quote aria-label="Close">×</button>
+      <div class="check">✓</div>
+      <span class="eyebrow">Quote requested</span>
+      <h3>Got it. We'll reply within 24 hours.</h3>
+      <p class="sub">A QA lead is scoping it now. You'll get a fixed price and turnaround at <strong>${(data.email || 'your inbox').replace(/[<>]/g,'')}</strong> — or an honest "not a fit" note.</p>
+      <div class="actions" style="justify-content: flex-end;">
+        <button type="button" class="btn btn-primary" data-close-quote>Close</button>
+      </div>
+    `;
+    bindModal();
+  });
+  document.addEventListener('input', (e) => {
+    const f = e.target.closest('.field');
+    if (f && f.classList.contains('invalid')) validateField(f);
+  });
+})();
+</script>
+
+</body>
+</html>
