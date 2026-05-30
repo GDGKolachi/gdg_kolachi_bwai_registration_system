@@ -66,6 +66,10 @@ export class TeamsService {
     return this.assignment.moveMember(teamId, registrationId, adminId);
   }
 
+  async swapMembers(registrationIdA: string, registrationIdB: string, adminId: string) {
+    return this.assignment.swapMembers(registrationIdA, registrationIdB, adminId);
+  }
+
   /**
    * Public, unauthenticated lookup: an attendee finds their hackathon team by
    * email + name. Visible live (no lock gate).

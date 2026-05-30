@@ -399,4 +399,83 @@ export class TeamAssignmentService {
     member.assigned_by = `admin:${adminId}`;
     return this.memberRepo.save(member);
   }
+
+  /**
+   * Swap two members between their teams. Useful when both target teams
+   * are at full capacity but a trade keeps both teams valid.
+   * Enforces domain match and role-target caps on the resulting composition
+   * of each team.
+   */
+  async swapMembers(
+    registrationIdA: string,
+    registrationIdB: string,
+    adminId: string,
+  ): Promise<{ swapped: true }> {
+    if (registrationIdA === registrationIdB) {
+      throw new BadRequestException('Cannot swap a member with themselves');
+    }
+    const memberA = await this.memberRepo.findOne({
+      where: { registration_id: registrationIdA },
+      relations: ['team'],
+    });
+    const memberB = await this.memberRepo.findOne({
+      where: { registration_id: registrationIdB },
+      relations: ['team'],
+    });
+    if (!memberA || !memberB) {
+      throw new NotFoundException('One or both members not found');
+    }
+    if (memberA.team_id === memberB.team_id) {
+      throw new BadRequestException('Members are already on the same team');
+    }
+    if (memberA.team?.status === 'locked' || memberB.team?.status === 'locked') {
+      throw new BadRequestException('Cannot swap with a locked team');
+    }
+
+    const teamA = await this.teamRepo.findOne({
+      where: { id: memberA.team_id },
+      relations: ['members'],
+    });
+    const teamB = await this.teamRepo.findOne({
+      where: { id: memberB.team_id },
+      relations: ['members'],
+    });
+    if (!teamA || !teamB) throw new NotFoundException('Team not found');
+
+    const cfg = await this.getOrCreateConfig(teamA.event_id);
+
+    // Domain hard constraint: each member must match the destination team's primary_domain.
+    if (memberA.domain_snapshot && teamB.primary_domain && memberA.domain_snapshot !== teamB.primary_domain) {
+      throw new BadRequestException(
+        `Swap rejected: ${'member A'} domain "${memberA.domain_snapshot}" doesn't match Team #${teamB.team_number} domain "${teamB.primary_domain}".`,
+      );
+    }
+    if (memberB.domain_snapshot && teamA.primary_domain && memberB.domain_snapshot !== teamA.primary_domain) {
+      throw new BadRequestException(
+        `Swap rejected: ${'member B'} domain "${memberB.domain_snapshot}" doesn't match Team #${teamA.team_number} domain "${teamA.primary_domain}".`,
+      );
+    }
+
+    // Role-target hard constraint: simulate the resulting team composition.
+    const teamAAfter = (teamA.members || []).filter((m) => m.id !== memberA.id).concat([memberB]);
+    const teamBAfter = (teamB.members || []).filter((m) => m.id !== memberB.id).concat([memberA]);
+    if (this.exceedsRoleTargets(teamAAfter, cfg)) {
+      throw new BadRequestException(
+        `Swap would exceed role-target quotas on Team #${teamA.team_number}.`,
+      );
+    }
+    if (this.exceedsRoleTargets(teamBAfter, cfg)) {
+      throw new BadRequestException(
+        `Swap would exceed role-target quotas on Team #${teamB.team_number}.`,
+      );
+    }
+
+    const aOldTeam = memberA.team_id;
+    memberA.team_id = memberB.team_id;
+    memberB.team_id = aOldTeam;
+    memberA.assigned_by = `admin:${adminId}`;
+    memberB.assigned_by = `admin:${adminId}`;
+    await this.memberRepo.save([memberA, memberB]);
+    return { swapped: true };
+  }
 }

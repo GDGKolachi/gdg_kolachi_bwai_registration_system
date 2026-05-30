@@ -8,6 +8,7 @@ import {
   useLockTeams,
   useUnlockTeam,
   useMoveMember,
+  useSwapMembers,
 } from '../teams-repository';
 
 const BUCKET_COLORS = {
@@ -30,10 +31,12 @@ export default function TeamsManagement() {
   const lock = useLockTeams(eventId);
   const unlock = useUnlockTeam(eventId);
   const moveMember = useMoveMember(eventId);
+  const swapMembers = useSwapMembers(eventId);
 
   const [configOpen, setConfigOpen] = useState(false);
   const [draft, setDraft] = useState(null);
   const [moveTargetTeam, setMoveTargetTeam] = useState({});
+  const [swapPartner, setSwapPartner] = useState({});
 
   const openConfig = () => {
     setDraft({ ...(config || {}) });
@@ -79,6 +82,21 @@ export default function TeamsManagement() {
       setMoveTargetTeam((s) => ({ ...s, [registrationId]: '' }));
     } catch (err) {
       toast.error(err.response?.data?.message || 'Move failed');
+    }
+  };
+
+  const handleSwap = async (registrationId) => {
+    const partnerRegistrationId = swapPartner[registrationId];
+    if (!partnerRegistrationId) return;
+    try {
+      await swapMembers.mutateAsync({
+        registrationIdA: registrationId,
+        registrationIdB: partnerRegistrationId,
+      });
+      toast.success('Members swapped');
+      setSwapPartner((s) => ({ ...s, [registrationId]: '' }));
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Swap failed');
     }
   };
 
@@ -151,20 +169,42 @@ export default function TeamsManagement() {
                       </span>
                     </div>
                     {team.status !== 'locked' && (
-                      <div className="mt-2 flex items-center gap-1">
-                        <select
-                          className="ui-input !py-1 !text-xs"
-                          value={moveTargetTeam[m.registration_id] || ''}
-                          onChange={(e) => setMoveTargetTeam((s) => ({ ...s, [m.registration_id]: e.target.value }))}
-                        >
-                          <option value="">Move to…</option>
-                          {teams.filter((t) => t.id !== team.id && t.status !== 'locked').map((t) => (
-                            <option key={t.id} value={t.id}>Team #{t.team_number}</option>
-                          ))}
-                        </select>
-                        <button type="button" disabled={!moveTargetTeam[m.registration_id] || moveMember.isPending} onClick={() => handleMove(m.registration_id)} className="ui-btn-secondary !px-2 !py-1 text-xs disabled:opacity-50">
-                          Move
-                        </button>
+                      <div className="mt-2 space-y-1.5">
+                        <div className="flex items-center gap-1">
+                          <select
+                            className="ui-input !py-1 !text-xs"
+                            value={moveTargetTeam[m.registration_id] || ''}
+                            onChange={(e) => setMoveTargetTeam((s) => ({ ...s, [m.registration_id]: e.target.value }))}
+                          >
+                            <option value="">Move to…</option>
+                            {teams.filter((t) => t.id !== team.id && t.status !== 'locked').map((t) => (
+                              <option key={t.id} value={t.id}>Team #{t.team_number}</option>
+                            ))}
+                          </select>
+                          <button type="button" disabled={!moveTargetTeam[m.registration_id] || moveMember.isPending} onClick={() => handleMove(m.registration_id)} className="ui-btn-secondary !px-2 !py-1 text-xs disabled:opacity-50">
+                            Move
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <select
+                            className="ui-input !py-1 !text-xs"
+                            value={swapPartner[m.registration_id] || ''}
+                            onChange={(e) => setSwapPartner((s) => ({ ...s, [m.registration_id]: e.target.value }))}
+                          >
+                            <option value="">Swap with…</option>
+                            {teams
+                              .filter((t) => t.id !== team.id && t.status !== 'locked')
+                              .flatMap((t) => (t.members || []).map((tm) => ({ t, tm })))
+                              .map(({ t, tm }) => (
+                                <option key={tm.id} value={tm.registration_id}>
+                                  Team #{t.team_number} · {tm.registration?.attendee?.name || 'Member'}
+                                </option>
+                              ))}
+                          </select>
+                          <button type="button" disabled={!swapPartner[m.registration_id] || swapMembers.isPending} onClick={() => handleSwap(m.registration_id)} className="ui-btn-secondary !px-2 !py-1 text-xs disabled:opacity-50">
+                            Swap
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>

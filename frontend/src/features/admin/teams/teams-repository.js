@@ -57,6 +57,14 @@ export function useMoveMember(eventId) {
   });
 }
 
+export function useSwapMembers(eventId) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ registrationIdA, registrationIdB }) => teamsApi.swapMembers(registrationIdA, registrationIdB),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['teams', eventId] }),
+  });
+}
+
 export function useHackathonCheckin(eventId) {
   const qc = useQueryClient();
   return useMutation({
