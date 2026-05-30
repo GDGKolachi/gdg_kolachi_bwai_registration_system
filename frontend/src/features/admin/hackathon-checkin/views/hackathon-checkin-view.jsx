@@ -129,6 +129,35 @@ export default function HackathonCheckinView() {
     setBulkPending(false);
   };
 
+  const handleBulkUnassign = async () => {
+    const toProcess = pageRows.filter(
+      (r) => selectedIds.has(r.id) && teamByRegistration.has(r.id),
+    );
+    if (toProcess.length === 0) { toast.error('No assigned members selected'); return; }
+    setBulkPending(true);
+    let successCount = 0;
+    for (const registration of toProcess) {
+      try {
+        await hackathonUnassign.mutateAsync(registration.id);
+        setAllAttendees((prev) =>
+          prev.map((r) =>
+            r.id === registration.id ? { ...r, checked_in: false, checkedIn: false, status: 'shortlisted' } : r,
+          ),
+        );
+        if (lastAssignment?.attendee?.email === registration.attendee?.email) setLastAssignment(null);
+        successCount++;
+      } catch (err) {
+        toast.error(`${registration.attendee?.name}: ${err.response?.data?.message || 'Unassign failed'}`);
+      }
+    }
+    if (successCount > 0) {
+      toast.success(`${successCount} member${successCount > 1 ? 's' : ''} unassigned`);
+      refetchTeams();
+    }
+    setSelectedIds(new Set());
+    setBulkPending(false);
+  };
+
   const handleUnassign = async (registration) => {
     if (!confirm(`Unassign ${registration.attendee?.name} from their team and undo check-in?`)) return;
     try {
@@ -227,23 +256,23 @@ export default function HackathonCheckinView() {
   const pageStart = (safePage - 1) * PAGE_SIZE;
   const pageRows = filtered.slice(pageStart, pageStart + PAGE_SIZE);
 
-  // Checkbox helpers scoped to the current page
-  const selectablePageRows = pageRows.filter((r) => !teamByRegistration.has(r.id));
-  const allPageSelected = selectablePageRows.length > 0 && selectablePageRows.every((r) => selectedIds.has(r.id));
-  const somePageSelected = selectablePageRows.some((r) => selectedIds.has(r.id));
+  // Checkbox helpers scoped to the current page — all rows are selectable
+  const allPageSelected = pageRows.length > 0 && pageRows.every((r) => selectedIds.has(r.id));
+  const somePageSelected = pageRows.some((r) => selectedIds.has(r.id));
 
   const toggleRow = (id) =>
     setSelectedIds((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
 
   const togglePageAll = () => {
     if (allPageSelected) {
-      setSelectedIds((prev) => { const next = new Set(prev); selectablePageRows.forEach((r) => next.delete(r.id)); return next; });
+      setSelectedIds((prev) => { const next = new Set(prev); pageRows.forEach((r) => next.delete(r.id)); return next; });
     } else {
-      setSelectedIds((prev) => { const next = new Set(prev); selectablePageRows.forEach((r) => next.add(r.id)); return next; });
+      setSelectedIds((prev) => { const next = new Set(prev); pageRows.forEach((r) => next.add(r.id)); return next; });
     }
   };
 
-  const selectedOnPage = pageRows.filter((r) => selectedIds.has(r.id) && !teamByRegistration.has(r.id)).length;
+  const selectedUnassignedOnPage = pageRows.filter((r) => selectedIds.has(r.id) && !teamByRegistration.has(r.id)).length;
+  const selectedAssignedOnPage   = pageRows.filter((r) => selectedIds.has(r.id) &&  teamByRegistration.has(r.id)).length;
 
   const checkedInCount = eligibleAttendees.filter((r) => r.checked_in ?? r.checkedIn).length;
   const totalCount = eligibleAttendees.length;
@@ -349,23 +378,34 @@ export default function HackathonCheckinView() {
 
       {selectedEvent && !loading && pageRows.length > 0 && (
         <>
-          {/* ── Bulk action bar — appears when any unassigned row is ticked ── */}
-          {selectedOnPage > 0 && (
-            <div className="mb-3 flex items-center justify-between gap-3 rounded-xl bg-gdg-blue/5 px-4 py-3 ring-1 ring-gdg-blue/20">
-              <span className="text-sm font-semibold text-gdg-blue">
-                {selectedOnPage} unassigned member{selectedOnPage > 1 ? 's' : ''} selected
+          {/* ── Bulk action bar ── */}
+          {(selectedUnassignedOnPage > 0 || selectedAssignedOnPage > 0) && (
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/80">
+              <span className="text-sm font-semibold text-slate-700">
+                {[
+                  selectedUnassignedOnPage > 0 && `${selectedUnassignedOnPage} unassigned`,
+                  selectedAssignedOnPage   > 0 && `${selectedAssignedOnPage} assigned`,
+                ].filter(Boolean).join(', ')} selected
               </span>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button type="button" className="ui-btn-secondary !py-1.5 text-xs"
                   onClick={() => setSelectedIds(new Set())}>
                   Clear
                 </button>
-                <button type="button"
-                  disabled={bulkPending}
-                  className="rounded-xl bg-gdg-green px-4 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-green-600 disabled:opacity-60"
-                  onClick={handleBulkCheckin}>
-                  {bulkPending ? 'Processing…' : `Check in + assign team (${selectedOnPage})`}
-                </button>
+                {selectedUnassignedOnPage > 0 && (
+                  <button type="button" disabled={bulkPending}
+                    className="rounded-xl bg-gdg-green px-4 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-green-600 disabled:opacity-60"
+                    onClick={handleBulkCheckin}>
+                    {bulkPending ? 'Processing…' : `Check in + assign (${selectedUnassignedOnPage})`}
+                  </button>
+                )}
+                {selectedAssignedOnPage > 0 && (
+                  <button type="button" disabled={bulkPending}
+                    className="rounded-xl bg-rose-600 px-4 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-rose-700 disabled:opacity-60"
+                    onClick={handleBulkUnassign}>
+                    {bulkPending ? 'Processing…' : `Unassign (${selectedAssignedOnPage})`}
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -377,12 +417,11 @@ export default function HackathonCheckinView() {
                   <th className="w-8">
                     <input
                       type="checkbox"
-                      aria-label="Select all unassigned on this page"
+                      aria-label="Select all on this page"
                       checked={allPageSelected}
                       ref={(el) => { if (el) el.indeterminate = !allPageSelected && somePageSelected; }}
                       onChange={togglePageAll}
-                      disabled={selectablePageRows.length === 0}
-                      className="h-4 w-4 cursor-pointer rounded border-slate-300 accent-gdg-blue disabled:cursor-default disabled:opacity-40"
+                      className="h-4 w-4 cursor-pointer rounded border-slate-300 accent-gdg-blue"
                     />
                   </th>
                   <th>Name</th>
@@ -400,22 +439,17 @@ export default function HackathonCheckinView() {
                   const isCheckedIn = r.checked_in ?? r.checkedIn;
                   const assignedTeam = teamByRegistration.get(r.id);
                   const status = r.status || 'shortlisted';
-                  const isSelectable = !assignedTeam;
                   const isSelected = selectedIds.has(r.id);
                   return (
                     <tr key={r.id} className={isSelected ? 'bg-gdg-blue/5' : ''}>
                       <td>
-                        {isSelectable ? (
-                          <input
-                            type="checkbox"
-                            aria-label={`Select ${r.attendee?.name}`}
-                            checked={isSelected}
-                            onChange={() => toggleRow(r.id)}
-                            className="h-4 w-4 cursor-pointer rounded border-slate-300 accent-gdg-blue"
-                          />
-                        ) : (
-                          <span className="inline-block h-4 w-4" />
-                        )}
+                        <input
+                          type="checkbox"
+                          aria-label={`Select ${r.attendee?.name}`}
+                          checked={isSelected}
+                          onChange={() => toggleRow(r.id)}
+                          className="h-4 w-4 cursor-pointer rounded border-slate-300 accent-gdg-blue"
+                        />
                       </td>
                       <td className="font-semibold text-slate-900">{r.attendee?.name}</td>
                       <td>{r.attendee?.email}</td>
