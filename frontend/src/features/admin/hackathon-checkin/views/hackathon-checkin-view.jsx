@@ -209,7 +209,7 @@ export default function HackathonCheckinView() {
               </button>
             )}
           </div>
-          <div id="hc-qr-reader" className={`mt-4 w-full overflow-hidden rounded-xl ring-1 ring-slate-200 ${scanning ? '' : 'hidden'}`} />
+          <div id="hc-qr-reader" className={`mt-4 mx-auto w-full max-w-xs overflow-hidden rounded-xl ring-1 ring-slate-200 ${scanning ? '' : 'hidden'}`} />
         </div>
       )}
 
