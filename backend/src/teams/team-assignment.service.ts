@@ -341,6 +341,30 @@ export class TeamAssignmentService {
     return this.teamRepo.save(team);
   }
 
+  /**
+   * Removes the registration from its team and un-checks them in.
+   * Used when an admin needs to undo an accidental check-in / assignment.
+   */
+  async unassignMember(registrationId: string): Promise<{ unassigned: true }> {
+    const member = await this.memberRepo.findOne({
+      where: { registration_id: registrationId },
+      relations: ['team'],
+    });
+    if (member) {
+      if (member.team?.status === 'locked') {
+        throw new BadRequestException('Cannot unassign from a locked team. Unlock the team first.');
+      }
+      await this.memberRepo.delete({ id: member.id });
+    }
+    const registration = await this.regRepo.findOne({ where: { id: registrationId } });
+    if (registration) {
+      registration.checked_in = false;
+      registration.checked_in_at = null;
+      await this.regRepo.save(registration);
+    }
+    return { unassigned: true };
+  }
+
   async moveMember(teamId: string, registrationId: string, adminId: string): Promise<TeamMember> {
     const target = await this.teamRepo.findOne({ where: { id: teamId }, relations: ['members'] });
     if (!target) throw new NotFoundException('Target team not found');

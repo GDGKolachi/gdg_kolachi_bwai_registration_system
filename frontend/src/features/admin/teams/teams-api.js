@@ -14,4 +14,6 @@ export const teamsApi = {
     api.patch(`/admin/teams/${teamId}/members/${registrationId}/move`, {}).then(res => res.data),
   hackathonCheckin: (registrationId) =>
     api.post(`/admin/hackathon-checkin/${registrationId}`, {}).then(res => res.data),
+  hackathonUnassign: (registrationId) =>
+    api.post(`/admin/hackathon-checkin/${registrationId}/unassign`, {}).then(res => res.data),
 };

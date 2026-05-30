@@ -56,4 +56,10 @@ export class TeamsController {
   async hackathonCheckin(@Param('registrationId') registrationId: string, @Req() req: any) {
     return this.assignment.assignAtCheckin(registrationId, req.user.id);
   }
+
+  // Removes the registration's team membership and un-checks them in.
+  @Post('hackathon-checkin/:registrationId/unassign')
+  async hackathonUnassign(@Param('registrationId') registrationId: string) {
+    return this.assignment.unassignMember(registrationId);
+  }
 }

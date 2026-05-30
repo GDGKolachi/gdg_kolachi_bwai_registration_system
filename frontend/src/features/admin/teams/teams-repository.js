@@ -64,3 +64,11 @@ export function useHackathonCheckin(eventId) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['teams', eventId] }),
   });
 }
+
+export function useHackathonUnassign(eventId) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (registrationId) => teamsApi.hackathonUnassign(registrationId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['teams', eventId] }),
+  });
+}
