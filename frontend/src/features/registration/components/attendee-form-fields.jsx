@@ -78,16 +78,17 @@ export default function AttendeeFormFields({ formData, onChange, errors, eventTy
       </div>
       <div className="mb-5">
         <label className="ui-label-sentence" htmlFor="universityOrg">
-          University / organization *
+          Organization *
         </label>
         <input
           id="universityOrg"
           name="universityOrg"
           value={formData.universityOrg || ''}
           onChange={handleChange}
-          placeholder="Your university or organization"
+          placeholder="e.g. Google, FAST NUCES, Freelance"
           className={`${inputCls} ${errors?.universityOrg ? 'border-rose-300 focus:border-gdg-red focus:ring-gdg-red/15' : ''}`}
         />
+        <p className="mt-1.5 text-xs text-slate-500">Company name, university, or &quot;Freelance&quot; if self-employed</p>
         {errors?.universityOrg && (
           <div className="mt-1 text-xs font-medium text-gdg-red">{errors.universityOrg}</div>
         )}

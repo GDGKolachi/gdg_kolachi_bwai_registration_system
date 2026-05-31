@@ -17,7 +17,7 @@ export function validateRegistrationForm(data, eventTypeSlug, event) {
     const digits = data.phone.replace(/[\s\-()]/g, '');
     if (!PHONE_REGEX.test(digits)) errors.phone = 'Enter a valid Pakistani phone number (e.g. 03XX-XXXXXXX)';
   }
-  if (!data.universityOrg?.trim()) errors.universityOrg = 'University/Organization is required';
+  if (!data.universityOrg?.trim()) errors.universityOrg = 'Organization is required';
   if (!data.linkedin?.trim()) errors.linkedin = 'LinkedIn profile is required';
   if (!data.cnic?.trim()) errors.cnic = 'CNIC/National ID is required';
   else {
