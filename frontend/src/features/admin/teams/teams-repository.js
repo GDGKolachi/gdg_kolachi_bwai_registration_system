@@ -57,10 +57,26 @@ export function useMoveMember(eventId) {
   });
 }
 
+export function useSwapMembers(eventId) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ registrationIdA, registrationIdB }) => teamsApi.swapMembers(registrationIdA, registrationIdB),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['teams', eventId] }),
+  });
+}
+
 export function useHackathonCheckin(eventId) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (registrationId) => teamsApi.hackathonCheckin(registrationId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['teams', eventId] }),
+  });
+}
+
+export function useHackathonUnassign(eventId) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (registrationId) => teamsApi.hackathonUnassign(registrationId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['teams', eventId] }),
   });
 }

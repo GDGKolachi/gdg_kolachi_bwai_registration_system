@@ -12,6 +12,10 @@ export const teamsApi = {
   unlockTeam: (teamId) => api.post(`/admin/teams/${teamId}/unlock`, {}).then(res => res.data),
   moveMember: (teamId, registrationId) =>
     api.patch(`/admin/teams/${teamId}/members/${registrationId}/move`, {}).then(res => res.data),
+  swapMembers: (registrationIdA, registrationIdB) =>
+    api.patch('/admin/teams/swap-members', { registrationIdA, registrationIdB }).then(res => res.data),
   hackathonCheckin: (registrationId) =>
     api.post(`/admin/hackathon-checkin/${registrationId}`, {}).then(res => res.data),
+  hackathonUnassign: (registrationId) =>
+    api.post(`/admin/hackathon-checkin/${registrationId}/unassign`, {}).then(res => res.data),
 };

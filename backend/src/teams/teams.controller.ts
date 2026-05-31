@@ -50,10 +50,24 @@ export class TeamsController {
     return this.teamsService.moveMember(teamId, registrationId, req.user.id);
   }
 
+  @Patch('teams/swap-members')
+  swapMembers(
+    @Body() body: { registrationIdA: string; registrationIdB: string },
+    @Req() req: any,
+  ) {
+    return this.teamsService.swapMembers(body.registrationIdA, body.registrationIdB, req.user.id);
+  }
+
   // Hackathon check-in: marks the registration checked in AND runs the
   // team-assignment engine, returning the assigned team.
   @Post('hackathon-checkin/:registrationId')
   async hackathonCheckin(@Param('registrationId') registrationId: string, @Req() req: any) {
     return this.assignment.assignAtCheckin(registrationId, req.user.id);
+  }
+
+  // Removes the registration's team membership and un-checks them in.
+  @Post('hackathon-checkin/:registrationId/unassign')
+  async hackathonUnassign(@Param('registrationId') registrationId: string) {
+    return this.assignment.unassignMember(registrationId);
   }
 }

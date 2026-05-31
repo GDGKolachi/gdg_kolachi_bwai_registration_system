@@ -220,7 +220,7 @@ export class AdminService {
     return registration;
   }
 
-  // Send a reminder email (entry pass + workshop instructions + admin's custom message)
+  // Send a reminder email (entry pass + event instructions + admin's custom message)
   // to a batch of registrations. Only shortlisted/confirmed registrations are eligible —
   // anything else is reported back as a failure so the admin can see what was skipped.
   async sendReminder(registrationIds: string[], customMessage: string) {

@@ -80,8 +80,27 @@ export default function QrScanView() {
     if (!scanResult) return;
     try {
       await api.patch(`/admin/qr-scan/${scanResult.registrationId}/attend`);
-      toast.success('Marked as attended!');
-      setScanResult({ ...scanResult, status: 'attended', checkedIn: true });
+      const isHackathon = scanResult.event_type_slug === 'hackathon';
+      if (isHackathon) {
+        try {
+          const { data: assignment } = await api.post(`/admin/hackathon-checkin/${scanResult.registrationId}`, {});
+          toast.success(`Checked in & assigned to Team ${assignment?.team?.team_number ?? '—'}`);
+          setScanResult({
+            ...scanResult,
+            status: 'attended',
+            checkedIn: true,
+            team_number: assignment?.team?.team_number,
+            team_domain: assignment?.team?.primary_domain,
+            is_new_team: assignment?.isNewTeam,
+          });
+        } catch (err) {
+          toast.error(err.response?.data?.message || 'Checked in, but team assignment failed');
+          setScanResult({ ...scanResult, status: 'attended', checkedIn: true });
+        }
+      } else {
+        toast.success('Marked as attended!');
+        setScanResult({ ...scanResult, status: 'attended', checkedIn: true });
+      }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to mark as attended');
     }
@@ -108,7 +127,7 @@ export default function QrScanView() {
         <div className="space-y-6">
           <div className="ui-card p-4 sm:p-6">
             <h2 className="mb-4 text-lg font-semibold tracking-tight text-slate-900">Camera</h2>
-            <div id="qr-reader" ref={scannerRef} className="mb-4 w-full overflow-hidden rounded-xl ring-1 ring-slate-200" />
+            <div id="qr-reader" ref={scannerRef} className="mb-4 mx-auto w-full max-w-xs overflow-hidden rounded-xl ring-1 ring-slate-200" />
             <div className="flex gap-3">
               {!scanning ? (
                 <button type="button" className="ui-btn-primary" onClick={startScanner}>
@@ -184,13 +203,21 @@ export default function QrScanView() {
 
               {scanResult.status === 'shortlisted' && (
                 <button type="button" onClick={handleMarkAttended} className="ui-btn-primary mt-6 w-full py-3">
-                  Mark as attended
+                  {scanResult.event_type_slug === 'hackathon' ? 'Check in + assign team' : 'Mark as attended'}
                 </button>
               )}
 
               {scanResult.status === 'attended' && (
-                <div className="mt-6 rounded-xl bg-emerald-50 py-4 text-center text-sm font-semibold text-emerald-900 ring-1 ring-emerald-200/70">
-                  Already checked in
+                <div className="mt-6 rounded-xl bg-emerald-50 px-4 py-4 text-center text-sm font-semibold text-emerald-900 ring-1 ring-emerald-200/70">
+                  {scanResult.team_number != null ? (
+                    <>
+                      Checked in &amp; assigned to <strong>Team #{scanResult.team_number}</strong>
+                      {scanResult.is_new_team ? ' (new team)' : ''}
+                      {scanResult.team_domain ? <> · Domain: <strong>{scanResult.team_domain}</strong></> : null}
+                    </>
+                  ) : (
+                    'Already checked in'
+                  )}
                 </div>
               )}
 
