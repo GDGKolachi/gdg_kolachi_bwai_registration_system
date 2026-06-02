@@ -43,6 +43,10 @@ export const adminRegistrationApi = {
         message: message || '',
       })
       .then((res) => res.data),
+  importCsvStatus: (csv, status) =>
+    api
+      .post('/admin/registrations/import-status', { csv, status })
+      .then((res) => res.data),
 };
 
 // Backwards-compat alias

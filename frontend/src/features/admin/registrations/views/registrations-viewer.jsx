@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { useAdminEvents } from '../../event-management/admin-event-repository';
-import { useAdminRegistrations, useUpdateRegistrationStatus, useBulkUpdateStatus, useEventAmbassadors,useSendReminder } from '../admin-registration-repository';
+import { useAdminRegistrations, useUpdateRegistrationStatus, useBulkUpdateStatus, useEventAmbassadors, useSendReminder, useImportCsvStatus } from '../admin-registration-repository';
 import { adminRegistrationApi } from '../admin-registration-api';
 import {
   STATUS_COLORS,
@@ -209,6 +209,12 @@ export default function RegistrationsViewer() {
   const [reminderOpen, setReminderOpen] = useState(false);
   const [reminderMessage, setReminderMessage] = useState('');
 
+  // Import CSV modal state
+  const importCsvMutation = useImportCsvStatus();
+  const [importOpen, setImportOpen] = useState(false);
+  const [importCsvText, setImportCsvText] = useState('');
+  const [importStatus, setImportStatus] = useState('confirmed');
+
   const hasDraftChanges    = JSON.stringify(draftFilters) !== JSON.stringify(appliedFilters);
   const isActive = v => Array.isArray(v) ? v.length > 0 : v !== '';
   const activeAppliedCount = Object.values(appliedFilters).filter(isActive).length;
@@ -332,6 +338,32 @@ export default function RegistrationsViewer() {
     }
   };
 
+  const handleImportCsv = async () => {
+    if (!importCsvText.trim()) return;
+    try {
+      const result = await importCsvMutation.mutateAsync({ csv: importCsvText, status: importStatus });
+      if (result.failed?.length > 0) {
+        toast.success(`${result.succeeded.length} updated to ${importStatus}`);
+        toast.error(`${result.failed.length} failed (invalid transition or not found)`);
+      } else {
+        toast.success(`${result.succeeded.length} registration(s) updated to ${importStatus}`);
+      }
+      setImportOpen(false);
+      setImportCsvText('');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Import failed');
+    }
+  };
+
+  const handleImportFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setImportCsvText(ev.target.result);
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
   const handleExport = async () => {
     if (!selectedEvent) return;
     try {
@@ -382,9 +414,18 @@ export default function RegistrationsViewer() {
           </select>
         </div>
         {selectedEvent && (
-          <button type="button" className="ui-btn-secondary w-full shrink-0 sm:w-auto" onClick={handleExport}>
-            Export CSV
-          </button>
+          <>
+            <button type="button" className="ui-btn-secondary w-full shrink-0 sm:w-auto" onClick={handleExport}>
+              Export CSV
+            </button>
+            <button
+              type="button"
+              className="ui-btn-secondary w-full shrink-0 sm:w-auto"
+              onClick={() => { setImportCsvText(''); setImportStatus('confirmed'); setImportOpen(true); }}
+            >
+              Import IDs
+            </button>
+          </>
         )}
       </div>
 
@@ -622,6 +663,104 @@ export default function RegistrationsViewer() {
                   </>
                 ) : (
                   <>Send to {reminderEligibleSelected} recipient(s)</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import CSV modal */}
+      {importOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onClick={() => !importCsvMutation.isPending && setImportOpen(false)}>
+          <div
+            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Import IDs &mdash; bulk status update</h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  Upload a CSV file or paste registration IDs (one per line or comma-separated) to update their status.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setImportOpen(false)}
+                disabled={importCsvMutation.isPending}
+                className="text-slate-400 hover:text-slate-600 disabled:opacity-50"
+                aria-label="Close"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mb-3">
+              <label className="ui-label">Target status</label>
+              <select
+                className="ui-input"
+                value={importStatus}
+                onChange={e => setImportStatus(e.target.value)}
+                disabled={importCsvMutation.isPending}
+              >
+                {ALL_STATUSES.map(s => (
+                  <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="mb-3">
+              <label className="ui-label">Upload CSV file</label>
+              <input
+                type="file"
+                accept=".csv,.txt"
+                onChange={handleImportFile}
+                disabled={importCsvMutation.isPending}
+                className="block w-full text-sm text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-gdg-blue/10 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-gdg-blue hover:file:bg-gdg-blue/20"
+              />
+            </div>
+
+            <label className="ui-label" htmlFor="import-csv-text">
+              Or paste IDs below
+            </label>
+            <textarea
+              id="import-csv-text"
+              className={`${inputCls} min-h-[120px] resize-y font-mono text-xs`}
+              placeholder={"Paste IDs — one per line or comma-separated:\ne.g.\n3f2a...b1c4\n7d8e...f9a0"}
+              value={importCsvText}
+              onChange={e => setImportCsvText(e.target.value)}
+              disabled={importCsvMutation.isPending}
+            />
+            {importCsvText.trim() && (
+              <p className="mt-1 text-xs text-slate-500">
+                {importCsvText.split(/[\r\n,]+/).filter(id => id.trim().length > 0).length} ID(s) detected
+              </p>
+            )}
+
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setImportOpen(false)}
+                disabled={importCsvMutation.isPending}
+                className="ui-btn-secondary !px-4 !py-2 text-sm disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleImportCsv}
+                disabled={importCsvMutation.isPending || !importCsvText.trim()}
+                className="inline-flex items-center gap-2 rounded-xl bg-gdg-blue px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-blue-500/25 hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {importCsvMutation.isPending ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/60 border-t-white" aria-hidden />
+                    Updating…
+                  </>
+                ) : (
+                  <>Update to {STATUS_LABELS[importStatus]}</>
                 )}
               </button>
             </div>
