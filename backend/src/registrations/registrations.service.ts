@@ -217,14 +217,14 @@ export class RegistrationsService {
   async exportCsv(eventId: string): Promise<string> {
     const registrations = await this.findByEvent(eventId);
     const header =
-      'Name,Email,Phone,Organization,GitHub,LinkedIn,CNIC,Gender,Best Describes You,Domain,Track,Slot,Role Bucket,Ambassador,Motivation,Status,Acknowledged,Checked In,Registered At\n';
+      'ID,Name,Email,Phone,Organization,GitHub,LinkedIn,CNIC,Gender,Best Describes You,Domain,Track,Slot,Role Bucket,Ambassador,Motivation,Status,Acknowledged,Checked In,Registered At\n';
     const rows = registrations
       .map((r) => {
         const a = r.attendee;
         const registeredAt = r.registered_at
           ? new Date(r.registered_at).toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, ' UTC')
           : '';
-        return `"${a?.name}","${a?.email}","${a?.phone}","${a?.university_org}","${a?.github || ''}","${a?.linkedin || ''}","${a?.cnic}","${a?.gender || ''}","${a?.best_describes_you || ''}","${r.domain || ''}","${r.track || ''}","${r.slot || ''}","${r.role_bucket || ''}","${(r.ambassador || '').replace(/"/g, '""')}","${(r.motivation || '').replace(/"/g, '""')}","${r.status}","${r.acknowledged}","${r.checked_in}","${registeredAt}"`;
+        return `"${r.id}","${a?.name}","${a?.email}","${a?.phone}","${a?.university_org}","${a?.github || ''}","${a?.linkedin || ''}","${a?.cnic}","${a?.gender || ''}","${a?.best_describes_you || ''}","${r.domain || ''}","${r.track || ''}","${r.slot || ''}","${r.role_bucket || ''}","${(r.ambassador || '').replace(/"/g, '""')}","${(r.motivation || '').replace(/"/g, '""')}","${r.status}","${r.acknowledged}","${r.checked_in}","${registeredAt}"`;
       })
       .join('\n');
     return header + rows;

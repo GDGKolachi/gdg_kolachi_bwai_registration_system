@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Param, Query, Body, UseGuards, Req, Res } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Query, Body, UseGuards, Req, Res, BadRequestException } from '@nestjs/common';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminService } from './admin.service';
@@ -155,6 +155,18 @@ export class AdminController {
 
   @Patch('registrations/bulk-status')
   bulkUpdateStatus(@Body('ids') ids: string[], @Body('status') status: string) {
+    return this.adminService.bulkUpdateStatus(ids, status);
+  }
+
+  @Post('registrations/import-status')
+  importCsvStatus(@Body('csv') csv: string, @Body('status') status: string) {
+    const ids = csv
+      .split(/[\r\n,]+/)
+      .map((id) => id.replace(/^["'\s]+|["'\s]+$/g, ''))
+      .filter((id) => id.length > 0);
+    if (ids.length === 0) {
+      throw new BadRequestException('No valid IDs found in the uploaded CSV');
+    }
     return this.adminService.bulkUpdateStatus(ids, status);
   }
 

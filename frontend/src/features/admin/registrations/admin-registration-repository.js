@@ -46,3 +46,14 @@ export function useSendReminder() {
     mutationFn: ({ ids, message }) => adminRegistrationApi.sendReminder(ids, message),
   });
 }
+
+export function useImportCsvStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ csv, status }) => adminRegistrationApi.importCsvStatus(csv, status),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-registrations'] });
+      qc.invalidateQueries({ queryKey: ['admin-stats'] });
+    },
+  });
+}
