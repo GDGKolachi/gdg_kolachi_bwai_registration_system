@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { DataSource } from 'typeorm';
 import { Admin } from './entities/admin.entity';
 import { Event } from './entities/event.entity';

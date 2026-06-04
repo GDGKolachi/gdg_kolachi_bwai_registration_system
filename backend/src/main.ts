@@ -3,6 +3,8 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { config as loadEnv } from 'dotenv';
+loadEnv();
 
 async function bootstrap() {
   if (!process.env.JWT_SECRET) {
