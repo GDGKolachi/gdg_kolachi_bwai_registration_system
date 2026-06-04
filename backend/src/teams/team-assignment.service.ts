@@ -438,12 +438,22 @@ export class TeamAssignmentService {
       throw new BadRequestException('Cannot swap with a locked team');
     }
 
-    const aOldTeam = memberA.team_id;
-    memberA.team_id = memberB.team_id;
-    memberB.team_id = aOldTeam;
-    memberA.assigned_by = `admin:${adminId}`;
-    memberB.assigned_by = `admin:${adminId}`;
-    await this.memberRepo.save([memberA, memberB]);
+    const aOldTeamId = memberA.team_id;
+    const bOldTeamId = memberB.team_id;
+
+    // Persist both writes in one transaction so the swap is atomic. Using
+    // explicit update() (rather than save() on the loaded entities) avoids
+    // any stale-relation surprises from the eagerly-loaded `team` graph.
+    await this.memberRepo.manager.transaction(async (manager) => {
+      await manager.update(TeamMember, memberA.id, {
+        team_id: bOldTeamId,
+        assigned_by: `admin:${adminId}`,
+      });
+      await manager.update(TeamMember, memberB.id, {
+        team_id: aOldTeamId,
+        assigned_by: `admin:${adminId}`,
+      });
+    });
     return { swapped: true };
   }
 }

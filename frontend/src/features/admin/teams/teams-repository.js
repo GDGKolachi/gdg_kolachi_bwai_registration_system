@@ -61,7 +61,9 @@ export function useSwapMembers(eventId) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ registrationIdA, registrationIdB }) => teamsApi.swapMembers(registrationIdA, registrationIdB),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['teams', eventId] }),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ['teams', eventId], refetchType: 'active' });
+    },
   });
 }
 
