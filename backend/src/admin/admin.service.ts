@@ -164,7 +164,7 @@ export class AdminService {
   }
 
   private static readonly VALID_TRANSITIONS: Record<string, string[]> = {
-    pending: ['shortlisted', 'rejected'],
+    pending: ['shortlisted', 'confirmed', 'rejected'],
     shortlisted: ['confirmed', 'rejected'],
     confirmed: ['attended', 'shortlisted', 'rejected'],
     rejected: ['pending'],
@@ -208,6 +208,14 @@ export class AdminService {
         registration.event,
         registration.id,
         qrData,
+      );
+    } else if (newStatus === 'rejected') {
+      await this.registrationRepo.save(registration);
+
+      await this.emailService.sendRejectionEmail(
+        registration.attendee.email,
+        registration.attendee.name,
+        registration.event,
       );
     } else if (newStatus === 'attended') {
       registration.checked_in = true;

@@ -35,7 +35,7 @@ export const STATUS_BUTTON_COLORS = {
 
 /** Valid status transitions (state machine) */
 export const VALID_TRANSITIONS = {
-  [RegistrationStatus.PENDING]:     [RegistrationStatus.SHORTLISTED, RegistrationStatus.REJECTED],
+  [RegistrationStatus.PENDING]:     [RegistrationStatus.SHORTLISTED, RegistrationStatus.CONFIRMED, RegistrationStatus.REJECTED],
   [RegistrationStatus.SHORTLISTED]: [RegistrationStatus.CONFIRMED, RegistrationStatus.REJECTED],
   [RegistrationStatus.CONFIRMED]:   [RegistrationStatus.ATTENDED, RegistrationStatus.SHORTLISTED, RegistrationStatus.REJECTED],
   [RegistrationStatus.REJECTED]:    [RegistrationStatus.PENDING],
