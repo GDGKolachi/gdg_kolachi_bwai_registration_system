@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { useAdminEvents } from '../../event-management/admin-event-repository';
-import { useAdminRegistrations, useUpdateRegistrationStatus, useBulkUpdateStatus, useEventAmbassadors, useSendReminder, useImportCsvStatus } from '../admin-registration-repository';
+import { useAdminRegistrations, useUpdateRegistrationStatus, useBulkUpdateStatus, useEventAmbassadors, useSendReminder, useSendRejection, useImportCsvStatus } from '../admin-registration-repository';
 import { adminRegistrationApi } from '../admin-registration-api';
 import {
   STATUS_COLORS,
@@ -209,6 +209,11 @@ export default function RegistrationsViewer() {
   const [reminderOpen, setReminderOpen] = useState(false);
   const [reminderMessage, setReminderMessage] = useState('');
 
+  // Rejection modal state
+  const sendRejectionMutation = useSendRejection();
+  const [rejectionOpen, setRejectionOpen] = useState(false);
+  const [alsoReject, setAlsoReject] = useState(true);
+
   // Import CSV modal state
   const importCsvMutation = useImportCsvStatus();
   const [importOpen, setImportOpen] = useState(false);
@@ -303,10 +308,41 @@ export default function RegistrationsViewer() {
     r => selectedIds.has(r.id) && (r.status === 'shortlisted' || r.status === 'confirmed'),
   ).length;
 
+  const rejectionEligibleSelected = registrations.filter(
+    r => selectedIds.has(r.id) && r.status !== 'attended',
+  ).length;
+
   const openReminderModal = () => {
     if (selectedIds.size === 0) return;
     setReminderMessage('');
     setReminderOpen(true);
+  };
+
+  const openRejectionModal = () => {
+    if (selectedIds.size === 0) return;
+    setAlsoReject(true);
+    setRejectionOpen(true);
+  };
+
+  const sendRejection = async () => {
+    if (selectedIds.size === 0) return;
+    try {
+      const result = await sendRejectionMutation.mutateAsync({
+        ids: Array.from(selectedIds),
+        alsoReject,
+      });
+      const parts = [];
+      if (result.sent > 0) parts.push(`Rejection email sent to ${result.sent} recipient(s)`);
+      if (result.statusUpdated > 0) parts.push(`${result.statusUpdated} status(es) updated to rejected`);
+      if (parts.length > 0) toast.success(parts.join('. '));
+      if (result.failed?.length > 0) {
+        toast.error(`${result.failed.length} failed`);
+      }
+      setRejectionOpen(false);
+      setSelectedIds(new Set());
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to send rejection emails');
+    }
   };
 
   const sendReminder = async () => {
@@ -582,6 +618,23 @@ export default function RegistrationsViewer() {
             </button>
             <button
               type="button"
+              onClick={openRejectionModal}
+              disabled={rejectionEligibleSelected === 0}
+              title={rejectionEligibleSelected === 0
+                ? 'No eligible registrations selected'
+                : `Will send rejection email to ${rejectionEligibleSelected} recipient(s)`}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-gdg-red px-2.5 py-1.5 text-[0.7rem] font-semibold text-white shadow-sm shadow-red-500/20 hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50 sm:px-3 sm:text-xs"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 9v.906a2.25 2.25 0 01-1.183 1.981l-6.478 3.488M2.25 9v.906a2.25 2.25 0 001.183 1.981l6.478 3.488m8.839 2.51l-4.66-2.51m0 0l-1.023-.55a2.25 2.25 0 00-2.134 0l-1.022.55m0 0l-4.661 2.51m16.5-7.875l-1.45.78M2.25 12.375l1.45.78" />
+              </svg>
+              Send rejection
+              {rejectionEligibleSelected > 0 && (
+                <span className="rounded-full bg-white/20 px-1.5 py-0.5 text-[0.65rem]">{rejectionEligibleSelected}</span>
+              )}
+            </button>
+            <button
+              type="button"
               onClick={() => setSelectedIds(new Set())}
               className="text-left text-xs text-slate-400 hover:text-white sm:text-right"
             >
@@ -663,6 +716,83 @@ export default function RegistrationsViewer() {
                   </>
                 ) : (
                   <>Send to {reminderEligibleSelected} recipient(s)</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rejection modal */}
+      {rejectionOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onClick={() => !sendRejectionMutation.isPending && setRejectionOpen(false)}>
+          <div
+            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Send rejection email</h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  Send a rejection notification to the selected registrations.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRejectionOpen(false)}
+                disabled={sendRejectionMutation.isPending}
+                className="text-slate-400 hover:text-slate-600 disabled:opacity-50"
+                aria-label="Close"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mb-3 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-900 ring-1 ring-rose-200/70">
+              <strong>{selectedIds.size}</strong> registration(s) selected.
+              {rejectionEligibleSelected < selectedIds.size && (
+                <span> {selectedIds.size - rejectionEligibleSelected} will be skipped (already attended).</span>
+              )}
+            </div>
+
+            <label className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={alsoReject}
+                onChange={e => setAlsoReject(e.target.checked)}
+                disabled={sendRejectionMutation.isPending}
+                className="h-4 w-4 rounded accent-gdg-red"
+              />
+              <div>
+                <span className="text-sm font-semibold text-slate-800">Also update status to Rejected</span>
+                <p className="text-xs text-slate-500 mt-0.5">If unchecked, only the email is sent without changing the registration status.</p>
+              </div>
+            </label>
+
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setRejectionOpen(false)}
+                disabled={sendRejectionMutation.isPending}
+                className="ui-btn-secondary !px-4 !py-2 text-sm disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={sendRejection}
+                disabled={sendRejectionMutation.isPending || rejectionEligibleSelected === 0}
+                className="inline-flex items-center gap-2 rounded-xl bg-gdg-red px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-red-500/20 hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {sendRejectionMutation.isPending ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/60 border-t-white" aria-hidden />
+                    Sending…
+                  </>
+                ) : (
+                  <>Send to {rejectionEligibleSelected} recipient(s)</>
                 )}
               </button>
             </div>

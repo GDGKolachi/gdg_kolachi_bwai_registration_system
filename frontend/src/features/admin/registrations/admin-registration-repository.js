@@ -47,6 +47,17 @@ export function useSendReminder() {
   });
 }
 
+export function useSendRejection() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ ids, alsoReject }) => adminRegistrationApi.sendRejection(ids, alsoReject),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-registrations'] });
+      qc.invalidateQueries({ queryKey: ['admin-stats'] });
+    },
+  });
+}
+
 export function useImportCsvStatus() {
   const qc = useQueryClient();
   return useMutation({

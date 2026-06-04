@@ -275,6 +275,79 @@ export class EmailService {
       .replace(/'/g, '&#39;');
   }
 
+  async sendRejectionEmail(
+    email: string,
+    name: string,
+    event: { title: string },
+  ) {
+    const html = this.emailWrapper('#EA4335', 'Application Update', `
+      <h2 style="color: #202124;">Hi ${name},</h2>
+      <p>Thank you for your interest in <strong>${event.title}</strong>.</p>
+      <p>After careful review, we regret to inform you that your application was <span style="background: #FECDD3; color: #9B1C1C; padding: 2px 8px; border-radius: 4px; font-weight: bold;">not selected</span> this time.</p>
+      <div style="background: white; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #EA4335;">
+        <p style="margin: 0; color: #5F6368;">We received a large number of applications and had limited spots available. This does not reflect on your abilities — we encourage you to apply for future GDG Kolachi events!</p>
+      </div>
+      <p style="color: #5F6368;">Stay connected with us for upcoming opportunities. We'd love to see you at a future event! 🚀</p>
+    `);
+
+    if (!this.resend) { this.logger.warn('Resend not configured, skipping rejection email'); return; }
+
+    const { data, error } = await this.resend.emails.send({
+      from: this.from,
+      to: [email],
+      subject: `Application Update — ${event.title}`,
+      html,
+    });
+
+    if (error) {
+      this.logger.error(`Failed to send rejection email to ${email}`, error);
+      return;
+    }
+    this.logger.log(`Rejection email sent to ${email}, id: ${data.id}`);
+  }
+
+  async sendRejectionBatch(
+    recipients: Array<{ email: string; name: string; event: { title: string } }>,
+  ) {
+    if (!this.resend) { this.logger.warn('Resend not configured, skipping rejection batch'); return { sent: 0 }; }
+
+    const batchSize = 100;
+    let sentCount = 0;
+
+    for (let i = 0; i < recipients.length; i += batchSize) {
+      const chunk = recipients.slice(i, i + batchSize);
+
+      const messages = chunk.map((r) => {
+        const html = this.emailWrapper('#EA4335', 'Application Update', `
+          <h2 style="color: #202124;">Hi ${r.name},</h2>
+          <p>Thank you for your interest in <strong>${r.event.title}</strong>.</p>
+          <p>After careful review, we regret to inform you that your application was <span style="background: #FECDD3; color: #9B1C1C; padding: 2px 8px; border-radius: 4px; font-weight: bold;">not selected</span> this time.</p>
+          <div style="background: white; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #EA4335;">
+            <p style="margin: 0; color: #5F6368;">We received a large number of applications and had limited spots available. This does not reflect on your abilities — we encourage you to apply for future GDG Kolachi events!</p>
+          </div>
+          <p style="color: #5F6368;">Stay connected with us for upcoming opportunities. We'd love to see you at a future event! 🚀</p>
+        `);
+
+        return {
+          from: this.from,
+          to: [r.email],
+          subject: `Application Update — ${r.event.title}`,
+          html,
+        };
+      });
+
+      const { data, error } = await this.resend.batch.send(messages);
+      if (error) {
+        this.logger.error(`Rejection batch send failed for chunk ${i}–${i + chunk.length}`, error);
+      } else {
+        sentCount += chunk.length;
+        this.logger.log(`Rejection batch sent ${chunk.length} emails, ids: ${data.data.map(d => d.id).join(', ')}`);
+      }
+    }
+
+    return { sent: sentCount };
+  }
+
   // Batch send — used when bulk shortlisting up to 100 registrations at once
   async sendShortlistedBatch(
     recipients: Array<{

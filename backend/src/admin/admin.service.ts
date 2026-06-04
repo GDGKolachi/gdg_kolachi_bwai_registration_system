@@ -164,7 +164,7 @@ export class AdminService {
   }
 
   private static readonly VALID_TRANSITIONS: Record<string, string[]> = {
-    pending: ['shortlisted', 'rejected'],
+    pending: ['shortlisted', 'confirmed', 'rejected'],
     shortlisted: ['confirmed', 'rejected'],
     confirmed: ['attended', 'shortlisted', 'rejected'],
     rejected: ['pending'],
@@ -283,6 +283,51 @@ export class AdminService {
 
     const result = await this.emailService.sendReminderBatch(eligible, customMessage);
     return { sent: result.sent, failed };
+  }
+
+  async sendRejection(registrationIds: string[], alsoReject: boolean) {
+    if (!Array.isArray(registrationIds) || registrationIds.length === 0) {
+      throw new BadRequestException('At least one registration ID is required');
+    }
+
+    const eligible: Array<{ email: string; name: string; event: { title: string } }> = [];
+    const failed: { id: string; error: string }[] = [];
+    const statusUpdated: string[] = [];
+
+    for (const id of registrationIds) {
+      const registration = await this.registrationRepo.findOne({
+        where: { id },
+        relations: ['attendee', 'event'],
+      });
+      if (!registration) {
+        failed.push({ id, error: 'Registration not found' });
+        continue;
+      }
+
+      if (alsoReject && registration.status !== 'rejected') {
+        const allowed = AdminService.VALID_TRANSITIONS[registration.status] || [];
+        if (!allowed.includes('rejected')) {
+          failed.push({ id, error: `Cannot reject from "${registration.status}"` });
+          continue;
+        }
+        registration.status = 'rejected';
+        await this.registrationRepo.save(registration);
+        statusUpdated.push(id);
+      }
+
+      eligible.push({
+        email: registration.attendee.email,
+        name: registration.attendee.name,
+        event: { title: registration.event.title },
+      });
+    }
+
+    if (eligible.length === 0) {
+      return { sent: 0, statusUpdated: statusUpdated.length, failed };
+    }
+
+    const result = await this.emailService.sendRejectionBatch(eligible);
+    return { sent: result.sent, statusUpdated: statusUpdated.length, failed };
   }
 
   async bulkUpdateStatus(registrationIds: string[], newStatus: string) {
