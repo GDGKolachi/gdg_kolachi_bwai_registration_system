@@ -47,6 +47,13 @@ export const adminRegistrationApi = {
     api
       .post('/admin/registrations/import-status', { csv, status })
       .then((res) => res.data),
+  sendRejection: (ids, alsoReject) =>
+    api
+      .post('/admin/registrations/rejection', {
+        ids: Array.isArray(ids) ? ids : [ids],
+        also_reject: alsoReject,
+      })
+      .then((res) => res.data),
 };
 
 // Backwards-compat alias

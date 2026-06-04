@@ -179,6 +179,14 @@ export class AdminController {
     return this.adminService.sendReminder(ids, message);
   }
 
+  @Post('registrations/rejection')
+  sendRejection(
+    @Body('ids') ids: string[],
+    @Body('also_reject') alsoReject: boolean,
+  ) {
+    return this.adminService.sendRejection(ids, alsoReject ?? false);
+  }
+
   // QR Scan
   @Post('qr-scan')
   scanQrCode(@Body('qr_data') qrData: string) {
