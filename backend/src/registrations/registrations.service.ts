@@ -214,8 +214,12 @@ export class RegistrationsService {
     });
   }
 
-  async exportCsv(eventId: string): Promise<string> {
-    const registrations = await this.findByEvent(eventId);
+  async exportCsv(eventId: string, ids?: string[]): Promise<string> {
+    let registrations = await this.findByEvent(eventId);
+    if (ids && ids.length > 0) {
+      const idSet = new Set(ids);
+      registrations = registrations.filter(r => idSet.has(r.id));
+    }
     const header =
       'ID,Name,Email,Phone,Organization,GitHub,LinkedIn,CNIC,Gender,Best Describes You,Domain,Track,Slot,Role Bucket,Ambassador,Motivation,Status,Acknowledged,Checked In,Registered At\n';
     const rows = registrations

@@ -400,17 +400,18 @@ export default function RegistrationsViewer() {
     e.target.value = '';
   };
 
-  const handleExport = async () => {
+  const handleExport = async (onlySelected = false) => {
     if (!selectedEvent) return;
     try {
-      const blob = await adminRegistrationApi.exportCsv(selectedEvent);
+      const ids = onlySelected ? [...selectedIds] : undefined;
+      const blob = await adminRegistrationApi.exportCsv(selectedEvent, ids);
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement('a');
       a.href     = url;
-      a.download = `registrations-${selectedEvent}.csv`;
+      a.download = `registrations-${selectedEvent}${onlySelected ? '-selected' : ''}.csv`;
       a.click();
       URL.revokeObjectURL(url);
-      toast.success('CSV exported');
+      toast.success(`CSV exported${onlySelected ? ` (${selectedIds.size} selected)` : ''}`);
     } catch {
       toast.error('Export failed');
     }
@@ -599,6 +600,17 @@ export default function RegistrationsViewer() {
             ))}
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+            <button
+              type="button"
+              onClick={() => handleExport(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-600 px-2.5 py-1.5 text-[0.7rem] font-semibold text-white shadow-sm hover:bg-slate-700 sm:px-3 sm:text-xs"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              Export selected
+              <span className="rounded-full bg-white/20 px-1.5 py-0.5 text-[0.65rem]">{selectedIds.size}</span>
+            </button>
             <button
               type="button"
               onClick={openReminderModal}
