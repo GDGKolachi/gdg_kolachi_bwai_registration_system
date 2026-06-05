@@ -71,4 +71,12 @@ export class CreateEventDto {
   @IsArray()
   @IsString({ each: true })
   slots?: string[];
+
+  @IsOptional()
+  @IsString()
+  acknowledgement_deadline?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  acknowledgement_locked?: boolean;
 }

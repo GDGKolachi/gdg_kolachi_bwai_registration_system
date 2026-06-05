@@ -25,7 +25,10 @@ export class RegistrationsController {
     try {
       await this.registrationsService.acknowledgeSpot(id);
       return { url: `${frontendUrl}/registration/confirmation?acknowledged=true` };
-    } catch {
+    } catch (err) {
+      if (err?.message === 'ACKNOWLEDGEMENT_EXPIRED') {
+        return { url: `${frontendUrl}/registration/confirmation?acknowledged=expired` };
+      }
       return { url: `${frontendUrl}/registration/confirmation?acknowledged=false` };
     }
   }

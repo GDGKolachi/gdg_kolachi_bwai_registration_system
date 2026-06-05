@@ -54,6 +54,12 @@ export class Event {
   @Column({ type: 'jsonb', nullable: true })
   slots: string[] | null;
 
+  @Column({ type: 'timestamp', nullable: true })
+  acknowledgement_deadline: Date | null;
+
+  @Column({ type: 'boolean', default: false })
+  acknowledgement_locked: boolean;
+
   @CreateDateColumn()
   created_at: Date;
 

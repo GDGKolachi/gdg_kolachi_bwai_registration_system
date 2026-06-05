@@ -20,6 +20,8 @@ const emptyForm = {
   is_online: false,
   tracks: [],
   slots: [],
+  acknowledgement_deadline: '',
+  acknowledgement_locked: false,
 };
 
 const badgeColors = {
@@ -120,6 +122,8 @@ export default function EventCrud() {
       is_online: w.is_online ?? false,
       tracks: w.tracks ?? [],
       slots: w.slots ?? [],
+      acknowledgement_deadline: w.acknowledgement_deadline ? w.acknowledgement_deadline.slice(0, 16) : '',
+      acknowledgement_locked: w.acknowledgement_locked ?? false,
     });
     setErrors({});
     setShowModal(true);
@@ -140,6 +144,8 @@ export default function EventCrud() {
         speakers: form.speakers.filter((s) => s.name?.trim()),
         tracks: currentTypeSlug === 'community-lounge' ? form.tracks : null,
         slots: currentTypeSlug === 'community-lounge' ? form.slots : null,
+        acknowledgement_deadline: form.acknowledgement_deadline || null,
+        acknowledgement_locked: form.acknowledgement_locked,
       };
       if (editingId) {
         await updateMutation.mutateAsync({ id: editingId, data: payload });
@@ -362,6 +368,34 @@ export default function EventCrud() {
                     <option value="completed">Completed</option>
                     <option value="disabled">Disabled</option>
                   </select>
+                </div>
+              </div>
+              <div className="mb-5 rounded-xl border border-slate-200 bg-slate-50/30 p-4">
+                <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Acknowledgement window</div>
+                <div className="mb-3">
+                  <label className="ui-label-sentence" htmlFor="w-ack-deadline">Auto-lock deadline</label>
+                  <input
+                    id="w-ack-deadline"
+                    type="datetime-local"
+                    value={form.acknowledgement_deadline}
+                    onChange={(e) => setForm((f) => ({ ...f, acknowledgement_deadline: e.target.value }))}
+                    className={inputCls}
+                  />
+                  <div className="mt-1 text-xs text-slate-400">
+                    After this date/time, shortlisted attendees can no longer confirm their spot. Leave empty for no auto-lock.
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.acknowledgement_locked}
+                    onChange={(e) => setForm((f) => ({ ...f, acknowledgement_locked: e.target.checked }))}
+                    className="h-4 w-4 rounded border-slate-300 text-gdg-red focus:ring-gdg-red/30"
+                  />
+                  <span className="text-sm text-slate-700">Manually lock confirmations now</span>
+                </label>
+                <div className="mt-1 ml-6 text-xs text-slate-400">
+                  Override: immediately block all spot confirmations regardless of the deadline above.
                 </div>
               </div>
               <div className="mb-5">
