@@ -400,12 +400,14 @@ export class AdminService {
       phone: registration.attendee.phone,
       cnic: registration.attendee.cnic,
       event: registration.event.title,
+      event_id: registration.event_id,
       event_type: registration.event.event_type?.name,
       event_type_slug: registration.event.event_type?.slug,
       // backwards-compat alias
       workshop: registration.event.title,
       status: registration.status,
       checkedIn: registration.checked_in,
+      acknowledged: registration.acknowledged,
     };
   }
 
@@ -420,6 +422,16 @@ export class AdminService {
     registration.checked_in = true;
     registration.checked_in_at = new Date();
     return this.registrationRepo.save(registration);
+  }
+
+  async getCheckinStats(eventId: string) {
+    const total = await this.registrationRepo.count({
+      where: { event_id: eventId, checked_in: true },
+    });
+    const unacknowledged = await this.registrationRepo.count({
+      where: { event_id: eventId, checked_in: true, acknowledged: false },
+    });
+    return { checkedIn: total, unacknowledgedCheckedIn: unacknowledged };
   }
 
   async searchCheckin(eventId: string, query: string) {

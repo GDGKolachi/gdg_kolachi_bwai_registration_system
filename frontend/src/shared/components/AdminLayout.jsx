@@ -12,6 +12,7 @@ const navItems = [
   { path: '/admin/checkin', label: 'Check-in' },
   { path: '/admin/hackathon-checkin', label: 'Hackathon Check-in' },
   { path: '/admin/qr-scan', label: 'QR Scan' },
+  { path: '/admin/mobile-checkin', label: 'Mobile Check-in' },
   { path: '/admin/users', label: 'Users' },
 ];
 
