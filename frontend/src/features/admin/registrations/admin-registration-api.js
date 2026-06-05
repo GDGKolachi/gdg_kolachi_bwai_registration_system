@@ -24,8 +24,11 @@ export const adminRegistrationApi = {
     if (params.limit) query.set('limit', String(params.limit));
     return api.get(`/admin/registrations?${query.toString()}`).then((res) => res.data);
 },
-  exportCsv: (eventId) =>
-    api.get(`/admin/registrations/export?event_id=${eventId}`, { responseType: 'blob' }).then((res) => res.data),
+  exportCsv: (eventId, ids) => {
+    const params = new URLSearchParams({ event_id: eventId });
+    if (ids && ids.length > 0) params.set('ids', ids.join(','));
+    return api.get(`/admin/registrations/export?${params.toString()}`, { responseType: 'blob' }).then((res) => res.data);
+  },
   getAmbassadors: (eventId) =>
     api.get(`/admin/registrations/ambassadors?event_id=${eventId}`).then((res) => res.data),
   updateStatus: (ids, status) =>

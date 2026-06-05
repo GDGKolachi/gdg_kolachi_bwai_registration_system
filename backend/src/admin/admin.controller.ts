@@ -143,10 +143,12 @@ export class AdminController {
   async exportRegistrations(
     @Query('event_id') eventId: string,
     @Query('workshop_id') legacyEventId: string,
+    @Query('ids') ids: string,
     @Res() res: Response,
   ) {
     const id = eventId || legacyEventId;
-    const csv = await this.registrationsService.exportCsv(id);
+    const idList = ids ? ids.split(',').filter(Boolean) : undefined;
+    const csv = await this.registrationsService.exportCsv(id, idList);
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', `attachment; filename=registrations-${id}.csv`);
     res.send(csv);
