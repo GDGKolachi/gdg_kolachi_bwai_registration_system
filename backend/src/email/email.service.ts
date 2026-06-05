@@ -74,8 +74,17 @@ export class EmailService {
     return venue;
   }
 
-  // Sent when admin shortlists — QR ticket + acknowledge spot button
-  // Accepts a batch of recipients and sends all in one batch.send() call (max 100 per batch)
+  private ticketBlockHtml(qrDataUrl: string, registrationId: string, borderColor: string): string {
+    return `
+      <div style="background: white; padding: 24px; border-radius: 8px; margin: 20px 0; text-align: center; border: 2px dashed ${borderColor};">
+        <h3 style="margin: 0 0 8px; color: #202124;">🎫 Your Entry Pass</h3>
+        <p style="color: #5F6368; margin: 0 0 16px;">Present this QR code at the venue for check-in</p>
+        <img src="${qrDataUrl}" alt="QR Code" style="width: 200px; height: 200px;" />
+        <p style="margin: 12px 0 0; font-size: 12px; color: #9AA0A6;">Registration ID: ${registrationId}</p>
+      </div>
+    `;
+  }
+
   async sendShortlistedEmail(
     email: string,
     name: string,
@@ -88,20 +97,12 @@ export class EmailService {
 
     const isOnline = !!event.is_online;
 
-    let qrBase64 = '';
+    let qrDataUrl = '';
     if (!isOnline) {
-      const qrDataUrl = await this.generateQRCode(qrData);
-      qrBase64 = qrDataUrl.replace('data:image/png;base64,', '');
+      qrDataUrl = await this.generateQRCode(qrData);
     }
 
-    const ticketBlock = isOnline ? '' : `
-      <div style="background: white; padding: 24px; border-radius: 8px; margin: 20px 0; text-align: center; border: 2px dashed #34A853;">
-        <h3 style="margin: 0 0 8px; color: #202124;">🎫 Your Event Ticket</h3>
-        <p style="color: #5F6368; margin: 0 0 16px;">Present this QR code at the venue for check-in</p>
-        <img src="cid:qrcode" alt="QR Code" style="width: 200px; height: 200px;" />
-        <p style="margin: 12px 0 0; font-size: 12px; color: #9AA0A6;">Registration ID: ${registrationId}</p>
-      </div>
-    `;
+    const ticketBlock = isOnline ? '' : this.ticketBlockHtml(qrDataUrl, registrationId, '#34A853');
 
     const importantBlock = isOnline ? `
       <div style="background: #E8F5E9; padding: 16px; border-radius: 8px; margin: 20px 0;">
@@ -144,21 +145,11 @@ export class EmailService {
 
     if (!this.resend) { this.logger.warn('Resend not configured, skipping email'); return; }
 
-    const attachments = isOnline ? [] : [
-      {
-        filename: 'ticket-qrcode.png',
-        content: Buffer.from(qrBase64, 'base64'),
-        contentType: 'image/png',
-        contentId: 'qrcode',
-      },
-    ];
-
     const { data, error } = await this.resend.emails.send({
       from: this.from,
       to: [email],
       subject: `🎉 You're Shortlisted! - GDG Kolachi's ${event.title}`,
       html,
-      attachments,
     });
 
     if (error) {
@@ -168,8 +159,6 @@ export class EmailService {
     this.logger.log(`Shortlisted email sent to ${email}, id: ${data.id}`);
   }
 
-  // Reminder email — re-sends entry pass (QR) + event instructions + an admin-written note
-  // to recipients who are already shortlisted/confirmed. Uses Resend's batch API in chunks of 100.
   async sendReminderBatch(
     recipients: Array<{
       email: string;
@@ -198,20 +187,12 @@ export class EmailService {
           const isOnline = !!r.event.is_online;
           const acknowledgeUrl = `${appUrl}/api/registrations/${r.registrationId}/acknowledge`;
 
-          let qrBase64 = '';
+          let qrDataUrl = '';
           if (!isOnline && r.qrData) {
-            const qrDataUrl = await this.generateQRCode(r.qrData);
-            qrBase64 = qrDataUrl.replace('data:image/png;base64,', '');
+            qrDataUrl = await this.generateQRCode(r.qrData);
           }
 
-          const ticketBlock = isOnline || !r.qrData ? '' : `
-            <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; border: 2px dashed #F4B400;">
-              <h3 style="margin: 0 0 8px; color: #202124;">🎫 Your Entry Pass</h3>
-              <p style="color: #5F6368; margin: 0 0 12px; font-size: 13px;">Present this QR code at the venue for check-in</p>
-              <img src="cid:qrcode" alt="QR Code" style="width: 180px; height: 180px;" />
-              <p style="margin: 10px 0 0; font-size: 12px; color: #9AA0A6;">Registration ID: ${r.registrationId}</p>
-            </div>
-          `;
+          const ticketBlock = isOnline || !r.qrData ? '' : this.ticketBlockHtml(qrDataUrl, r.registrationId, '#F4B400');
 
           const acknowledgeBlock = `
             <div style="text-align: center; margin: 24px 0;">
@@ -247,21 +228,11 @@ export class EmailService {
             <p style="color: #5F6368; font-size: 13px; margin: 20px 0 0;">See you there! 🎉</p>
           `);
 
-          const attachments = isOnline || !r.qrData ? [] : [
-            {
-              filename: 'entry-pass.png',
-              content: Buffer.from(qrBase64, 'base64'),
-              contentType: 'image/png',
-              contentId: 'qrcode',
-            },
-          ];
-
           return {
             from: this.from,
             to: [r.email],
             subject: `🔔 Reminder: ${r.event.title} — your entry pass`,
             html,
-            attachments,
           };
         }),
       );
@@ -360,7 +331,6 @@ export class EmailService {
     return { sent: sentCount };
   }
 
-  // Batch send — used when bulk shortlisting up to 100 registrations at once
   async sendShortlistedBatch(
     recipients: Array<{
       email: string;
@@ -380,19 +350,12 @@ export class EmailService {
           const acknowledgeUrl = `${appUrl}/api/registrations/${r.registrationId}/acknowledge`;
           const isOnline = !!r.event.is_online;
 
-          let qrBase64 = '';
+          let qrDataUrl = '';
           if (!isOnline) {
-            const qrDataUrl = await this.generateQRCode(r.qrData);
-            qrBase64 = qrDataUrl.replace('data:image/png;base64,', '');
+            qrDataUrl = await this.generateQRCode(r.qrData);
           }
 
-          const ticketBlock = isOnline ? '' : `
-            <div style="text-align: center; margin: 20px 0; border: 2px dashed #34A853; padding: 20px; border-radius: 8px;">
-              <h3 style="margin: 0 0 8px;">🎫 Your Event Ticket</h3>
-              <img src="cid:qrcode" alt="QR Code" style="width: 200px; height: 200px;" />
-              <p style="font-size: 12px; color: #9AA0A6;">Registration ID: ${r.registrationId}</p>
-            </div>
-          `;
+          const ticketBlock = isOnline ? '' : this.ticketBlockHtml(qrDataUrl, r.registrationId, '#34A853');
 
           const importantBlock = isOnline ? `
             <div style="background: #E8F5E9; padding: 16px; border-radius: 8px; margin: 20px 0;">
@@ -422,21 +385,11 @@ export class EmailService {
             ${importantBlock}
           `);
 
-          const attachments = isOnline ? [] : [
-            {
-              filename: 'ticket-qrcode.png',
-              content: Buffer.from(qrBase64, 'base64'),
-              contentType: 'image/png',
-              contentId: 'qrcode',
-            },
-          ];
-
           return {
             from: this.from,
             to: [r.email],
             subject: `🎉 You're Shortlisted! - GDG Kolachi's ${r.event.title}`,
             html,
-            attachments,
           };
         }),
       );
