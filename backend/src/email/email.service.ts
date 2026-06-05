@@ -147,7 +147,7 @@ export class EmailService {
     const attachments = isOnline ? [] : [
       {
         filename: 'ticket-qrcode.png',
-        content: qrBase64,
+        content: Buffer.from(qrBase64, 'base64'),
         contentType: 'image/png',
         contentId: 'qrcode',
       },
@@ -185,6 +185,7 @@ export class EmailService {
       return { sent: 0 };
     }
 
+    const appUrl = (process.env.APP_URL || 'http://localhost:3000').replace(/\/api\/?$/, '').replace(/\/$/, '');
     const safeMessage = (customMessage || '').trim();
     const batchSize = 100;
     let sentCount = 0;
@@ -195,6 +196,7 @@ export class EmailService {
       const messages = await Promise.all(
         chunk.map(async (r) => {
           const isOnline = !!r.event.is_online;
+          const acknowledgeUrl = `${appUrl}/api/registrations/${r.registrationId}/acknowledge`;
 
           let qrBase64 = '';
           if (!isOnline && r.qrData) {
@@ -208,6 +210,15 @@ export class EmailService {
               <p style="color: #5F6368; margin: 0 0 12px; font-size: 13px;">Present this QR code at the venue for check-in</p>
               <img src="cid:qrcode" alt="QR Code" style="width: 180px; height: 180px;" />
               <p style="margin: 10px 0 0; font-size: 12px; color: #9AA0A6;">Registration ID: ${r.registrationId}</p>
+            </div>
+          `;
+
+          const acknowledgeBlock = `
+            <div style="text-align: center; margin: 24px 0;">
+              <p style="color: #5F6368; margin: 0 0 12px; font-size: 14px;">Haven't confirmed yet? Confirm your spot now:</p>
+              <a href="${acknowledgeUrl}" style="background: #34A853; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-size: 16px; font-weight: bold; display: inline-block;">
+                ✓ Confirm my spot
+              </a>
             </div>
           `;
 
@@ -232,13 +243,14 @@ export class EmailService {
             ${customBlock}
             ${instructionsBlock}
             ${ticketBlock}
+            ${acknowledgeBlock}
             <p style="color: #5F6368; font-size: 13px; margin: 20px 0 0;">See you there! 🎉</p>
           `);
 
           const attachments = isOnline || !r.qrData ? [] : [
             {
               filename: 'entry-pass.png',
-              content: qrBase64,
+              content: Buffer.from(qrBase64, 'base64'),
               contentType: 'image/png',
               contentId: 'qrcode',
             },
@@ -413,7 +425,7 @@ export class EmailService {
           const attachments = isOnline ? [] : [
             {
               filename: 'ticket-qrcode.png',
-              content: qrBase64,
+              content: Buffer.from(qrBase64, 'base64'),
               contentType: 'image/png',
               contentId: 'qrcode',
             },
