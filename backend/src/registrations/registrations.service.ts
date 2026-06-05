@@ -199,7 +199,14 @@ export class RegistrationsService {
     });
     if (!registration) throw new NotFoundException('Registration not found');
     if (registration.status !== 'shortlisted') {
+      if (registration.acknowledged) {
+        throw new BadRequestException('ALREADY_ACKNOWLEDGED');
+      }
       throw new BadRequestException('Acknowledgement is only available after you have been shortlisted.');
+    }
+
+    if (registration.acknowledged) {
+      throw new BadRequestException('ALREADY_ACKNOWLEDGED');
     }
 
     if (registration.acknowledgement_expired) {
@@ -214,9 +221,6 @@ export class RegistrationsService {
       throw new BadRequestException('ACKNOWLEDGEMENT_EXPIRED');
     }
 
-    if (registration.acknowledged) {
-      return registration;
-    }
     registration.acknowledged = true;
     await this.registrationRepo.save(registration);
     return registration;
