@@ -210,6 +210,11 @@ export class AdminController {
     return this.adminService.markAttendedFromScan(id);
   }
 
+  @Get('checkin-stats/:eventId')
+  getCheckinStats(@Param('eventId') eventId: string) {
+    return this.adminService.getCheckinStats(eventId);
+  }
+
   // Exceptions
   @Get('exceptions')
   getExceptions() {

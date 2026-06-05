@@ -7,8 +7,17 @@ export default function QrScanView() {
   const [manualInput, setManualInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [showAckWarning, setShowAckWarning] = useState(false);
+  const [checkinStats, setCheckinStats] = useState(null);
   const scannerRef = useRef(null);
   const html5QrRef = useRef(null);
+
+  const fetchStats = async (eventId) => {
+    try {
+      const { data } = await api.get(`/admin/checkin-stats/${eventId}`);
+      setCheckinStats(data);
+    } catch { /* ignore */ }
+  };
 
   const startScanner = async () => {
     try {
@@ -60,9 +69,11 @@ export default function QrScanView() {
 
   const handleScan = async qrData => {
     setLoading(true);
+    setShowAckWarning(false);
     try {
       const res = await api.post('/admin/qr-scan', { qr_data: qrData });
       setScanResult(res.data);
+      if (res.data.event_id) fetchStats(res.data.event_id);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Invalid QR code');
       setScanResult(null);
@@ -78,6 +89,11 @@ export default function QrScanView() {
 
   const handleMarkAttended = async () => {
     if (!scanResult) return;
+    if (!scanResult.acknowledged && !showAckWarning) {
+      setShowAckWarning(true);
+      return;
+    }
+    setShowAckWarning(false);
     try {
       await api.patch(`/admin/qr-scan/${scanResult.registrationId}/attend`);
       const isHackathon = scanResult.event_type_slug === 'hackathon';
@@ -185,6 +201,7 @@ export default function QrScanView() {
                   ['CNIC', scanResult.cnic],
                   ['Event', scanResult.event ?? scanResult.workshop],
                   scanResult.event_type ? ['Event type', scanResult.event_type] : null,
+                  ['Acknowledged', scanResult.acknowledged ? 'Yes' : 'No'],
                 ].filter(Boolean).map(([label, val]) => (
                   <div key={label} className="flex justify-between gap-4 py-3 text-sm">
                     <span className="text-slate-500">{label}</span>
@@ -201,10 +218,38 @@ export default function QrScanView() {
                 </div>
               </div>
 
-              {scanResult.status === 'shortlisted' && (
+              {(scanResult.status === 'shortlisted' || scanResult.status === 'confirmed') && !showAckWarning && (
                 <button type="button" onClick={handleMarkAttended} className="ui-btn-primary mt-6 w-full py-3">
                   {scanResult.event_type_slug === 'hackathon' ? 'Check in + assign team' : 'Mark as attended'}
                 </button>
+              )}
+
+              {showAckWarning && (
+                <div className="mt-6 rounded-xl bg-amber-50 p-4 ring-1 ring-amber-200">
+                  <div className="mb-2 flex items-center gap-2 text-amber-800">
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15.75h.007v.008H12v-.008z" />
+                    </svg>
+                    <span className="font-bold">Not acknowledged</span>
+                  </div>
+                  <p className="mb-1 text-sm text-amber-900">
+                    This person has <strong>not confirmed</strong> their attendance.
+                  </p>
+                  {checkinStats && checkinStats.unacknowledgedCheckedIn > 0 && (
+                    <p className="mb-3 text-xs text-amber-700/80">
+                      {checkinStats.unacknowledgedCheckedIn} unacknowledged {checkinStats.unacknowledgedCheckedIn === 1 ? 'person has' : 'people have'} already been checked in.
+                    </p>
+                  )}
+                  <div className="flex gap-2">
+                    <button type="button" onClick={handleMarkAttended} className="flex-1 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white">
+                      Allow anyway
+                    </button>
+                    <button type="button" onClick={() => setShowAckWarning(false)} className="flex-1 rounded-lg bg-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
               )}
 
               {scanResult.status === 'attended' && (

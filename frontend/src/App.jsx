@@ -18,6 +18,13 @@ import HackathonCheckinView from './features/admin/hackathon-checkin/views/hacka
 import TeamsManagement from './features/admin/teams/views/teams-management';
 import QrScanView from './features/admin/qr-scan/views/qr-scan-view';
 import UsersManagement from './features/admin/users/views/users-management';
+import MobileCheckinView from './features/admin/mobile-checkin/views/mobile-checkin-view';
+
+function AuthGate({ children }) {
+  const token = localStorage.getItem('admin_token');
+  if (!token) return <Navigate to="/admin/login" replace />;
+  return children;
+}
 
 function App() {
   return (
@@ -34,6 +41,7 @@ function App() {
         <Route path="/my-team" element={<TeamLookup />} />
       </Route>
       <Route path="/admin/login" element={<Login />} />
+      <Route path="/admin/mobile-checkin" element={<AuthGate><MobileCheckinView /></AuthGate>} />
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<DashboardHome />} />
         <Route path="events" element={<EventCrud />} />
