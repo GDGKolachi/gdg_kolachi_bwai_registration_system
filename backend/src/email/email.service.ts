@@ -266,12 +266,18 @@ export class EmailService {
         }),
       );
 
-      const { data, error } = await this.resend.batch.send(messages);
-      if (error) {
-        this.logger.error(`Reminder batch send failed for chunk ${i}–${i + chunk.length}`, error);
-      } else {
-        sentCount += chunk.length;
-        this.logger.log(`Reminder batch sent ${chunk.length} emails, ids: ${data.data.map(d => d.id).join(', ')}`);
+      for (const msg of messages) {
+        try {
+          const { data, error } = await this.resend.emails.send(msg);
+          if (error) {
+            this.logger.error(`Reminder email failed for ${msg.to[0]}`, error);
+          } else {
+            sentCount++;
+            this.logger.log(`Reminder email sent to ${msg.to[0]}, id: ${data.id}`);
+          }
+        } catch (err) {
+          this.logger.error(`Reminder email exception for ${msg.to[0]}`, err);
+        }
       }
     }
 
@@ -442,11 +448,17 @@ export class EmailService {
       );
 
       if (!this.resend) { this.logger.warn('Resend not configured, skipping batch'); return; }
-      const { data, error } = await this.resend.batch.send(messages);
-      if (error) {
-        this.logger.error(`Batch send failed for chunk ${i}–${i + chunk.length}`, error);
-      } else {
-        this.logger.log(`Batch sent ${chunk.length} shortlist emails, ids: ${data.data.map(d => d.id).join(', ')}`);
+      for (const msg of messages) {
+        try {
+          const { data, error } = await this.resend.emails.send(msg);
+          if (error) {
+            this.logger.error(`Shortlisted email failed for ${msg.to[0]}`, error);
+          } else {
+            this.logger.log(`Shortlisted email sent to ${msg.to[0]}, id: ${data.id}`);
+          }
+        } catch (err) {
+          this.logger.error(`Shortlisted email exception for ${msg.to[0]}`, err);
+        }
       }
     }
   }
