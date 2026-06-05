@@ -163,6 +163,36 @@ export class AdminService {
     return rows.map((row) => row.ambassador).filter(Boolean);
   }
 
+  async lockAcknowledgements(eventId: string) {
+    const event = await this.eventRepo.findOne({ where: { id: eventId } });
+    if (!event) throw new NotFoundException('Event not found');
+
+    event.acknowledgement_locked = true;
+    await this.eventRepo.save(event);
+
+    const result = await this.registrationRepo
+      .createQueryBuilder()
+      .update()
+      .set({ acknowledgement_expired: true })
+      .where('event_id = :eventId', { eventId })
+      .andWhere('status = :status', { status: 'shortlisted' })
+      .andWhere('acknowledged = false')
+      .execute();
+
+    return { locked: true, expired_count: result.affected || 0 };
+  }
+
+  async unlockAcknowledgements(eventId: string) {
+    const event = await this.eventRepo.findOne({ where: { id: eventId } });
+    if (!event) throw new NotFoundException('Event not found');
+
+    event.acknowledgement_locked = false;
+    event.acknowledgement_deadline = null;
+    await this.eventRepo.save(event);
+
+    return { locked: false };
+  }
+
   private static readonly VALID_TRANSITIONS: Record<string, string[]> = {
     pending: ['shortlisted', 'confirmed', 'rejected'],
     shortlisted: ['confirmed', 'rejected'],

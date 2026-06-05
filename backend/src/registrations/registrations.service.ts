@@ -202,6 +202,10 @@ export class RegistrationsService {
       throw new BadRequestException('Acknowledgement is only available after you have been shortlisted.');
     }
 
+    if (registration.acknowledgement_expired) {
+      throw new BadRequestException('ACKNOWLEDGEMENT_EXPIRED');
+    }
+
     const event = registration.event;
     const isLocked =
       event.acknowledgement_locked ||

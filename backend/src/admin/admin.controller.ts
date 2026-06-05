@@ -44,6 +44,16 @@ export class AdminController {
     return this.eventsService.update(id, dto);
   }
 
+  @Post('events/:id/lock-acknowledgements')
+  lockAcknowledgements(@Param('id') id: string) {
+    return this.adminService.lockAcknowledgements(id);
+  }
+
+  @Post('events/:id/unlock-acknowledgements')
+  unlockAcknowledgements(@Param('id') id: string) {
+    return this.adminService.unlockAcknowledgements(id);
+  }
+
   @Delete('events/:id')
   deleteEvent(@Param('id') id: string) {
     return this.eventsService.remove(id);
