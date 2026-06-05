@@ -73,8 +73,7 @@ export class CreateEventDto {
   slots?: string[];
 
   @IsOptional()
-  @IsString()
-  acknowledgement_deadline?: string;
+  acknowledgement_deadline?: Date;
 
   @IsOptional()
   @IsBoolean()
