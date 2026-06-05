@@ -10,6 +10,7 @@ export default function RegistrationConfirmation() {
   const acknowledgedParam = searchParams.get('acknowledged');
   const isAcknowledge = acknowledgedParam !== null;
   const acknowledgeSuccess = acknowledgedParam === 'true';
+  const acknowledgeAlready = acknowledgedParam === 'already';
   const acknowledgeExpired = acknowledgedParam === 'expired';
 
   if (isAcknowledge) {
@@ -19,11 +20,16 @@ export default function RegistrationConfirmation() {
       iconCls = 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70';
       title = 'Thank you — spot confirmed!';
       message = 'We have recorded your acknowledgement. See you at the event — bring your QR code from the email for check-in.';
+    } else if (acknowledgeAlready) {
+      icon = '✓';
+      iconCls = 'bg-sky-50 text-sky-700 ring-1 ring-sky-200/70';
+      title = 'You have already confirmed';
+      message = 'Your spot is already confirmed — no further action needed. See you at the event!';
     } else if (acknowledgeExpired) {
       icon = '⏰';
       iconCls = 'bg-amber-50 text-amber-700 ring-1 ring-amber-200/70';
       title = 'Confirmation window closed';
-      message = 'You have run out of time to acknowledge. Your seat has been allotted to someone else.';
+      message = 'Sorry, you can no longer confirm your spot. The confirmation deadline has passed and your seat has been allotted to someone else.';
     } else {
       icon = '✕';
       iconCls = 'bg-rose-50 text-rose-700 ring-1 ring-rose-200/70';
