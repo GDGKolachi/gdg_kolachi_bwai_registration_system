@@ -193,11 +193,27 @@ export class RegistrationsService {
    * Public link from shortlisted email: records spot acknowledgement only.
    */
   async acknowledgeSpot(registrationId: string) {
-    const registration = await this.registrationRepo.findOne({ where: { id: registrationId } });
+    const registration = await this.registrationRepo.findOne({
+      where: { id: registrationId },
+      relations: ['event'],
+    });
     if (!registration) throw new NotFoundException('Registration not found');
     if (registration.status !== 'shortlisted') {
       throw new BadRequestException('Acknowledgement is only available after you have been shortlisted.');
     }
+
+    if (registration.acknowledgement_expired) {
+      throw new BadRequestException('ACKNOWLEDGEMENT_EXPIRED');
+    }
+
+    const event = registration.event;
+    const isLocked =
+      event.acknowledgement_locked ||
+      (event.acknowledgement_deadline && new Date(event.acknowledgement_deadline) < new Date());
+    if (isLocked) {
+      throw new BadRequestException('ACKNOWLEDGEMENT_EXPIRED');
+    }
+
     if (registration.acknowledged) {
       return registration;
     }

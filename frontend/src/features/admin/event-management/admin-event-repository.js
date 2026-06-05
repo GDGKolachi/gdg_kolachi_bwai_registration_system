@@ -31,3 +31,22 @@ export function useDeleteEvent() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-events'] }),
   });
 }
+
+export function useLockAcknowledgements() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => adminEventApi.lockAcknowledgements(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-events'] });
+      qc.invalidateQueries({ queryKey: ['admin-registrations'] });
+    },
+  });
+}
+
+export function useUnlockAcknowledgements() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => adminEventApi.unlockAcknowledgements(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-events'] }),
+  });
+}

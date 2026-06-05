@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
-import { useAdminEvents } from '../../event-management/admin-event-repository';
+import { useAdminEvents, useLockAcknowledgements, useUnlockAcknowledgements } from '../../event-management/admin-event-repository';
 import { useAdminRegistrations, useUpdateRegistrationStatus, useBulkUpdateStatus, useEventAmbassadors, useSendReminder, useSendRejection, useImportCsvStatus } from '../admin-registration-repository';
 import { adminRegistrationApi } from '../admin-registration-api';
 import {
@@ -200,6 +200,13 @@ export default function RegistrationsViewer() {
   const [limit, setLimit]         = useState(20);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [sortOrder, setSortOrder] = useState('DESC');
+
+  const lockMutation   = useLockAcknowledgements();
+  const unlockMutation = useUnlockAcknowledgements();
+
+  const eventList = Array.isArray(events) ? events : events?.data || [];
+  const currentEvent = eventList.find(e => e.id === selectedEvent);
+  const isAckLocked = currentEvent?.acknowledgement_locked ?? false;
 
   const updateStatusMutation = useUpdateRegistrationStatus();
   const bulkUpdateMutation   = useBulkUpdateStatus();
@@ -461,6 +468,36 @@ export default function RegistrationsViewer() {
             >
               Import IDs
             </button>
+            {isAckLocked ? (
+              <button
+                type="button"
+                className="w-full shrink-0 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-emerald-500/20 hover:bg-emerald-700 disabled:opacity-50 sm:w-auto"
+                disabled={unlockMutation.isPending}
+                onClick={async () => {
+                  try {
+                    await unlockMutation.mutateAsync(selectedEvent);
+                    toast.success('Acknowledgements unlocked — new shortlisted people can now confirm');
+                  } catch { toast.error('Failed to unlock'); }
+                }}
+              >
+                {unlockMutation.isPending ? 'Unlocking…' : 'Unlock Acknowledgements'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="w-full shrink-0 rounded-xl bg-gdg-red px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-red-500/20 hover:bg-red-600 disabled:opacity-50 sm:w-auto"
+                disabled={lockMutation.isPending}
+                onClick={async () => {
+                  if (!confirm('Lock acknowledgements? All unconfirmed shortlisted people will be permanently blocked from confirming.')) return;
+                  try {
+                    const result = await lockMutation.mutateAsync(selectedEvent);
+                    toast.success(`Locked — ${result.expired_count} unconfirmed registration(s) expired`);
+                  } catch { toast.error('Failed to lock'); }
+                }}
+              >
+                {lockMutation.isPending ? 'Locking…' : 'Lock Acknowledgements'}
+              </button>
+            )}
           </>
         )}
       </div>

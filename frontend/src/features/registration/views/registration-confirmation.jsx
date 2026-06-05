@@ -10,27 +10,40 @@ export default function RegistrationConfirmation() {
   const acknowledgedParam = searchParams.get('acknowledged');
   const isAcknowledge = acknowledgedParam !== null;
   const acknowledgeSuccess = acknowledgedParam === 'true';
+  const acknowledgeExpired = acknowledgedParam === 'expired';
 
   if (isAcknowledge) {
+    let icon, iconCls, title, message;
+    if (acknowledgeSuccess) {
+      icon = '✓';
+      iconCls = 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70';
+      title = 'Thank you — spot confirmed!';
+      message = 'We have recorded your acknowledgement. See you at the event — bring your QR code from the email for check-in.';
+    } else if (acknowledgeExpired) {
+      icon = '⏰';
+      iconCls = 'bg-amber-50 text-amber-700 ring-1 ring-amber-200/70';
+      title = 'Confirmation window closed';
+      message = 'You have run out of time to acknowledge. Your seat has been allotted to someone else.';
+    } else {
+      icon = '✕';
+      iconCls = 'bg-rose-50 text-rose-700 ring-1 ring-rose-200/70';
+      title = 'Could not confirm';
+      message = 'This link may be invalid, or you are not shortlisted yet. If you need help, contact the GDG Kolachi team.';
+    }
+
     return (
       <div className="mx-auto max-w-md text-center">
         <div className="ui-card px-8 py-12 sm:px-10 sm:py-14">
           <div
-            className={`mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl text-2xl font-bold ${
-              acknowledgeSuccess
-                ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70'
-                : 'bg-rose-50 text-rose-700 ring-1 ring-rose-200/70'
-            }`}
+            className={`mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl text-2xl font-bold ${iconCls}`}
           >
-            {acknowledgeSuccess ? '✓' : '✕'}
+            {icon}
           </div>
           <h1 className="mb-3 text-2xl font-bold tracking-tight text-slate-900">
-            {acknowledgeSuccess ? 'Thank you — spot confirmed!' : 'Could not confirm'}
+            {title}
           </h1>
           <p className="mb-8 text-sm leading-relaxed text-slate-600">
-            {acknowledgeSuccess
-              ? 'We have recorded your acknowledgement. See you at the event — bring your QR code from the email for check-in.'
-              : 'This link may be invalid, or you are not shortlisted yet. If you need help, contact the GDG Kolachi team.'}
+            {message}
           </p>
           <Link to="/" className="ui-btn-primary px-8 no-underline">
             Browse events

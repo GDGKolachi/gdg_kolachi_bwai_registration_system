@@ -46,6 +46,9 @@ export class Registration {
   @Column({ type: 'varchar', nullable: true })
   role_bucket: string | null;
 
+  @Column({ type: 'boolean', default: false })
+  acknowledgement_expired: boolean;
+
   @Column('text', { nullable: true })
   ambassador: string | null;
 
