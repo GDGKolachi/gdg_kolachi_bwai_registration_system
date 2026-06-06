@@ -27,7 +27,7 @@ import { TeamMember } from './entities/team-member.entity';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ThrottlerModule.forRoot([
-      { name: 'default', ttl: 60000, limit: 30 },
+      { name: 'default', ttl: 60000, limit: 100 },
     ]),
     TypeOrmModule.forRoot({
       type: 'postgres',

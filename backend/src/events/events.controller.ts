@@ -2,7 +2,7 @@ import { Controller, Get, Param } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { EventsService } from './events.service';
 
-@Throttle({ default: { ttl: 60000, limit: 60 } })
+@Throttle({ default: { ttl: 60000, limit: 100 } })
 @Controller('events')
 export class EventsController {
   constructor(private eventsService: EventsService) {}
