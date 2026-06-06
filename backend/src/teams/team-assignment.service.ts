@@ -365,39 +365,35 @@ export class TeamAssignmentService {
     return { unassigned: true };
   }
 
+  /**
+   * Manually move a member to a specific team.
+   *
+   * Like Swap, this is an admin override and does NOT enforce domain or
+   * role-target rules. The admin already picked the destination so we
+   * trust the choice. The only checks are basic safety:
+   *   - target team exists and is not locked
+   *   - target team has at least one free seat (max_team_size)
+   *   - the member exists
+   */
   async moveMember(teamId: string, registrationId: string, adminId: string): Promise<TeamMember> {
     const target = await this.teamRepo.findOne({ where: { id: teamId }, relations: ['members'] });
     if (!target) throw new NotFoundException('Target team not found');
     if (target.status === 'locked') throw new BadRequestException('Target team is locked');
     const cfg = await this.getOrCreateConfig(target.event_id);
     if ((target.members?.length ?? 0) >= cfg.max_team_size) {
-      throw new BadRequestException('Target team is at maximum size');
+      throw new BadRequestException(`Target team is at maximum size (${cfg.max_team_size}).`);
     }
     const member = await this.memberRepo.findOne({ where: { registration_id: registrationId } });
     if (!member) throw new NotFoundException('Member not found');
-
-    // Domain hard constraint: member's domain must match target team's domain.
-    if (member.domain_snapshot && target.primary_domain && member.domain_snapshot !== target.primary_domain) {
-      throw new BadRequestException(
-        `Cannot move member to a team with a different domain. Member domain: "${member.domain_snapshot}", Team domain: "${target.primary_domain}".`,
-      );
+    if (member.team_id === teamId) {
+      throw new BadRequestException('Member is already on this team');
     }
 
-    // Role-target hard constraint: target team must still have room in the member's role group.
-    const roleBucket = member.role_bucket_snapshot || 'other';
-    const roleTarget = this.targetFor(roleBucket, cfg);
-    // Exclude the member from their current team's count (they're moving out), but only count the target team's existing members.
-    const currentGroupCount = this.roleGroupCount(target.members || [], roleBucket);
-    if (currentGroupCount >= roleTarget) {
-      const group = this.roleGroup(roleBucket);
-      throw new BadRequestException(
-        `Target team already has its full quota of ${group} members (${currentGroupCount}/${roleTarget}). Move not allowed.`,
-      );
-    }
-
-    member.team_id = teamId;
-    member.assigned_by = `admin:${adminId}`;
-    return this.memberRepo.save(member);
+    await this.memberRepo.update(member.id, {
+      team_id: teamId,
+      assigned_by: `admin:${adminId}`,
+    });
+    return (await this.memberRepo.findOne({ where: { id: member.id } }))!;
   }
 
   /**
