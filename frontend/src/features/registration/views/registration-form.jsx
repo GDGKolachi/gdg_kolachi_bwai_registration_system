@@ -6,10 +6,13 @@ import { isRegistrationOpen } from '../../events/event-service';
 import { useRegister } from '../registration-repository';
 import api from '../../../axios-instance';
 import { validateRegistrationForm, hasErrors } from '../registration-service';
+import { REGISTRATION_MODE } from '../registration-constants';
 import AttendeeFormFields from '../components/attendee-form-fields';
 import MotivationField from '../components/motivation-field';
 import DomainSelect from '../components/domain-select';
+import ExperienceFields from '../components/experience-fields';
 import { TrackSelect, SlotSelect } from '../components/track-slot-select';
+import TeamRegistrationForm from './team-registration-form';
 
 export default function RegistrationForm() {
   const params = useParams();
@@ -32,9 +35,16 @@ export default function RegistrationForm() {
     domain: '',
     track: '',
     slot: '',
+    yearsExperience: '',
+    priorHackathons: '',
+    skills: [],
+    aiExperience: '',
+    portfolioUrl: '',
+    bestProject: '',
   });
   const [errors, setErrors] = useState({});
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
+  const [mode, setMode] = useState(null);
 
   const eventTypeSlug = event?.eventTypeSlug || event?.event_type?.slug;
 
@@ -99,6 +109,13 @@ export default function RegistrationForm() {
   }
 
   const canRegister = isRegistrationOpen(event);
+  const allowsTeams =
+    eventTypeSlug === 'hackathon' && event.teamConfig?.allowSelfRegisteredTeams === true;
+  const needsModeChoice = allowsTeams && mode === null;
+
+  if (allowsTeams && canRegister && mode === REGISTRATION_MODE.TEAM) {
+    return <TeamRegistrationForm event={event} eventId={eventId} onBack={() => setMode(null)} />;
+  }
 
   return (
     <div className="mx-auto max-w-xl">
@@ -133,8 +150,38 @@ export default function RegistrationForm() {
           </div>
         )}
 
-        {canRegister && (!alreadyRegistered || event.allowExceptions === false) && (
+        {canRegister && needsModeChoice && (!alreadyRegistered || event.allowExceptions === false) && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => setMode(REGISTRATION_MODE.INDIVIDUAL)}
+              className="ui-card-quiet p-5 text-left transition hover:border-gdg-blue hover:bg-white"
+            >
+              <span className="block text-base font-semibold text-slate-900">Register as an individual</span>
+              <span className="mt-1.5 block text-sm leading-relaxed text-slate-600">
+                Sign up on your own. We will help you find a team at the event.
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode(REGISTRATION_MODE.TEAM)}
+              className="ui-card-quiet p-5 text-left transition hover:border-gdg-blue hover:bg-white"
+            >
+              <span className="block text-base font-semibold text-slate-900">Register a team</span>
+              <span className="mt-1.5 block text-sm leading-relaxed text-slate-600">
+                You are the captain — fill in every member&apos;s details and submit once.
+              </span>
+            </button>
+          </div>
+        )}
+
+        {canRegister && !needsModeChoice && (!alreadyRegistered || event.allowExceptions === false) && (
           <form onSubmit={handleSubmit}>
+            {allowsTeams && (
+              <button type="button" onClick={() => setMode(null)} className="ui-link-back">
+                ← Choose a different registration option
+              </button>
+            )}
             <AttendeeFormFields
               formData={formData}
               onChange={setFormData}
@@ -144,11 +191,19 @@ export default function RegistrationForm() {
             <div onBlur={handleEmailBlur} />
 
             {eventTypeSlug === 'hackathon' && (
-              <DomainSelect
-                value={formData.domain}
-                onChange={val => setFormData(prev => ({ ...prev, domain: val }))}
-                error={errors.domain}
-              />
+              <>
+                <DomainSelect
+                  value={formData.domain}
+                  onChange={val => setFormData(prev => ({ ...prev, domain: val }))}
+                  error={errors.domain}
+                />
+                <ExperienceFields
+                  formData={formData}
+                  onChange={setFormData}
+                  errors={errors}
+                  variant="full"
+                />
+              </>
             )}
 
             {eventTypeSlug === 'community-lounge' && (

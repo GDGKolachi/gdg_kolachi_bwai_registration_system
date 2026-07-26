@@ -33,5 +33,11 @@ export function prepareRegistrationPayload(formData) {
   if (formData.track) payload.track = formData.track;
   if (formData.slot) payload.slot = formData.slot;
   if (formData.ambassador?.trim()) payload.ambassador = formData.ambassador.trim();
+  if (formData.yearsExperience) payload.years_experience = formData.yearsExperience;
+  if (formData.priorHackathons) payload.prior_hackathons = formData.priorHackathons;
+  if (formData.skills?.length) payload.skills = formData.skills;
+  if (formData.aiExperience) payload.ai_experience = formData.aiExperience;
+  if (formData.portfolioUrl?.trim()) payload.portfolio_url = formData.portfolioUrl.trim();
+  if (formData.bestProject?.trim()) payload.best_project = formData.bestProject.trim();
   return payload;
 }

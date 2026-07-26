@@ -52,6 +52,34 @@ export class Registration {
   @Column('text', { nullable: true })
   ambassador: string | null;
 
+  /** 'individual' when self-registered alone, 'team' when part of a captain-submitted team. */
+  @Column({ default: 'individual' })
+  registration_mode: string;
+
+  /** True for the one member who submitted a team registration. */
+  @Column({ default: false })
+  is_captain: boolean;
+
+  // Hackathon shortlisting answers. Nullable throughout — non-captain team
+  // members answer the light set (skills only).
+  @Column({ type: 'varchar', nullable: true })
+  years_experience: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  prior_hackathons: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  skills: string[] | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  ai_experience: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  portfolio_url: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  best_project: string | null;
+
   @ManyToOne(() => Attendee, (a) => a.registrations)
   @JoinColumn({ name: 'attendee_id' })
   attendee: Attendee;

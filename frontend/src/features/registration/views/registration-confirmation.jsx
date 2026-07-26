@@ -5,7 +5,7 @@ export default function RegistrationConfirmation() {
   const [searchParams] = useSearchParams();
   const state = location.state || {};
   const eventTitle = state.eventTitle ?? state.workshopTitle;
-  const { email } = state;
+  const { email, teamName, memberCount } = state;
 
   const acknowledgedParam = searchParams.get('acknowledged');
   const isAcknowledge = acknowledgedParam !== null;
@@ -65,16 +65,37 @@ export default function RegistrationConfirmation() {
         <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-2xl font-bold text-emerald-700 ring-1 ring-emerald-200/70">
           ✓
         </div>
-        <h1 className="mb-3 text-2xl font-bold tracking-tight text-slate-900">Registration submitted</h1>
-        {eventTitle && (
-          <p className="mb-2 text-slate-700">
-            You have registered for <strong className="text-slate-900">{eventTitle}</strong>
-          </p>
-        )}
-        {email && (
-          <p className="mb-8 text-sm leading-relaxed text-slate-600">
-            Our team will review your application. If you are shortlisted, you will receive an email with your ticket QR code and a link to confirm your spot.
-          </p>
+        <h1 className="mb-3 text-2xl font-bold tracking-tight text-slate-900">
+          {teamName ? 'Team registration submitted' : 'Registration submitted'}
+        </h1>
+        {teamName ? (
+          <>
+            <p className="mb-2 text-slate-700">
+              Team <strong className="text-slate-900">{teamName}</strong> registered
+              {memberCount ? ` — ${memberCount} member${memberCount === 1 ? '' : 's'}` : ''}
+              {eventTitle ? (
+                <>
+                  {' '}for <strong className="text-slate-900">{eventTitle}</strong>
+                </>
+              ) : null}
+            </p>
+            <p className="mb-8 text-sm leading-relaxed text-slate-600">
+              Our team will review your application. If your team is shortlisted, every member receives an email with their ticket QR code and a link to confirm their spot.
+            </p>
+          </>
+        ) : (
+          <>
+            {eventTitle && (
+              <p className="mb-2 text-slate-700">
+                You have registered for <strong className="text-slate-900">{eventTitle}</strong>
+              </p>
+            )}
+            {email && (
+              <p className="mb-8 text-sm leading-relaxed text-slate-600">
+                Our team will review your application. If you are shortlisted, you will receive an email with your ticket QR code and a link to confirm your spot.
+              </p>
+            )}
+          </>
         )}
         <Link to="/" className="ui-btn-primary px-8 no-underline">
           Browse more events

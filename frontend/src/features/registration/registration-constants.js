@@ -41,6 +41,61 @@ export const HACKATHON_DOMAIN_OPTIONS = [
   'SME & Startup Enablement',
 ];
 
+// ── Shortlisting questions ────────────────────────────────────────────────
+// Mirrors backend/src/common/constants/hackathon.constants.ts — keep in sync.
+
+export const YEARS_EXPERIENCE_OPTIONS = [
+  'Less than 1 year',
+  '1-2 years',
+  '3-5 years',
+  '5+ years',
+];
+
+export const PRIOR_HACKATHON_OPTIONS = [
+  'None - this is my first',
+  '1-2',
+  '3-5',
+  '6+',
+];
+
+export const SKILL_OPTIONS = [
+  'Frontend',
+  'Backend',
+  'Mobile',
+  'AI/ML',
+  'Data & Analytics',
+  'Cloud/DevOps',
+  'Cybersecurity',
+  'UI/UX Design',
+  'Product/Business',
+  'Game Dev',
+  'Hardware/IoT',
+  'QA/Testing',
+];
+
+export const MAX_SKILLS = 5;
+
+export const AI_EXPERIENCE_OPTIONS = [
+  'No',
+  'Experimented / tutorials',
+  'Yes, shipped to real users',
+];
+
+export const WORKED_TOGETHER_OPTIONS = [
+  'Never',
+  'Once or twice',
+  'We work together regularly',
+];
+
+export const MAX_BEST_PROJECT_LENGTH = 600;
+export const MAX_IDEA_DESCRIPTION_LENGTH = 1000;
+export const MAX_MOTIVATION_LENGTH = 2000;
+
+export const REGISTRATION_MODE = {
+  INDIVIDUAL: 'individual',
+  TEAM: 'team',
+};
+
 export function rolesForEventType(slug) {
   return slug === 'hackathon' ? HACKATHON_ROLE_OPTIONS : DEFAULT_ROLE_OPTIONS;
 }

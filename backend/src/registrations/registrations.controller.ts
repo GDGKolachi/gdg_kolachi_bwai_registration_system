@@ -2,6 +2,7 @@ import { Controller, Get, Post, Query, Body, Param, Redirect } from '@nestjs/com
 import { Throttle } from '@nestjs/throttler';
 import { RegistrationsService } from './registrations.service';
 import { CreateRegistrationDto } from './dto/create-registration.dto';
+import { CreateTeamRegistrationDto } from './dto/create-team-registration.dto';
 
 @Controller('registrations')
 export class RegistrationsController {
@@ -16,6 +17,12 @@ export class RegistrationsController {
   @Throttle({ default: { ttl: 60000, limit: 100 } })
   register(@Body() dto: CreateRegistrationDto) {
     return this.registrationsService.register(dto);
+  }
+
+  @Post('team')
+  @Throttle({ default: { ttl: 60000, limit: 100 } })
+  registerTeam(@Body() dto: CreateTeamRegistrationDto) {
+    return this.registrationsService.registerTeam(dto);
   }
 
   @Get(':id/acknowledge')

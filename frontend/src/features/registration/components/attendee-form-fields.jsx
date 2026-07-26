@@ -13,7 +13,14 @@ function formatCnic(value) {
   return digits.slice(0, 5) + '-' + digits.slice(5, 12) + '-' + digits.slice(12, 13);
 }
 
-export default function AttendeeFormFields({ formData, onChange, errors, eventTypeSlug }) {
+export default function AttendeeFormFields({
+  formData,
+  onChange,
+  errors,
+  eventTypeSlug,
+  idPrefix = '',
+  showAmbassador = true,
+}) {
   const roleOptions = rolesForEventType(eventTypeSlug);
 
   const handleChange = e => {
@@ -32,11 +39,11 @@ export default function AttendeeFormFields({ formData, onChange, errors, eventTy
   return (
     <>
       <div className="mb-5">
-        <label className="ui-label-sentence" htmlFor="name">
+        <label className="ui-label-sentence" htmlFor={`${idPrefix}name`}>
           Full name *
         </label>
         <input
-          id="name"
+          id={`${idPrefix}name`}
           name="name"
           value={formData.name || ''}
           onChange={handleChange}
@@ -46,11 +53,11 @@ export default function AttendeeFormFields({ formData, onChange, errors, eventTy
         {errors?.name && <div className="mt-1 text-xs font-medium text-gdg-red">{errors.name}</div>}
       </div>
       <div className="mb-5">
-        <label className="ui-label-sentence" htmlFor="email">
+        <label className="ui-label-sentence" htmlFor={`${idPrefix}email`}>
           Email *
         </label>
         <input
-          id="email"
+          id={`${idPrefix}email`}
           name="email"
           type="email"
           value={formData.email || ''}
@@ -61,11 +68,11 @@ export default function AttendeeFormFields({ formData, onChange, errors, eventTy
         {errors?.email && <div className="mt-1 text-xs font-medium text-gdg-red">{errors.email}</div>}
       </div>
       <div className="mb-5">
-        <label className="ui-label-sentence" htmlFor="phone">
+        <label className="ui-label-sentence" htmlFor={`${idPrefix}phone`}>
           Phone number *
         </label>
         <input
-          id="phone"
+          id={`${idPrefix}phone`}
           name="phone"
           value={formData.phone || ''}
           onChange={handleChange}
@@ -77,11 +84,11 @@ export default function AttendeeFormFields({ formData, onChange, errors, eventTy
         {errors?.phone && <div className="mt-1 text-xs font-medium text-gdg-red">{errors.phone}</div>}
       </div>
       <div className="mb-5">
-        <label className="ui-label-sentence" htmlFor="universityOrg">
+        <label className="ui-label-sentence" htmlFor={`${idPrefix}universityOrg`}>
           Organization *
         </label>
         <input
-          id="universityOrg"
+          id={`${idPrefix}universityOrg`}
           name="universityOrg"
           value={formData.universityOrg || ''}
           onChange={handleChange}
@@ -94,11 +101,11 @@ export default function AttendeeFormFields({ formData, onChange, errors, eventTy
         )}
       </div>
       <div className="mb-5">
-        <label className="ui-label-sentence" htmlFor="linkedin">
+        <label className="ui-label-sentence" htmlFor={`${idPrefix}linkedin`}>
           LinkedIn profile *
         </label>
         <input
-          id="linkedin"
+          id={`${idPrefix}linkedin`}
           name="linkedin"
           value={formData.linkedin || ''}
           onChange={handleChange}
@@ -108,11 +115,11 @@ export default function AttendeeFormFields({ formData, onChange, errors, eventTy
         {errors?.linkedin && <div className="mt-1 text-xs font-medium text-gdg-red">{errors.linkedin}</div>}
       </div>
       <div className="mb-5">
-        <label className="ui-label-sentence" htmlFor="github">
+        <label className="ui-label-sentence" htmlFor={`${idPrefix}github`}>
           GitHub profile
         </label>
         <input
-          id="github"
+          id={`${idPrefix}github`}
           name="github"
           value={formData.github || ''}
           onChange={handleChange}
@@ -121,11 +128,11 @@ export default function AttendeeFormFields({ formData, onChange, errors, eventTy
         />
       </div>
       <div className="mb-5">
-        <label className="ui-label-sentence" htmlFor="cnic">
+        <label className="ui-label-sentence" htmlFor={`${idPrefix}cnic`}>
           CNIC / national ID *
         </label>
         <input
-          id="cnic"
+          id={`${idPrefix}cnic`}
           name="cnic"
           value={formData.cnic || ''}
           onChange={handleChange}
@@ -138,11 +145,11 @@ export default function AttendeeFormFields({ formData, onChange, errors, eventTy
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="mb-5 sm:mb-0">
-          <label className="ui-label-sentence" htmlFor="gender">
+          <label className="ui-label-sentence" htmlFor={`${idPrefix}gender`}>
             Gender *
           </label>
           <select
-            id="gender"
+            id={`${idPrefix}gender`}
             name="gender"
             value={formData.gender || ''}
             onChange={handleChange}
@@ -157,11 +164,11 @@ export default function AttendeeFormFields({ formData, onChange, errors, eventTy
           {errors?.gender && <div className="mt-1 text-xs font-medium text-gdg-red">{errors.gender}</div>}
         </div>
         <div className="mb-5">
-          <label className="ui-label-sentence" htmlFor="bestDescribesYou">
+          <label className="ui-label-sentence" htmlFor={`${idPrefix}bestDescribesYou`}>
             What best describes you? *
           </label>
           <select
-            id="bestDescribesYou"
+            id={`${idPrefix}bestDescribesYou`}
             name="bestDescribesYou"
             value={formData.bestDescribesYou || ''}
             onChange={handleChange}
@@ -177,20 +184,22 @@ export default function AttendeeFormFields({ formData, onChange, errors, eventTy
           )}
         </div>
       </div>
-      <div className="mb-5 mt-5">
-        <label className="ui-label-sentence" htmlFor="ambassador">
-          Referred by (Ambassador)
-        </label>
-        <input
-          id="ambassador"
-          name="ambassador"
-          value={formData.ambassador || ''}
-          onChange={handleChange}
-          placeholder="Name of the ambassador who referred you (optional)"
-          className={inputCls}
-        />
-        <p className="mt-1.5 text-xs text-slate-500">Optional — leave blank if no one referred you.</p>
-      </div>
+      {showAmbassador && (
+        <div className="mb-5 mt-5">
+          <label className="ui-label-sentence" htmlFor={`${idPrefix}ambassador`}>
+            Referred by (Ambassador)
+          </label>
+          <input
+            id={`${idPrefix}ambassador`}
+            name="ambassador"
+            value={formData.ambassador || ''}
+            onChange={handleChange}
+            placeholder="Name of the ambassador who referred you (optional)"
+            className={inputCls}
+          />
+          <p className="mt-1.5 text-xs text-slate-500">Optional — leave blank if no one referred you.</p>
+        </div>
+      )}
     </>
   );
 }

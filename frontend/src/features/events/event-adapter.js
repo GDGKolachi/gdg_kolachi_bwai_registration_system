@@ -20,6 +20,13 @@ export function adaptEvent(raw) {
     eventTypeName: raw.event_type?.name ?? raw.event_type_name ?? null,
     tracks: raw.tracks ?? null,
     slots: raw.slots ?? null,
+    teamConfig: raw.team_config
+      ? {
+          minTeamSize: raw.team_config.min_team_size,
+          maxTeamSize: raw.team_config.max_team_size,
+          allowSelfRegisteredTeams: raw.team_config.allow_self_registered_teams,
+        }
+      : null,
     createdAt: raw.created_at ?? raw.createdAt,
     // Backwards-compat shims for any callers expecting workshop-shaped data
     workshopId: raw.id,

@@ -9,7 +9,13 @@ import {
   useUnlockTeam,
   useMoveMember,
   useSwapMembers,
+  useUpdateTeamStatus,
 } from '../teams-repository';
+import {
+  RegistrationStatus,
+  STATUS_LABELS,
+  STATUS_COLORS,
+} from '../../../../shared/constants/registration-status';
 
 const BUCKET_COLORS = {
   developer: 'bg-sky-50 text-sky-900 ring-1 ring-sky-200/70',
@@ -23,6 +29,13 @@ const BUCKET_COLORS = {
   other: 'bg-slate-100 text-slate-700 ring-1 ring-slate-200/80',
 };
 
+const ORIGIN_BADGES = {
+  self_registered: { label: 'Self-registered', className: 'bg-indigo-50 text-indigo-900 ring-1 ring-indigo-200/70' },
+  auto: { label: 'Auto-formed', className: 'bg-slate-100 text-slate-700 ring-1 ring-slate-200/80' },
+};
+
+const teamLabelOf = (team) => `#${team.team_number}${team.name ? ` · ${team.name}` : ''}`;
+
 export default function TeamsManagement() {
   const { eventId } = useParams();
   const { data: teams = [], isLoading } = useTeams(eventId);
@@ -32,11 +45,15 @@ export default function TeamsManagement() {
   const unlock = useUnlockTeam(eventId);
   const moveMember = useMoveMember(eventId);
   const swapMembers = useSwapMembers(eventId);
+  const updateTeamStatus = useUpdateTeamStatus(eventId);
 
   const [configOpen, setConfigOpen] = useState(false);
   const [draft, setDraft] = useState(null);
   const [moveTargetTeam, setMoveTargetTeam] = useState({});
   const [swapPartner, setSwapPartner] = useState({});
+  const [expandedIdea, setExpandedIdea] = useState({});
+  const [statusFailures, setStatusFailures] = useState({});
+  const [busyTeamId, setBusyTeamId] = useState(null);
 
   const openConfig = () => {
     setDraft({ ...(config || {}) });
@@ -100,6 +117,29 @@ export default function TeamsManagement() {
     }
   };
 
+  const handleTeamStatus = async (team, status) => {
+    const memberCount = team.member_count ?? (team.members || []).length;
+    const verb = status === RegistrationStatus.SHORTLISTED ? 'Shortlist' : 'Reject';
+    if (!confirm(`${verb} team ${teamLabelOf(team)} — all ${memberCount} member(s)?`)) return;
+    setBusyTeamId(team.id);
+    try {
+      const result = await updateTeamStatus.mutateAsync({ teamId: team.id, status });
+      const failed = result?.failed || [];
+      const succeeded = result?.succeeded ?? 0;
+      const noun = (STATUS_LABELS[status] || status).toLowerCase();
+      setStatusFailures((s) => ({ ...s, [team.id]: failed }));
+      if (failed.length === 0) {
+        toast.success(`${succeeded} ${noun}`);
+      } else {
+        toast(`${succeeded} ${noun}, ${failed.length} failed`, { icon: '⚠️' });
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || `${verb} team failed`);
+    } finally {
+      setBusyTeamId(null);
+    }
+  };
+
   return (
     <div>
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -141,86 +181,188 @@ export default function TeamsManagement() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {teams.map((team) => (
-            <div key={team.id} className="ui-card p-5">
-              <div className="mb-3 flex items-start justify-between gap-2">
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Team</div>
-                  <div className="text-2xl font-bold text-slate-900">#{team.team_number}{team.name ? ` · ${team.name}` : ''}</div>
-                  {team.primary_domain && (
-                    <div className="mt-1 text-xs text-slate-600">Domain: <strong>{team.primary_domain}</strong></div>
-                  )}
-                </div>
-                <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${team.status === 'locked' ? 'bg-rose-50 text-rose-900 ring-1 ring-rose-200/70' : 'bg-sky-50 text-sky-900 ring-1 ring-sky-200/70'}`}>
-                  {team.status}
-                </span>
-              </div>
+          {teams.map((team) => {
+            const origin = ORIGIN_BADGES[team.origin] || ORIGIN_BADGES.auto;
+            const selfRegistered = team.origin === 'self_registered';
+            const statusCounts = Object.entries(team.status_counts || {}).filter(([, count]) => count > 0);
+            const idea = team.idea_description || '';
+            const ideaOpen = !!expandedIdea[team.id];
+            const failures = statusFailures[team.id] || [];
+            const memberNameOf = (registrationId) =>
+              (team.members || []).find((m) => m.registration_id === registrationId)?.registration?.attendee?.name;
+            const teamBusy = busyTeamId === team.id && updateTeamStatus.isPending;
 
-              <div className="space-y-2">
-                {(team.members || []).map((m) => (
-                  <div key={m.id} className="rounded-lg border border-slate-100 bg-slate-50/50 px-3 py-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold text-slate-900">{m.registration?.attendee?.name || 'Member'}</div>
-                        <div className="truncate text-xs text-slate-500">{m.registration?.attendee?.email}</div>
-                      </div>
-                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${BUCKET_COLORS[m.role_bucket_snapshot] || BUCKET_COLORS.other}`}>
-                        {m.role_bucket_snapshot || 'other'}
-                      </span>
-                    </div>
-                    {team.status !== 'locked' && (
-                      <div className="mt-2 space-y-1.5">
-                        <div className="flex items-center gap-1">
-                          <select
-                            className="ui-input !py-1 !text-xs"
-                            value={moveTargetTeam[m.registration_id] || ''}
-                            onChange={(e) => setMoveTargetTeam((s) => ({ ...s, [m.registration_id]: e.target.value }))}
-                          >
-                            <option value="">Move to…</option>
-                            {teams.filter((t) => t.id !== team.id && t.status !== 'locked').map((t) => (
-                              <option key={t.id} value={t.id}>Team #{t.team_number}</option>
-                            ))}
-                          </select>
-                          <button type="button" disabled={!moveTargetTeam[m.registration_id] || moveMember.isPending} onClick={() => handleMove(m.registration_id)} className="ui-btn-secondary !px-2 !py-1 text-xs disabled:opacity-50">
-                            Move
-                          </button>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <select
-                            className="ui-input !py-1 !text-xs"
-                            value={swapPartner[m.registration_id] || ''}
-                            onChange={(e) => setSwapPartner((s) => ({ ...s, [m.registration_id]: e.target.value }))}
-                          >
-                            <option value="">Swap with…</option>
-                            {teams
-                              .filter((t) => t.id !== team.id && t.status !== 'locked')
-                              .flatMap((t) => (t.members || []).map((tm) => ({ t, tm })))
-                              .map(({ t, tm }) => (
-                                <option key={tm.id} value={tm.registration_id}>
-                                  Team #{t.team_number} · {tm.registration?.attendee?.name || 'Member'}
-                                </option>
-                              ))}
-                          </select>
-                          <button type="button" disabled={!swapPartner[m.registration_id] || swapMembers.isPending} onClick={() => handleSwap(m.registration_id)} className="ui-btn-secondary !px-2 !py-1 text-xs disabled:opacity-50">
-                            Swap
-                          </button>
-                        </div>
-                      </div>
+            return (
+              <div key={team.id} className="ui-card p-5">
+                <div className="mb-3 flex items-start justify-between gap-2">
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Team</div>
+                    <div className="text-2xl font-bold text-slate-900">#{team.team_number}{team.name ? ` · ${team.name}` : ''}</div>
+                    {team.primary_domain && (
+                      <div className="mt-1 text-xs text-slate-600">Domain: <strong>{team.primary_domain}</strong></div>
                     )}
                   </div>
-                ))}
-                {(team.members || []).length === 0 && (
-                  <div className="rounded-lg border border-dashed border-slate-200 px-3 py-3 text-center text-xs text-slate-400">No members yet</div>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${team.status === 'locked' ? 'bg-rose-50 text-rose-900 ring-1 ring-rose-200/70' : 'bg-sky-50 text-sky-900 ring-1 ring-sky-200/70'}`}>
+                      {team.status}
+                    </span>
+                    <span className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${origin.className}`}>
+                      {origin.label}
+                    </span>
+                  </div>
+                </div>
+
+                {team.below_minimum && (
+                  <div className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900 ring-1 ring-amber-200/70">
+                    Below minimum team size
+                  </div>
+                )}
+
+                {statusCounts.length > 0 && (
+                  <div className="mb-3 flex flex-wrap gap-1.5">
+                    {statusCounts.map(([status, count]) => (
+                      <span key={status} className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${STATUS_COLORS[status] || 'bg-slate-100 text-slate-700 ring-1 ring-slate-200/80'}`}>
+                        {STATUS_LABELS[status] ?? status} · {count}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {selfRegistered && (
+                  <div className="mb-3 space-y-1.5 rounded-lg bg-slate-50/70 px-3 py-2.5 ring-1 ring-slate-200/60">
+                    <div className="text-xs text-slate-600">
+                      Worked together before: <strong className="font-semibold text-slate-800">{team.worked_together_before || 'Not answered'}</strong>
+                    </div>
+                    {team.has_idea ? (
+                      <div>
+                        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Idea</div>
+                        <p className={`text-xs leading-relaxed text-slate-700 ${ideaOpen ? '' : 'line-clamp-3'}`}>{idea || 'Not provided'}</p>
+                        {idea.length > 140 && (
+                          <button
+                            type="button"
+                            className="mt-1 text-[11px] font-semibold text-gdg-blue hover:underline"
+                            onClick={() => setExpandedIdea((s) => ({ ...s, [team.id]: !s[team.id] }))}
+                          >
+                            {ideaOpen ? 'Show less' : 'Show more'}
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs italic text-slate-400">No idea yet — deciding at the event</p>
+                    )}
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  {(team.members || []).map((m) => (
+                    <div key={m.id} className="rounded-lg border border-slate-100 bg-slate-50/50 px-3 py-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <span className="truncate text-sm font-semibold text-slate-900">{m.registration?.attendee?.name || 'Member'}</span>
+                            {team.captain_registration_id && m.registration_id === team.captain_registration_id && (
+                              <span className="shrink-0 rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-900 ring-1 ring-indigo-200/70">Captain</span>
+                            )}
+                          </div>
+                          <div className="truncate text-xs text-slate-500">{m.registration?.attendee?.email}</div>
+                        </div>
+                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${BUCKET_COLORS[m.role_bucket_snapshot] || BUCKET_COLORS.other}`}>
+                          {m.role_bucket_snapshot || 'other'}
+                        </span>
+                      </div>
+                      {team.status !== 'locked' && (
+                        <div className="mt-2 space-y-1.5">
+                          <div className="flex items-center gap-1">
+                            <select
+                              className="ui-input !py-1 !text-xs"
+                              value={moveTargetTeam[m.registration_id] || ''}
+                              onChange={(e) => setMoveTargetTeam((s) => ({ ...s, [m.registration_id]: e.target.value }))}
+                            >
+                              <option value="">Move to…</option>
+                              {teams.filter((t) => t.id !== team.id && t.status !== 'locked').map((t) => (
+                                <option key={t.id} value={t.id}>Team #{t.team_number}</option>
+                              ))}
+                            </select>
+                            <button type="button" disabled={!moveTargetTeam[m.registration_id] || moveMember.isPending} onClick={() => handleMove(m.registration_id)} className="ui-btn-secondary !px-2 !py-1 text-xs disabled:opacity-50">
+                              Move
+                            </button>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <select
+                              className="ui-input !py-1 !text-xs"
+                              value={swapPartner[m.registration_id] || ''}
+                              onChange={(e) => setSwapPartner((s) => ({ ...s, [m.registration_id]: e.target.value }))}
+                            >
+                              <option value="">Swap with…</option>
+                              {teams
+                                .filter((t) => t.id !== team.id && t.status !== 'locked')
+                                .flatMap((t) => (t.members || []).map((tm) => ({ t, tm })))
+                                .map(({ t, tm }) => (
+                                  <option key={tm.id} value={tm.registration_id}>
+                                    Team #{t.team_number} · {tm.registration?.attendee?.name || 'Member'}
+                                  </option>
+                                ))}
+                            </select>
+                            <button type="button" disabled={!swapPartner[m.registration_id] || swapMembers.isPending} onClick={() => handleSwap(m.registration_id)} className="ui-btn-secondary !px-2 !py-1 text-xs disabled:opacity-50">
+                              Swap
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {(team.members || []).length === 0 && (
+                    <div className="rounded-lg border border-dashed border-slate-200 px-3 py-3 text-center text-xs text-slate-400">No members yet</div>
+                  )}
+                </div>
+
+                {failures.length > 0 && (
+                  <div className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-900 ring-1 ring-rose-200/70">
+                    <div className="mb-1 font-semibold">{failures.length} member(s) could not be updated</div>
+                    <ul className="space-y-0.5">
+                      {failures.map((f) => (
+                        <li key={f.id} className="break-words">
+                          <strong className="font-semibold">{memberNameOf(f.id) || f.id}</strong>: {f.error}
+                        </li>
+                      ))}
+                    </ul>
+                    <button
+                      type="button"
+                      className="mt-1.5 text-[11px] font-semibold text-rose-700 hover:underline"
+                      onClick={() => setStatusFailures((s) => ({ ...s, [team.id]: [] }))}
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
+
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                  <button
+                    type="button"
+                    className="ui-btn-secondary flex-1 !px-3 !py-2 text-xs disabled:opacity-50"
+                    disabled={teamBusy}
+                    onClick={() => handleTeamStatus(team, RegistrationStatus.SHORTLISTED)}
+                  >
+                    Shortlist team
+                  </button>
+                  <button
+                    type="button"
+                    className="ui-btn-danger flex-1 !px-3 !py-2 text-xs disabled:opacity-50"
+                    disabled={teamBusy}
+                    onClick={() => handleTeamStatus(team, RegistrationStatus.REJECTED)}
+                  >
+                    Reject team
+                  </button>
+                </div>
+
+                {team.status === 'locked' && (
+                  <button type="button" className="ui-btn-secondary mt-3 w-full text-xs" onClick={() => unlock.mutateAsync(team.id).then(() => toast.success('Unlocked'))}>
+                    Unlock team
+                  </button>
                 )}
               </div>
-
-              {team.status === 'locked' && (
-                <button type="button" className="ui-btn-secondary mt-3 w-full text-xs" onClick={() => unlock.mutateAsync(team.id).then(() => toast.success('Unlocked'))}>
-                  Unlock team
-                </button>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -236,7 +378,9 @@ export default function TeamsManagement() {
               const rolesSum = devTarget + desTarget + othTarget;
               const sumMismatch = rolesSum !== maxSize;
               const anyOverMax = devTarget > maxSize || desTarget > maxSize || othTarget > maxSize;
-              const configInvalid = sumMismatch || anyOverMax;
+              const minSize = draft.min_team_size == null ? 1 : Number(draft.min_team_size);
+              const minInvalid = !Number.isFinite(minSize) || minSize < 1 || minSize > maxSize;
+              const configInvalid = sumMismatch || anyOverMax || minInvalid;
 
               return (
                 <>
@@ -248,6 +392,19 @@ export default function TeamsManagement() {
                     <div className="mb-3">
                       <label className="ui-label-sentence" htmlFor="cfg-max_team_size">Max members per team</label>
                       <input id="cfg-max_team_size" type="number" min={1} className="ui-input" value={draft.max_team_size ?? ''} onChange={(e) => setDraft((d) => ({ ...d, max_team_size: Number(e.target.value) }))} />
+                    </div>
+                    <div className="mb-3">
+                      <label className="ui-label-sentence" htmlFor="cfg-min_team_size">Min members per team</label>
+                      <input
+                        id="cfg-min_team_size"
+                        type="number"
+                        min={1}
+                        max={maxSize || undefined}
+                        className={`ui-input ${minInvalid ? 'border-rose-300 focus:border-gdg-red focus:ring-gdg-red/15' : ''}`}
+                        value={draft.min_team_size ?? ''}
+                        onChange={(e) => setDraft((d) => ({ ...d, min_team_size: Number(e.target.value) }))}
+                      />
+                      {minInvalid && <p className="mt-1 text-xs font-medium text-gdg-red">Must be between 1 and max members per team ({maxSize})</p>}
                     </div>
                     {[
                       ['target_developers_per_team', 'Target developers / team', devTarget],
@@ -278,6 +435,30 @@ export default function TeamsManagement() {
                     {sumMismatch
                       ? <span className="text-xs">Must equal {maxSize}</span>
                       : <span className="text-xs">✓ Valid</span>}
+                  </div>
+
+                  <div className="mb-4 space-y-3 rounded-lg bg-slate-50/70 px-3 py-3 ring-1 ring-slate-200/60">
+                    <label className="flex cursor-pointer items-start gap-2">
+                      <input
+                        type="checkbox"
+                        checked={!!draft.allow_self_registered_teams}
+                        onChange={(e) => setDraft((d) => ({ ...d, allow_self_registered_teams: e.target.checked }))}
+                        className="mt-0.5 h-4 w-4 rounded border-slate-300 text-gdg-blue focus:ring-gdg-blue/30"
+                      />
+                      <span className="text-sm text-slate-700">Allow public team registration</span>
+                    </label>
+                    <div>
+                      <label className="flex cursor-pointer items-start gap-2">
+                        <input
+                          type="checkbox"
+                          checked={!!draft.allow_team_topup}
+                          onChange={(e) => setDraft((d) => ({ ...d, allow_team_topup: e.target.checked }))}
+                          className="mt-0.5 h-4 w-4 rounded border-slate-300 text-gdg-blue focus:ring-gdg-blue/30"
+                        />
+                        <span className="text-sm text-slate-700">Let solo attendees fill empty seats in self-registered teams</span>
+                      </label>
+                      <p className="ml-6 mt-1 text-xs text-slate-400">Off by default so submitted teams stay sealed.</p>
+                    </div>
                   </div>
 
                   <div className="mt-4 flex justify-end gap-3">

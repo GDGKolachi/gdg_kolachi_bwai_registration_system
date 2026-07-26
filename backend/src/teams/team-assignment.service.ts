@@ -7,6 +7,7 @@ import { TeamFormationConfig } from '../entities/team-formation-config.entity';
 import { Registration } from '../entities/registration.entity';
 import { Event } from '../entities/event.entity';
 import { RoleCategory } from '../entities/role-category.entity';
+import { TEAM_ORIGIN } from '../common/constants/hackathon.constants';
 
 export interface AssignmentResult {
   team: Team;
@@ -83,7 +84,16 @@ export class TeamAssignmentService {
       order: { team_number: 'ASC' },
     });
 
-    const openTeams = teams.filter((t) => t.status !== 'locked' && (t.members?.length ?? 0) < cfg.max_team_size);
+    // Self-registered teams are sealed: a captain submitted a fixed roster, so a
+    // solo registrant must never be dropped into one. Only an explicit
+    // `allow_team_topup` opens them back up. They still occupy a slot against
+    // `cfg.max_teams` — that check uses the unfiltered `teams` list.
+    const openTeams = teams.filter(
+      (t) =>
+        t.status !== 'locked' &&
+        (t.members?.length ?? 0) < cfg.max_team_size &&
+        (cfg.allow_team_topup || t.origin !== TEAM_ORIGIN.SELF_REGISTERED),
+    );
 
     // Hard constraints: a candidate team must (a) match the member's domain and
     // (b) still have room for the member's role group under its per-team target.
@@ -239,10 +249,13 @@ export class TeamAssignmentService {
   /** Pairwise swap pass: trade members between teams when it improves global score. */
   async rebalance(eventId: string): Promise<{ swapped: number }> {
     const cfg = await this.getOrCreateConfig(eventId);
-    const teams = await this.teamRepo.find({
+    const allTeams = await this.teamRepo.find({
       where: { event_id: eventId },
       relations: ['members'],
     });
+    // A captain's roster is not ours to rearrange — self-registered teams sit
+    // out the rebalance entirely, on both sides of every candidate swap.
+    const teams = allTeams.filter((t) => t.origin !== TEAM_ORIGIN.SELF_REGISTERED);
     let swapped = 0;
     let improved = true;
     let pass = 0;
@@ -344,13 +357,22 @@ export class TeamAssignmentService {
   /**
    * Removes the registration from its team and un-checks them in.
    * Used when an admin needs to undo an accidental check-in / assignment.
+   *
+   * On a self-registered team the membership survives — the captain built that
+   * roster, so undoing a check-in must not dissolve it. Only the check-in flags
+   * are reversed and the caller is told via `unassigned: false`.
    */
-  async unassignMember(registrationId: string): Promise<{ unassigned: true }> {
+  async unassignMember(
+    registrationId: string,
+  ): Promise<{ unassigned: true } | { unassigned: false; reason: 'self_registered_team' }> {
     const member = await this.memberRepo.findOne({
       where: { registration_id: registrationId },
       relations: ['team'],
     });
-    if (member) {
+    const sealed = member?.team?.origin === TEAM_ORIGIN.SELF_REGISTERED;
+
+    if (member && !sealed) {
+      // The lock guard only protects roster edits; the sealed path performs none.
       if (member.team?.status === 'locked') {
         throw new BadRequestException('Cannot unassign from a locked team. Unlock the team first.');
       }
@@ -362,7 +384,7 @@ export class TeamAssignmentService {
       registration.checked_in_at = null;
       await this.regRepo.save(registration);
     }
-    return { unassigned: true };
+    return sealed ? { unassigned: false, reason: 'self_registered_team' } : { unassigned: true };
   }
 
   /**

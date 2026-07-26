@@ -10,6 +10,8 @@ export const teamsApi = {
   lock: (eventId) =>
     api.post(`/admin/events/${eventId}/teams/lock`, {}).then(res => res.data),
   unlockTeam: (teamId) => api.post(`/admin/teams/${teamId}/unlock`, {}).then(res => res.data),
+  updateTeamStatus: (teamId, status) =>
+    api.patch(`/admin/teams/${teamId}/status`, { status }).then(res => res.data),
   moveMember: (teamId, registrationId) =>
     api.patch(`/admin/teams/${teamId}/members/${registrationId}/move`, {}).then(res => res.data),
   swapMembers: (registrationIdA, registrationIdB) =>

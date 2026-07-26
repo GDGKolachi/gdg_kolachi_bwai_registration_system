@@ -23,6 +23,26 @@ export class Team {
   @Column({ default: 'forming' })
   status: string;
 
+  /**
+   * 'auto'            — built by the check-in assignment engine.
+   * 'self_registered' — submitted whole by a captain at registration time.
+   */
+  @Column({ default: 'auto' })
+  origin: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  captain_registration_id: string | null;
+
+  // Team-level registration answers (self-registered teams only).
+  @Column({ type: 'boolean', default: false })
+  has_idea: boolean;
+
+  @Column({ type: 'text', nullable: true })
+  idea_description: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  worked_together_before: string | null;
+
   @Column({ type: 'uuid', nullable: true })
   created_by: string | null;
 

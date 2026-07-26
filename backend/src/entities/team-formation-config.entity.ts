@@ -15,6 +15,21 @@ export class TeamFormationConfig {
   @Column({ type: 'int', default: 4 })
   max_team_size: number;
 
+  /** Smallest team a captain may submit at registration time. */
+  @Column({ type: 'int', default: 2 })
+  min_team_size: number;
+
+  /** Master switch for the public "Register a team" path on this event. */
+  @Column({ type: 'boolean', default: true })
+  allow_self_registered_teams: boolean;
+
+  /**
+   * When false (default) self-registered teams are sealed: the check-in engine
+   * will never place a solo registrant into a captain-submitted team.
+   */
+  @Column({ type: 'boolean', default: false })
+  allow_team_topup: boolean;
+
   @Column({ type: 'int', default: 2 })
   target_developers_per_team: number;
 
