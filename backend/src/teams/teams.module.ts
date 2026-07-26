@@ -11,6 +11,7 @@ import { TeamsService } from './teams.service';
 import { TeamsController } from './teams.controller';
 import { PublicTeamsController } from './public-teams.controller';
 import { TeamAssignmentService } from './team-assignment.service';
+import { AdminModule } from '../admin/admin.module';
 
 @Module({
   imports: [
@@ -23,6 +24,8 @@ import { TeamAssignmentService } from './team-assignment.service';
       Attendee,
       RoleCategory,
     ]),
+    // Team-wide status changes delegate to AdminService.bulkUpdateStatus.
+    AdminModule,
   ],
   controllers: [TeamsController, PublicTeamsController],
   providers: [TeamsService, TeamAssignmentService],

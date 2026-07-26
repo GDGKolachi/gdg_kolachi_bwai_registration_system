@@ -49,6 +49,14 @@ export function useUnlockTeam(eventId) {
   });
 }
 
+export function useUpdateTeamStatus(eventId) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ teamId, status }) => teamsApi.updateTeamStatus(teamId, status),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['teams', eventId] }),
+  });
+}
+
 export function useMoveMember(eventId) {
   const qc = useQueryClient();
   return useMutation({

@@ -13,6 +13,7 @@ export const adminRegistrationApi = {
     if (params.university_org) query.set('university_org', params.university_org);
     if (params.domain) query.set('domain', params.domain);
     if (params.role_bucket) query.set('role_bucket', params.role_bucket);
+    if (params.registration_mode) query.set('registration_mode', params.registration_mode);
     if (params.ambassador) query.set('ambassador', params.ambassador);
     if (params.checked_in !== undefined) query.set('checked_in', String(params.checked_in));
     if (params.acknowledged !== undefined) query.set('acknowledged', String(params.acknowledged));

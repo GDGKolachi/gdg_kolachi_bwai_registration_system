@@ -72,6 +72,7 @@ export class AdminService {
       domain?: string;
       role_bucket?: string;
       ambassador?: string;
+      registration_mode?: string;
       checked_in?: boolean;
       acknowledged?: boolean;
       date_from?: string;
@@ -132,6 +133,12 @@ export class AdminService {
       else if (ambassadors.length > 1) qb.andWhere('r.ambassador IN (:...ambassadors)', { ambassadors });
     }
 
+    if (filters.registration_mode) {
+      const modes = filters.registration_mode.split(',').map(s => s.trim()).filter(Boolean);
+      if (modes.length === 1) qb.andWhere('r.registration_mode = :mode', { mode: modes[0] });
+      else if (modes.length > 1) qb.andWhere('r.registration_mode IN (:...modes)', { modes });
+    }
+
     if (filters.checked_in !== undefined) qb.andWhere('r.checked_in = :checkedIn', { checkedIn: filters.checked_in });
     if (filters.acknowledged !== undefined) qb.andWhere('r.acknowledged = :acknowledged', { acknowledged: filters.acknowledged });
     if (filters.date_from) qb.andWhere('r.registered_at >= :dateFrom', { dateFrom: filters.date_from });
@@ -149,7 +156,50 @@ export class AdminService {
       .take(limit)
       .getMany();
 
-    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+    // Attach team info for this page in one batched query. Registration has no
+    // inverse relation to TeamMember, so this is joined by hand rather than
+    // adding a circular entity relation just for the admin viewer column.
+    const teamByRegistration = await this.getTeamsForRegistrations(data.map((r) => r.id));
+
+    return {
+      data: data.map((r) => ({ ...r, team: teamByRegistration.get(r.id) ?? null })),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  private async getTeamsForRegistrations(registrationIds: string[]) {
+    const byRegistration = new Map<
+      string,
+      { id: string; team_number: number; name: string | null; origin: string }
+    >();
+    if (registrationIds.length === 0) return byRegistration;
+
+    const rows = await this.registrationRepo.manager
+      .createQueryBuilder()
+      .select([
+        'tm.registration_id AS registration_id',
+        't.id AS id',
+        't.team_number AS team_number',
+        't.name AS name',
+        't.origin AS origin',
+      ])
+      .from('team_members', 'tm')
+      .innerJoin('teams', 't', 't.id = tm.team_id')
+      .where('tm.registration_id IN (:...registrationIds)', { registrationIds })
+      .getRawMany();
+
+    for (const row of rows) {
+      byRegistration.set(row.registration_id, {
+        id: row.id,
+        team_number: row.team_number,
+        name: row.name,
+        origin: row.origin,
+      });
+    }
+    return byRegistration;
   }
 
   async getAmbassadors(eventId: string): Promise<string[]> {

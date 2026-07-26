@@ -98,6 +98,7 @@ export class AdminController {
     @Query('domain') domain?: string,
     @Query('role_bucket') roleBucket?: string,
     @Query('ambassador') ambassador?: string,
+    @Query('registration_mode') registrationMode?: string,
     @Query('checked_in') checkedIn?: string,
     @Query('acknowledged') acknowledged?: string,
     @Query('date_from') dateFrom?: string,
@@ -119,6 +120,7 @@ export class AdminController {
       domain,
       role_bucket: roleBucket,
       ambassador,
+      registration_mode: registrationMode,
       checked_in: checkedIn !== undefined && checkedIn !== '' ? checkedIn === 'true' : undefined,
       acknowledged:
         acknowledged !== undefined && acknowledged !== '' ? acknowledged === 'true' : undefined,

@@ -41,6 +41,12 @@ export class TeamsController {
     return this.teamsService.unlockTeam(teamId);
   }
 
+  // Atomic team shortlisting: applies one status to every member of the team.
+  @Patch('teams/:teamId/status')
+  updateTeamStatus(@Param('teamId') teamId: string, @Body('status') status: string) {
+    return this.teamsService.updateTeamStatus(teamId, status);
+  }
+
   @Patch('teams/:teamId/members/:registrationId/move')
   moveMember(
     @Param('teamId') teamId: string,

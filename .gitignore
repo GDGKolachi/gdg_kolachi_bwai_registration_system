@@ -4,9 +4,17 @@ dist/
 *.log
 .DS_Store
 
+# Env files — never commit real secrets; keep only *.example
+*.env
+.env.*
+!*.example
+!.env.example
+
 # Deployment secrets & docs — never commit these
 deploy/.env
+deploy/.env.cloudrun
 deploy/backup-sa-key.json
 backup-sa-key.json
 cicd-sa-key.json
+*-sa-key.json
 DEPLOYMENT.md

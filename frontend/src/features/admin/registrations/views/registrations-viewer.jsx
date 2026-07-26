@@ -32,6 +32,7 @@ const INITIAL_FILTERS = {
   gender: [],
   domain: [],
   ambassador: [],
+  registration_mode: '',
   university_org: '',
   checked_in: '',
   acknowledged: '',
@@ -242,6 +243,7 @@ export default function RegistrationsViewer() {
     gender:          appliedFilters.gender.length > 0 ? appliedFilters.gender.join(',') : undefined,
     domain:          appliedFilters.domain.length > 0 ? appliedFilters.domain.join(',') : undefined,
     ambassador:      appliedFilters.ambassador.length > 0 ? appliedFilters.ambassador.join(',') : undefined,
+    registration_mode: appliedFilters.registration_mode || undefined,
     university_org:  appliedFilters.university_org  || undefined,
     checked_in:      appliedFilters.checked_in !== '' ? appliedFilters.checked_in === 'true' : undefined,
     acknowledged:
@@ -573,6 +575,14 @@ export default function RegistrationsViewer() {
               value={draftFilters.ambassador}
               onChange={v => setDraftFilter('ambassador', v)}
             />
+            <div>
+              <label className={labelCls}>Registration mode</label>
+              <select className={inputCls} value={draftFilters.registration_mode} onChange={e => setDraftFilter('registration_mode', e.target.value)}>
+                <option value="">All</option>
+                <option value="individual">Individual</option>
+                <option value="team">Team</option>
+              </select>
+            </div>
             <div>
               <label className={labelCls}>University / Org</label>
               <input className={inputCls} placeholder="Search organization..." value={draftFilters.university_org} onChange={e => setDraftFilter('university_org', e.target.value)} />
@@ -1014,6 +1024,9 @@ export default function RegistrationsViewer() {
                     Name
                   </th>
                   <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Team
+                  </th>
+                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                     Email
                   </th>
                   <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -1071,6 +1084,10 @@ export default function RegistrationsViewer() {
                 {registrations.map((r, idx) => {
                   const isSelected = selectedIds.has(r.id);
                   const a          = r.attendee || {};
+                  const t          = r.team || r.team_member?.team || null;
+                  const teamNumber = t?.team_number ?? r.team_number ?? null;
+                  const teamName   = t?.name ?? r.team_name ?? null;
+                  const teamLabel  = [teamNumber != null ? `#${teamNumber}` : null, teamName].filter(Boolean).join(' · ');
                   return (
                     <tr key={r.id} className={`transition-colors hover:bg-slate-50/90 ${isSelected ? 'bg-sky-50/70' : ''}`}>
 
@@ -1091,6 +1108,20 @@ export default function RegistrationsViewer() {
 
                       {/* Name */}
                       <td className="py-2.5 px-3 border-b border-slate-100 font-medium whitespace-nowrap">{a.name || '—'}</td>
+
+                      {/* Team */}
+                      <td className="py-2.5 px-3 border-b border-slate-100 whitespace-nowrap">
+                        {teamLabel ? (
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className="max-w-[140px] truncate" title={teamLabel}>{teamLabel}</span>
+                            {r.is_captain && (
+                              <span className="shrink-0 rounded-full bg-indigo-50 px-1.5 py-0.5 text-[0.65rem] font-semibold text-indigo-900 ring-1 ring-indigo-200/70">
+                                Captain
+                              </span>
+                            )}
+                          </span>
+                        ) : '—'}
+                      </td>
 
                       {/* Email */}
                       <td className="py-2.5 px-3 border-b border-slate-100 whitespace-nowrap">{a.email || '—'}</td>
@@ -1168,7 +1199,7 @@ export default function RegistrationsViewer() {
                 })}
                 {registrations.length === 0 && (
                   <tr>
-                    <td colSpan={15} className="py-8 text-center text-sm text-slate-500">
+                    <td colSpan={16} className="py-8 text-center text-sm text-slate-500">
                       No registrations found
                     </td>
                   </tr>

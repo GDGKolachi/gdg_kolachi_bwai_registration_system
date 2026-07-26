@@ -1,4 +1,4 @@
-import { IsString, IsEmail, IsOptional, IsUUID, IsIn, Matches } from 'class-validator';
+import { IsString, IsEmail, IsOptional, IsUUID, IsIn, IsArray, Matches } from 'class-validator';
 
 export class CreateRegistrationDto {
   @IsString()
@@ -64,4 +64,31 @@ export class CreateRegistrationDto {
   @IsOptional()
   @IsString()
   ambassador?: string;
+
+  // Hackathon shortlisting answers — validated in service against the
+  // option lists in common/constants/hackathon.constants.
+  @IsOptional()
+  @IsString()
+  years_experience?: string;
+
+  @IsOptional()
+  @IsString()
+  prior_hackathons?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  skills?: string[];
+
+  @IsOptional()
+  @IsString()
+  ai_experience?: string;
+
+  @IsOptional()
+  @IsString()
+  portfolio_url?: string;
+
+  @IsOptional()
+  @IsString()
+  best_project?: string;
 }

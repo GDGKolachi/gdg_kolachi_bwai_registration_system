@@ -7,6 +7,7 @@ import { TeamFormationConfig } from '../entities/team-formation-config.entity';
 import { Event } from '../entities/event.entity';
 import { Registration } from '../entities/registration.entity';
 import { TeamAssignmentService } from './team-assignment.service';
+import { AdminService } from '../admin/admin.service';
 
 @Injectable()
 export class TeamsService {
@@ -22,14 +23,55 @@ export class TeamsService {
     @InjectRepository(Registration)
     private registrationRepo: Repository<Registration>,
     private assignment: TeamAssignmentService,
+    private adminService: AdminService,
   ) {}
 
   async listForEvent(eventId: string) {
-    return this.teamRepo.find({
+    const config = await this.assignment.getOrCreateConfig(eventId);
+    const teams = await this.teamRepo.find({
       where: { event_id: eventId },
       relations: ['members', 'members.registration', 'members.registration.attendee'],
       order: { team_number: 'ASC' },
     });
+
+    return teams.map((team) => {
+      const members = team.members || [];
+      const statusCounts: Record<string, number> = {};
+      for (const m of members) {
+        const status = m.registration?.status;
+        if (!status) continue;
+        statusCounts[status] = (statusCounts[status] || 0) + 1;
+      }
+      return {
+        ...team,
+        member_count: members.length,
+        status_counts: statusCounts,
+        below_minimum: members.length < config.min_team_size,
+      };
+    });
+  }
+
+  /**
+   * Shortlist / transition an entire team in one call. Every rule that matters
+   * (valid transitions, QR generation, emails) already lives in
+   * AdminService.bulkUpdateStatus — this only fans the roster into it.
+   */
+  async updateTeamStatus(teamId: string, status: string) {
+    const team = await this.teamRepo.findOne({
+      where: { id: teamId },
+      relations: ['members'],
+    });
+    if (!team) throw new NotFoundException('Team not found');
+
+    const registrationIds = (team.members || []).map((m) => m.registration_id);
+    const result = await this.adminService.bulkUpdateStatus(registrationIds, status);
+
+    return {
+      team_id: team.id,
+      requested_status: status,
+      succeeded: result.succeeded.length,
+      failed: result.failed,
+    };
   }
 
   async getConfig(eventId: string) {
