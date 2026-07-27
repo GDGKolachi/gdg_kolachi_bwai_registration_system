@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, In, Repository } from 'typeorm';
+import { EntityManager, In, IsNull, Repository } from 'typeorm';
 import { Registration } from '../entities/registration.entity';
 import { Attendee } from '../entities/attendee.entity';
 import { Event } from '../entities/event.entity';
@@ -85,7 +85,9 @@ export class RegistrationsService {
       throw new BadRequestException('Registration is not open for this event');
     }
 
-    const regCount = await this.registrationRepo.count({ where: { event_id: dto.event_id } });
+    const regCount = await this.registrationRepo.count({
+      where: { event_id: dto.event_id, deleted_at: IsNull() },
+    });
     if (regCount >= event.max_capacity) {
       throw new BadRequestException('Event is at full capacity');
     }
@@ -233,7 +235,9 @@ export class RegistrationsService {
 
       // Lock the event row so two captains cannot claim the same last seats.
       await manager.query('SELECT id FROM events WHERE id = $1 FOR UPDATE', [dto.event_id]);
-      const regCount = await manager.count(Registration, { where: { event_id: dto.event_id } });
+      const regCount = await manager.count(Registration, {
+        where: { event_id: dto.event_id, deleted_at: IsNull() },
+      });
       if (regCount + members.length > event.max_capacity) {
         const remaining = Math.max(event.max_capacity - regCount, 0);
         throw new BadRequestException(
@@ -390,6 +394,7 @@ export class RegistrationsService {
       .createQueryBuilder(Registration, 'r')
       .where('r.attendee_id = :aid', { aid: attendeeId })
       .andWhere('r.event_id = :eid', { eid: event.id })
+      .andWhere('r.deleted_at IS NULL')
       .getOne();
     if (sameEventExisting) {
       throw new BadRequestException('This email is already registered for this event.');
@@ -402,6 +407,7 @@ export class RegistrationsService {
       .leftJoin('r.event', 'e')
       .where('r.attendee_id = :aid', { aid: attendeeId })
       .andWhere('e.event_type_id = :etid', { etid: event.event_type_id })
+      .andWhere('r.deleted_at IS NULL')
       .getOne();
     if (!sameTypeExisting) return;
     if (event.allow_exceptions === false) {
@@ -535,7 +541,7 @@ export class RegistrationsService {
 
   async findByEvent(eventId: string) {
     return this.registrationRepo.find({
-      where: { event_id: eventId },
+      where: { event_id: eventId, deleted_at: IsNull() },
       relations: ['attendee'],
       order: { registered_at: 'DESC' },
     });

@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { useAdminEvents, useLockAcknowledgements, useUnlockAcknowledgements } from '../../event-management/admin-event-repository';
-import { useAdminRegistrations, useUpdateRegistrationStatus, useBulkUpdateStatus, useEventAmbassadors, useSendReminder, useSendRejection, useImportCsvStatus } from '../admin-registration-repository';
+import { useAdminRegistrations, useUpdateRegistrationStatus, useBulkUpdateStatus, useEventAmbassadors, useSendReminder, useSendRejection, useImportCsvStatus, useDeleteRegistration, useRestoreRegistration } from '../admin-registration-repository';
 import { adminRegistrationApi } from '../admin-registration-api';
+import { useCurrentUser } from '../../auth/use-current-user';
+import { MANAGEMENT_ROLES } from '../../auth/roles';
 import {
   STATUS_COLORS,
   STATUS_BUTTON_COLORS,
@@ -39,6 +41,8 @@ const INITIAL_FILTERS = {
   acknowledged: '',
   date_from: '',
   date_to: '',
+  // '' = live registrations only, 'true' = also show soft-deleted rows
+  include_deleted: '',
 };
 
 // Hackathon registrants store their primary skill in best_describes_you, so the
@@ -193,6 +197,9 @@ function MultiSelect({ label, options, value, onChange, renderLabel }) {
 }
 
 export default function RegistrationsViewer() {
+  const { hasRole } = useCurrentUser();
+  // Volunteers never reach this page, but keep the destructive actions gated anyway.
+  const canManage = hasRole(MANAGEMENT_ROLES);
   const { data: events } = useAdminEvents();
   const [selectedEvent, setSelectedEvent] = useState('');
   const { data: ambassadorOptions } = useEventAmbassadors(selectedEvent);
@@ -232,6 +239,11 @@ export default function RegistrationsViewer() {
   const [importCsvText, setImportCsvText] = useState('');
   const [importStatus, setImportStatus] = useState('confirmed');
 
+  // Soft delete / restore state
+  const deleteMutation  = useDeleteRegistration();
+  const restoreMutation = useRestoreRegistration();
+  const [deleteTarget, setDeleteTarget] = useState(null);
+
   const hasDraftChanges    = JSON.stringify(draftFilters) !== JSON.stringify(appliedFilters);
   const isActive = v => Array.isArray(v) ? v.length > 0 : v !== '';
   const activeAppliedCount = Object.values(appliedFilters).filter(isActive).length;
@@ -254,6 +266,7 @@ export default function RegistrationsViewer() {
       appliedFilters.acknowledged !== '' ? appliedFilters.acknowledged === 'true' : undefined,
     date_from:       appliedFilters.date_from || undefined,
     date_to:         appliedFilters.date_to   || undefined,
+    include_deleted: appliedFilters.include_deleted === 'true' ? true : undefined,
     sort_by:         'registered_at',
     sort_order:      sortOrder,
     page: limit === 0 ? 1 : page,
@@ -384,6 +397,33 @@ export default function RegistrationsViewer() {
       toast.success(`Status → ${newStatus}`);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to update status');
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    const name = deleteTarget.attendee?.name || 'This registration';
+    try {
+      await deleteMutation.mutateAsync(deleteTarget.id);
+      toast.success(`${name} deleted — their seat is free. Turn on "Show deleted" to restore.`);
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        next.delete(deleteTarget.id);
+        return next;
+      });
+      setDeleteTarget(null);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete registration');
+    }
+  };
+
+  const handleRestore = async (registration) => {
+    const name = registration.attendee?.name || 'Registration';
+    try {
+      await restoreMutation.mutateAsync(registration.id);
+      toast.success(`${name} restored`);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to restore registration');
     }
   };
 
@@ -607,6 +647,20 @@ export default function RegistrationsViewer() {
               <label className={labelCls}>Registered to</label>
               <input type="date" className={inputCls} value={draftFilters.date_to} onChange={e => setDraftFilter('date_to', e.target.value)} />
             </div>
+            {canManage && (
+              <div>
+                <label className={labelCls}>Deleted</label>
+                <label className={`${inputCls} flex cursor-pointer items-center gap-2`}>
+                  <input
+                    type="checkbox"
+                    checked={draftFilters.include_deleted === 'true'}
+                    onChange={e => setDraftFilter('include_deleted', e.target.checked ? 'true' : '')}
+                    className="h-4 w-4 shrink-0 cursor-pointer rounded accent-gdg-blue"
+                  />
+                  <span className="text-sm text-slate-700">Show deleted</span>
+                </label>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -961,6 +1015,54 @@ export default function RegistrationsViewer() {
         </div>
       )}
 
+      {/* Delete confirmation */}
+      {deleteTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+          onClick={() => !deleteMutation.isPending && setDeleteTarget(null)}
+          role="presentation"
+        >
+          <div
+            className="ui-card w-full max-w-md rounded-b-none rounded-t-2xl p-5 shadow-2xl sm:rounded-2xl sm:p-6"
+            onClick={e => e.stopPropagation()}
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="delete-reg-title"
+          >
+            <h2 id="delete-reg-title" className="text-lg font-bold tracking-tight text-slate-900">
+              Delete this registration?
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-slate-600">
+              <strong className="text-slate-900">{deleteTarget.attendee?.name || 'This attendee'}</strong>
+              {deleteTarget.attendee?.email ? ` (${deleteTarget.attendee.email})` : ''} will be hidden from
+              registrations, check-in and exports, and their seat will be freed for someone else.
+            </p>
+            <p className="mt-2 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900 ring-1 ring-sky-200/70">
+              This can be undone — tick <strong>Show deleted</strong> in the filters and press Restore.
+            </p>
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                className="ui-btn-secondary w-full disabled:opacity-50 sm:w-auto"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleteMutation.isPending}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="ui-btn-danger w-full !py-2.5 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                onClick={confirmDelete}
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? 'Deleting…' : 'Delete registration'}
+              </button>
+            </div>
+            <div className="pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:pb-0" aria-hidden />
+          </div>
+        </div>
+      )}
+
       {!selectedEvent && (
         <div className="ui-card-quiet py-16 text-center text-sm font-medium text-slate-500">
           Select an event to view registrations
@@ -1082,6 +1184,11 @@ export default function RegistrationsViewer() {
                   <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                     Ack
                   </th>
+                  {canManage && (
+                    <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      Actions
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -1092,8 +1199,9 @@ export default function RegistrationsViewer() {
                   const teamNumber = t?.team_number ?? r.team_number ?? null;
                   const teamName   = t?.name ?? r.team_name ?? null;
                   const teamLabel  = [teamNumber != null ? `#${teamNumber}` : null, teamName].filter(Boolean).join(' · ');
+                  const isDeleted  = !!r.deleted_at;
                   return (
-                    <tr key={r.id} className={`transition-colors hover:bg-slate-50/90 ${isSelected ? 'bg-sky-50/70' : ''}`}>
+                    <tr key={r.id} className={`transition-colors hover:bg-slate-50/90 ${isSelected ? 'bg-sky-50/70' : ''} ${isDeleted ? 'bg-slate-50/60 text-slate-400' : ''}`}>
 
                       {/* Checkbox */}
                       <td className="py-2.5 px-3 border-b border-slate-100">
@@ -1111,7 +1219,14 @@ export default function RegistrationsViewer() {
                       </td>
 
                       {/* Name */}
-                      <td className="py-2.5 px-3 border-b border-slate-100 font-medium whitespace-nowrap">{a.name || '—'}</td>
+                      <td className="py-2.5 px-3 border-b border-slate-100 font-medium whitespace-nowrap">
+                        <span className={isDeleted ? 'text-slate-400 line-through' : ''}>{a.name || '—'}</span>
+                        {isDeleted && (
+                          <span className="ml-1.5 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[0.65rem] font-semibold text-slate-600 ring-1 ring-slate-200/80">
+                            Deleted
+                          </span>
+                        )}
+                      </td>
 
                       {/* Team */}
                       <td className="py-2.5 px-3 border-b border-slate-100 whitespace-nowrap">
@@ -1198,12 +1313,36 @@ export default function RegistrationsViewer() {
                       <td className="py-2.5 px-3 border-b border-slate-100 whitespace-nowrap text-gdg-gray" title="User confirmed via shortlisted email">
                         {r.acknowledged ? '✓' : '—'}
                       </td>
+
+                      {/* Delete / restore */}
+                      {canManage && (
+                        <td className="py-2.5 px-3 border-b border-slate-100 whitespace-nowrap">
+                          {isDeleted ? (
+                            <button
+                              type="button"
+                              onClick={() => handleRestore(r)}
+                              disabled={restoreMutation.isPending}
+                              className="ui-btn-secondary !px-3 !py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              Restore
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setDeleteTarget(r)}
+                              className="ui-btn-danger !px-3 !py-1.5 text-xs"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
                 {registrations.length === 0 && (
                   <tr>
-                    <td colSpan={16} className="py-8 text-center text-sm text-slate-500">
+                    <td colSpan={canManage ? 17 : 16} className="py-8 text-center text-sm text-slate-500">
                       No registrations found
                     </td>
                   </tr>

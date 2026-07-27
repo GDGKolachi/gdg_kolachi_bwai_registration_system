@@ -1,12 +1,13 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { Event } from '../entities/event.entity';
 import { Registration } from '../entities/registration.entity';
 import { ExceptionRequest } from '../entities/exception-request.entity';
 import { Attendee } from '../entities/attendee.entity';
 import { Admin } from '../entities/admin.entity';
 import { EmailService } from '../email/email.service';
+import { AdminRole, ADMIN_ROLES } from '../common/enums/admin-role.enum';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -25,16 +26,64 @@ export class AdminService {
     private emailService: EmailService,
   ) {}
 
+  /**
+   * Soft-deleted registrations are excluded from every count, list, export and
+   * check-in surface. `IsNull()` on deleted_at is the filter throughout.
+   */
+  async softDeleteRegistration(registrationId: string, adminId: string) {
+    const registration = await this.registrationRepo.findOne({ where: { id: registrationId } });
+    if (!registration) throw new NotFoundException('Registration not found');
+    if (registration.deleted_at) {
+      throw new BadRequestException('This registration is already deleted.');
+    }
+    registration.deleted_at = new Date();
+    registration.deleted_by = adminId ?? null;
+    await this.registrationRepo.save(registration);
+    return { deleted: true };
+  }
+
+  async restoreRegistration(registrationId: string) {
+    const registration = await this.registrationRepo.findOne({ where: { id: registrationId } });
+    if (!registration) throw new NotFoundException('Registration not found');
+    if (!registration.deleted_at) {
+      throw new BadRequestException('This registration is not deleted.');
+    }
+
+    // The seat was released on delete, so it may have been taken since.
+    const event = await this.eventRepo.findOne({ where: { id: registration.event_id } });
+    if (event) {
+      const live = await this.registrationRepo.count({
+        where: { event_id: registration.event_id, deleted_at: IsNull() },
+      });
+      if (live >= event.max_capacity) {
+        throw new BadRequestException(
+          `Cannot restore — ${event.title} is now at full capacity (${event.max_capacity}).`,
+        );
+      }
+    }
+
+    registration.deleted_at = null;
+    registration.deleted_by = null;
+    await this.registrationRepo.save(registration);
+    return { restored: true };
+  }
+
   async getStats() {
     const events = await this.eventRepo.find({ relations: ['event_type'] });
-    const totalRegistrations = await this.registrationRepo.count();
+    const totalRegistrations = await this.registrationRepo.count({ where: { deleted_at: IsNull() } });
     const pendingExceptions = await this.exceptionRepo.count({ where: { status: 'pending' } });
-    const checkedIn = await this.registrationRepo.count({ where: { checked_in: true } });
+    const checkedIn = await this.registrationRepo.count({
+      where: { checked_in: true, deleted_at: IsNull() },
+    });
 
     const eventStats: Array<{ id: string; title: string; event_type?: string; status: string; maxCapacity: number; registeredCount: number; checkedInCount: number }> = [];
     for (const e of events) {
-      const registeredCount = await this.registrationRepo.count({ where: { event_id: e.id } });
-      const checkedInCount = await this.registrationRepo.count({ where: { event_id: e.id, checked_in: true } });
+      const registeredCount = await this.registrationRepo.count({
+        where: { event_id: e.id, deleted_at: IsNull() },
+      });
+      const checkedInCount = await this.registrationRepo.count({
+        where: { event_id: e.id, checked_in: true, deleted_at: IsNull() },
+      });
       eventStats.push({
         id: e.id,
         title: e.title,
@@ -73,6 +122,7 @@ export class AdminService {
       role_bucket?: string;
       ambassador?: string;
       registration_mode?: string;
+      include_deleted?: boolean;
       checked_in?: boolean;
       acknowledged?: boolean;
       date_from?: string;
@@ -87,6 +137,10 @@ export class AdminService {
       .createQueryBuilder('r')
       .leftJoinAndSelect('r.attendee', 'a')
       .where('r.event_id = :eventId', { eventId });
+
+    // Soft-deleted rows are hidden unless the admin explicitly asks to see them
+    // (the "Show deleted" toggle), which is how they get restored.
+    if (!filters.include_deleted) qb.andWhere('r.deleted_at IS NULL');
 
     if (filters.name) qb.andWhere('LOWER(a.name) LIKE :name', { name: `%${filters.name.toLowerCase()}%` });
     if (filters.email) qb.andWhere('LOWER(a.email) LIKE :email', { email: `%${filters.email.toLowerCase()}%` });
@@ -476,10 +530,10 @@ export class AdminService {
 
   async getCheckinStats(eventId: string) {
     const total = await this.registrationRepo.count({
-      where: { event_id: eventId, checked_in: true },
+      where: { event_id: eventId, checked_in: true, deleted_at: IsNull() },
     });
     const unacknowledged = await this.registrationRepo.count({
-      where: { event_id: eventId, checked_in: true, acknowledged: false },
+      where: { event_id: eventId, checked_in: true, acknowledged: false, deleted_at: IsNull() },
     });
     return { checkedIn: total, unacknowledgedCheckedIn: unacknowledged };
   }
@@ -488,7 +542,8 @@ export class AdminService {
     const qb = this.registrationRepo
       .createQueryBuilder('r')
       .leftJoinAndSelect('r.attendee', 'a')
-      .where('r.event_id = :eventId', { eventId });
+      .where('r.event_id = :eventId', { eventId })
+      .andWhere('r.deleted_at IS NULL');
 
     if (query) {
       qb.andWhere('(LOWER(a.name) LIKE :q OR LOWER(a.email) LIKE :q)', { q: `%${query.toLowerCase()}%` });
@@ -510,40 +565,90 @@ export class AdminService {
       order: { created_at: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
-      select: ['id', 'email', 'name', 'created_at'],
+      select: ['id', 'email', 'name', 'role', 'created_at'],
     });
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
-  async createUser(data: { email: string; password: string; name: string }) {
+  private assertValidRole(role: string): void {
+    if (!ADMIN_ROLES.includes(role as AdminRole)) {
+      throw new BadRequestException(`Invalid role. Must be one of: ${ADMIN_ROLES.join(', ')}`);
+    }
+  }
+
+  /**
+   * Locking every Super Admin out of the panel is unrecoverable without shell
+   * access to the database, so the last one can't be demoted or deleted.
+   */
+  private async assertNotLastSuperAdmin(user: Admin, action: 'demote' | 'delete'): Promise<void> {
+    if (user.role !== AdminRole.SUPER_ADMIN) return;
+    const superAdmins = await this.adminRepo.count({ where: { role: AdminRole.SUPER_ADMIN } });
+    if (superAdmins <= 1) {
+      throw new BadRequestException(
+        `Cannot ${action} the last Super Admin — promote another user first.`,
+      );
+    }
+  }
+
+  async createUser(data: { email: string; password: string; name: string; role?: string }) {
     const existing = await this.adminRepo.findOne({ where: { email: data.email } });
     if (existing) throw new BadRequestException('Email already exists');
+
+    const role = data.role ?? AdminRole.ORGANIZER;
+    this.assertValidRole(role);
 
     const passwordHash = await bcrypt.hash(data.password, 10);
     const user = this.adminRepo.create({
       email: data.email,
       password_hash: passwordHash,
       name: data.name,
+      role,
     });
     const saved = await this.adminRepo.save(user);
-    return { id: saved.id, email: saved.email, name: saved.name, created_at: saved.created_at };
+    return {
+      id: saved.id,
+      email: saved.email,
+      name: saved.name,
+      role: saved.role,
+      created_at: saved.created_at,
+    };
   }
 
-  async updateUser(id: string, data: { email?: string; password?: string; name?: string }) {
+  async updateUser(
+    id: string,
+    data: { email?: string; password?: string; name?: string; role?: string },
+  ) {
     const user = await this.adminRepo.findOne({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
 
+    if (data.role && data.role !== user.role) {
+      this.assertValidRole(data.role);
+      await this.assertNotLastSuperAdmin(user, 'demote');
+      user.role = data.role;
+    }
     if (data.email) user.email = data.email;
     if (data.name) user.name = data.name;
     if (data.password) user.password_hash = await bcrypt.hash(data.password, 10);
 
     const saved = await this.adminRepo.save(user);
-    return { id: saved.id, email: saved.email, name: saved.name, created_at: saved.created_at };
+    return {
+      id: saved.id,
+      email: saved.email,
+      name: saved.name,
+      role: saved.role,
+      created_at: saved.created_at,
+    };
   }
 
-  async deleteUser(id: string) {
-    const result = await this.adminRepo.delete(id);
-    if (result.affected === 0) throw new NotFoundException('User not found');
+  async deleteUser(id: string, actingAdminId?: string) {
+    if (actingAdminId && actingAdminId === id) {
+      throw new BadRequestException('You cannot delete your own account.');
+    }
+    const user = await this.adminRepo.findOne({ where: { id } });
+    if (!user) throw new NotFoundException('User not found');
+    await this.assertNotLastSuperAdmin(user, 'delete');
+
+    await this.adminRepo.delete(id);
     return { deleted: true };
   }
 
@@ -557,7 +662,9 @@ export class AdminService {
 
     const data: Array<any> = [];
     for (const e of events) {
-      const registeredCount = await this.registrationRepo.count({ where: { event_id: e.id } });
+      const registeredCount = await this.registrationRepo.count({
+        where: { event_id: e.id, deleted_at: IsNull() },
+      });
       data.push({ ...e, registered_count: registeredCount });
     }
 

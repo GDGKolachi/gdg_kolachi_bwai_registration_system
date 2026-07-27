@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Not, Repository } from 'typeorm';
+import { IsNull, Not, Repository } from 'typeorm';
 import { Event } from '../entities/event.entity';
 import { Registration } from '../entities/registration.entity';
 import { TeamFormationConfig } from '../entities/team-formation-config.entity';
@@ -25,7 +25,9 @@ export class EventsService {
     });
     const result: Array<Event & { registered_count: number }> = [];
     for (const e of events) {
-      const registeredCount = await this.registrationRepo.count({ where: { event_id: e.id } });
+      const registeredCount = await this.registrationRepo.count({
+        where: { event_id: e.id, deleted_at: IsNull() },
+      });
       result.push({ ...e, registered_count: registeredCount });
     }
     return result;
@@ -34,7 +36,9 @@ export class EventsService {
   async findOne(id: string) {
     const event = await this.eventRepo.findOne({ where: { id }, relations: ['event_type'] });
     if (!event) throw new NotFoundException('Event not found');
-    const registeredCount = await this.registrationRepo.count({ where: { event_id: id } });
+    const registeredCount = await this.registrationRepo.count({
+      where: { event_id: id, deleted_at: IsNull() },
+    });
     const teamConfig = await this.teamConfig(event);
     return { ...event, registered_count: registeredCount, team_config: teamConfig };
   }
@@ -61,7 +65,9 @@ export class EventsService {
 
   async update(id: string, data: Partial<Event>) {
     if (data.max_capacity !== undefined) {
-      const registeredCount = await this.registrationRepo.count({ where: { event_id: id } });
+      const registeredCount = await this.registrationRepo.count({
+      where: { event_id: id, deleted_at: IsNull() },
+    });
       if (data.max_capacity < registeredCount) {
         throw new BadRequestException(
           `Cannot set capacity to ${data.max_capacity}. There are already ${registeredCount} registrations.`,

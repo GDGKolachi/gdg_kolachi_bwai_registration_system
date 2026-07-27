@@ -14,6 +14,10 @@ export class Admin {
   @Column()
   name: string;
 
+  /** 'super_admin' | 'organizer' | 'volunteer' — see AdminRole. */
+  @Column({ default: 'organizer' })
+  role: string;
+
   @CreateDateColumn()
   created_at: Date;
 }

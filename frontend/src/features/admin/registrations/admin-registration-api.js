@@ -23,6 +23,7 @@ export const adminRegistrationApi = {
     if (params.sort_order) query.set('sort_order', params.sort_order);
     if (params.page) query.set('page', String(params.page));
     if (params.limit) query.set('limit', String(params.limit));
+    if (params.include_deleted) query.set('include_deleted', 'true');
     return api.get(`/admin/registrations?${query.toString()}`).then((res) => res.data);
 },
   exportCsv: (eventId, ids) => {
@@ -51,6 +52,10 @@ export const adminRegistrationApi = {
     api
       .post('/admin/registrations/import-status', { csv, status })
       .then((res) => res.data),
+  // Soft delete — the row is hidden everywhere and the seat is freed, but it
+  // can be brought back with restore().
+  softDelete: (id) => api.delete(`/admin/registrations/${id}`).then((res) => res.data),
+  restore: (id) => api.post(`/admin/registrations/${id}/restore`).then((res) => res.data),
   sendRejection: (ids, alsoReject) =>
     api
       .post('/admin/registrations/rejection', {

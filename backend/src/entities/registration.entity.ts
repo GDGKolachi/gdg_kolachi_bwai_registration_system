@@ -80,6 +80,17 @@ export class Registration {
   @Column({ type: 'text', nullable: true })
   best_project: string | null;
 
+  /**
+   * Soft delete. A deleted registration is hidden from lists, stats, CSV export
+   * and check-in, frees its seat back to capacity, and stops blocking that
+   * email from registering again — but the row is never destroyed.
+   */
+  @Column({ type: 'timestamp', nullable: true })
+  deleted_at: Date | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  deleted_by: string | null;
+
   @ManyToOne(() => Attendee, (a) => a.registrations)
   @JoinColumn({ name: 'attendee_id' })
   attendee: Attendee;
