@@ -59,6 +59,14 @@ export class TeamRegistration1753500000000 implements MigrationInterface {
       `ALTER TABLE "team_formation_configs" ADD COLUMN IF NOT EXISTS "allow_team_topup" boolean NOT NULL DEFAULT false`,
     );
 
+    // Pre-existing drift: Registration.motivation has been `nullable: true` in
+    // the entity since Community Lounge landed (it writes null), but the column
+    // was created NOT NULL in InitialSchema and no migration ever altered it.
+    // Non-captain team members don't answer motivation either, so fix it here.
+    await queryRunner.query(
+      `ALTER TABLE "registrations" ALTER COLUMN "motivation" DROP NOT NULL`,
+    );
+
     // Lookup indexes for the admin registrations viewer filters.
     await queryRunner.query(
       `CREATE INDEX IF NOT EXISTS "IDX_registrations_registration_mode" ON "registrations" ("registration_mode")`,
@@ -71,6 +79,13 @@ export class TeamRegistration1753500000000 implements MigrationInterface {
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_teams_origin"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_registrations_registration_mode"`);
+
+    // Backfill before restoring the constraint, otherwise the revert fails on
+    // any row written while motivation was nullable.
+    await queryRunner.query(`UPDATE "registrations" SET "motivation" = '' WHERE "motivation" IS NULL`);
+    await queryRunner.query(
+      `ALTER TABLE "registrations" ALTER COLUMN "motivation" SET NOT NULL`,
+    );
 
     await queryRunner.query(
       `ALTER TABLE "team_formation_configs" DROP COLUMN IF EXISTS "allow_team_topup"`,

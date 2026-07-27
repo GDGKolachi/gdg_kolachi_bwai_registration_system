@@ -1,7 +1,6 @@
 import {
   DEFAULT_ROLE_OPTIONS,
   HACKATHON_DOMAIN_OPTIONS,
-  HACKATHON_ROLE_OPTIONS,
   YEARS_EXPERIENCE_OPTIONS,
   PRIOR_HACKATHON_OPTIONS,
   SKILL_OPTIONS,
@@ -21,6 +20,16 @@ export function validateSkills(skills) {
   if (picked.length === 0) return 'Please select at least one skill';
   if (picked.length > MAX_SKILLS) return `Please select at most ${MAX_SKILLS} skills`;
   if (picked.some((s) => !SKILL_OPTIONS.includes(s))) return 'Please select valid skills';
+  return null;
+}
+
+// The primary skill replaces "what best describes you" for hackathons — it is
+// what the backend stores and what team formation reads.
+export function validatePrimarySkill(primarySkill, skills) {
+  const picked = Array.isArray(skills) ? skills : [];
+  if (picked.length === 0) return null;
+  if (!primarySkill) return 'Please choose which skill is your primary one';
+  if (!picked.includes(primarySkill)) return 'Your primary skill must be one of the skills you selected';
   return null;
 }
 
@@ -73,11 +82,12 @@ export function validateRegistrationForm(data, eventTypeSlug, event) {
   }
   if (!data.gender) errors.gender = 'Gender is required';
 
-  if (!data.bestDescribesYou) {
-    errors.bestDescribesYou = 'This field is required';
-  } else {
-    const allowed = eventTypeSlug === 'hackathon' ? HACKATHON_ROLE_OPTIONS : DEFAULT_ROLE_OPTIONS;
-    if (!allowed.includes(data.bestDescribesYou)) {
+  // Hackathons no longer ask the role question — skills + primary skill replace it.
+  // Every other event type still requires it, validated against DEFAULT_ROLES.
+  if (eventTypeSlug !== 'hackathon') {
+    if (!data.bestDescribesYou) {
+      errors.bestDescribesYou = 'This field is required';
+    } else if (!DEFAULT_ROLE_OPTIONS.includes(data.bestDescribesYou)) {
       errors.bestDescribesYou = 'Please choose a valid option';
     }
   }
@@ -88,6 +98,8 @@ export function validateRegistrationForm(data, eventTypeSlug, event) {
     Object.assign(errors, validateExperienceFields(data));
     const skillsError = validateSkills(data.skills);
     if (skillsError) errors.skills = skillsError;
+    const primarySkillError = validatePrimarySkill(data.primarySkill, data.skills);
+    if (primarySkillError) errors.primarySkill = primarySkillError;
     if (!data.motivation?.trim()) errors.motivation = 'Please describe how you will contribute';
     else if (data.motivation.trim().length > MAX_MOTIVATION_LENGTH) {
       errors.motivation = `Please keep your response under ${MAX_MOTIVATION_LENGTH} characters`;

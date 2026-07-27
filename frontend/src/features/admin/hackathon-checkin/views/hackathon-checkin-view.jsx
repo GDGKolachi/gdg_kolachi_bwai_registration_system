@@ -426,7 +426,7 @@ export default function HackathonCheckinView() {
                   </th>
                   <th>Name</th>
                   <th>Email</th>
-                  <th>Role</th>
+                  <th>Primary skill</th>
                   <th>Domain</th>
                   <th>Registration</th>
                   <th>Check-in</th>

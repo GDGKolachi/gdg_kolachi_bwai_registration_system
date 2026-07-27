@@ -7,10 +7,11 @@ function prepareMemberPayload(member, isCaptain) {
     linkedin: member.linkedin?.trim(),
     cnic: member.cnic?.trim(),
     gender: member.gender,
-    best_describes_you: member.bestDescribesYou,
     skills: member.skills || [],
     is_captain: isCaptain,
   };
+  // Every member — captain or not — answers skills and picks a primary one.
+  if (member.primarySkill) payload.primary_skill = member.primarySkill;
   if (member.github?.trim()) payload.github = member.github.trim();
 
   // Everything below is captain-only — members are never asked these questions.

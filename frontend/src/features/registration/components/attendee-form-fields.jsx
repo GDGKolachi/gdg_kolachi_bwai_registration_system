@@ -21,6 +21,8 @@ export default function AttendeeFormFields({
   idPrefix = '',
   showAmbassador = true,
 }) {
+  // Hackathons ask for skills + a primary skill instead of the role dropdown.
+  const isHackathon = eventTypeSlug === 'hackathon';
   const roleOptions = rolesForEventType(eventTypeSlug);
 
   const handleChange = e => {
@@ -143,8 +145,8 @@ export default function AttendeeFormFields({
         <p className="mt-1.5 text-xs text-slate-500">13 digits, e.g. 42101-1234567-1</p>
         {errors?.cnic && <div className="mt-1 text-xs font-medium text-gdg-red">{errors.cnic}</div>}
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="mb-5 sm:mb-0">
+      <div className={`grid grid-cols-1 gap-4 ${isHackathon ? '' : 'sm:grid-cols-2'}`}>
+        <div className={`mb-5 ${isHackathon ? '' : 'sm:mb-0'}`}>
           <label className="ui-label-sentence" htmlFor={`${idPrefix}gender`}>
             Gender *
           </label>
@@ -163,26 +165,28 @@ export default function AttendeeFormFields({
           </select>
           {errors?.gender && <div className="mt-1 text-xs font-medium text-gdg-red">{errors.gender}</div>}
         </div>
-        <div className="mb-5">
-          <label className="ui-label-sentence" htmlFor={`${idPrefix}bestDescribesYou`}>
-            What best describes you? *
-          </label>
-          <select
-            id={`${idPrefix}bestDescribesYou`}
-            name="bestDescribesYou"
-            value={formData.bestDescribesYou || ''}
-            onChange={handleChange}
-            className={`${inputCls} ${errors?.bestDescribesYou ? 'border-rose-300 focus:border-gdg-red focus:ring-gdg-red/15' : ''}`}
-          >
-            <option value="">Select option</option>
-            {roleOptions.map((r) => (
-              <option key={r} value={r}>{r}</option>
-            ))}
-          </select>
-          {errors?.bestDescribesYou && (
-            <div className="mt-1 text-xs font-medium text-gdg-red">{errors.bestDescribesYou}</div>
-          )}
-        </div>
+        {!isHackathon && (
+          <div className="mb-5">
+            <label className="ui-label-sentence" htmlFor={`${idPrefix}bestDescribesYou`}>
+              What best describes you? *
+            </label>
+            <select
+              id={`${idPrefix}bestDescribesYou`}
+              name="bestDescribesYou"
+              value={formData.bestDescribesYou || ''}
+              onChange={handleChange}
+              className={`${inputCls} ${errors?.bestDescribesYou ? 'border-rose-300 focus:border-gdg-red focus:ring-gdg-red/15' : ''}`}
+            >
+              <option value="">Select option</option>
+              {roleOptions.map((r) => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+            {errors?.bestDescribesYou && (
+              <div className="mt-1 text-xs font-medium text-gdg-red">{errors.bestDescribesYou}</div>
+            )}
+          </div>
+        )}
       </div>
       {showAmbassador && (
         <div className="mb-5 mt-5">

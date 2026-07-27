@@ -5,6 +5,7 @@ import * as bcrypt from 'bcrypt';
 import { Admin } from '../entities/admin.entity';
 import { EventType } from '../entities/event-type.entity';
 import { RoleCategory } from '../entities/role-category.entity';
+import { SKILL_BUCKETS } from '../common/constants/hackathon.constants';
 
 const EVENT_TYPES = [
   { name: 'Workshop', slug: 'workshop', description: 'Hands-on learning session' },
@@ -12,6 +13,13 @@ const EVENT_TYPES = [
   { name: 'Community Lounge', slug: 'community-lounge', description: 'Casual track + slot networking session' },
   { name: 'Hackathon', slug: 'hackathon', description: 'Team-based building competition' },
 ];
+
+// Hackathons now key team formation off the attendee's primary skill, so those
+// names need bucket rows too. The legacy role names below stay seeded so
+// registrations taken before the switch still resolve.
+const SKILL_CATEGORIES: Array<{ role_name: string; bucket: string }> = Object.entries(
+  SKILL_BUCKETS,
+).map(([role_name, bucket]) => ({ role_name, bucket }));
 
 const ROLE_CATEGORIES: Array<{ role_name: string; bucket: string }> = [
   { role_name: 'Student', bucket: 'student' },
@@ -62,7 +70,7 @@ export class SeedService implements OnModuleInit {
       }
     }
 
-    for (const r of ROLE_CATEGORIES) {
+    for (const r of [...ROLE_CATEGORIES, ...SKILL_CATEGORIES]) {
       const existing = await this.roleCategoryRepo.findOne({ where: { role_name: r.role_name } });
       if (!existing) {
         await this.roleCategoryRepo.save(this.roleCategoryRepo.create(r));

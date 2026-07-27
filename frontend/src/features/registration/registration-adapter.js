@@ -25,9 +25,10 @@ export function prepareRegistrationPayload(formData) {
     linkedin: formData.linkedin,
     cnic: formData.cnic,
     gender: formData.gender,
-    best_describes_you: formData.bestDescribesYou,
     event_id: formData.eventId,
   };
+  // Hackathons omit the role question entirely — the backend uses primary_skill there.
+  if (formData.bestDescribesYou) payload.best_describes_you = formData.bestDescribesYou;
   if (formData.motivation) payload.motivation = formData.motivation;
   if (formData.domain) payload.domain = formData.domain;
   if (formData.track) payload.track = formData.track;
@@ -36,6 +37,7 @@ export function prepareRegistrationPayload(formData) {
   if (formData.yearsExperience) payload.years_experience = formData.yearsExperience;
   if (formData.priorHackathons) payload.prior_hackathons = formData.priorHackathons;
   if (formData.skills?.length) payload.skills = formData.skills;
+  if (formData.primarySkill) payload.primary_skill = formData.primarySkill;
   if (formData.aiExperience) payload.ai_experience = formData.aiExperience;
   if (formData.portfolioUrl?.trim()) payload.portfolio_url = formData.portfolioUrl.trim();
   if (formData.bestProject?.trim()) payload.best_project = formData.bestProject.trim();

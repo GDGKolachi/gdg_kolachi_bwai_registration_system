@@ -67,9 +67,12 @@ class TeamMemberDto {
   })
   gender: string;
 
-  // Validated in service against HACKATHON_ROLES.
+  // Which of `skills` is this member's primary one. Stored on the attendee in
+  // place of the old role dropdown and used to resolve the formation bucket.
+  // Optional only when the member picked exactly one skill.
+  @IsOptional()
   @IsString()
-  best_describes_you: string;
+  primary_skill?: string;
 
   // Every member answers the light set; validated in service against SKILL_OPTIONS.
   @IsArray()

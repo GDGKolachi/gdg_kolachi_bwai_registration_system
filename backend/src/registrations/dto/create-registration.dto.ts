@@ -33,10 +33,17 @@ export class CreateRegistrationDto {
   })
   gender: string;
 
-  // Validated dynamically in the service against the event's type
-  // (6-item list for Workshop/Talks/Community Lounge, 15-item for Hackathon).
+  // Required for Workshop/Talks/Community Lounge and validated in the service
+  // against DEFAULT_ROLES. Hackathons have no role dropdown — they send
+  // `primary_skill` instead, which the service stores in its place.
+  @IsOptional()
   @IsString()
   best_describes_you: string;
+
+  // Hackathon only — must be one of `skills`. Drives the team-formation bucket.
+  @IsOptional()
+  @IsString()
+  primary_skill?: string;
 
   @IsUUID()
   event_id: string;
