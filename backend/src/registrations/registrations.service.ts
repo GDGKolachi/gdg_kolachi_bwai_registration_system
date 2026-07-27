@@ -27,6 +27,15 @@ import {
   TEAM_ORIGIN,
 } from '../common/constants/hackathon.constants';
 
+/**
+ * Event types where an attendee may hold only ONE registration across the whole
+ * type, with additional ones going through an exception request. This is the
+ * workshop series rule — it is deliberately not applied to hackathons, where
+ * each event is a separate occasion months apart, nor to talks and community
+ * lounges. Every type still blocks registering twice for the same event.
+ */
+const ONE_PER_TYPE_SLUGS = ['workshop'];
+
 /** Shortlisting answers a solo registrant or a team captain must supply. */
 interface ShortlistingAnswers {
   years_experience?: string;
@@ -362,14 +371,32 @@ export class RegistrationsService {
   }
 
   /**
-   * An attendee may hold one registration per event type. Takes an EntityManager
-   * so the team path can run it inside its transaction.
+   * Nobody may register twice for the same event, whatever the type.
+   *
+   * On top of that, the one-registration-per-event-type rule applies only to
+   * the types listed in ONE_PER_TYPE_SLUGS — it exists for the workshop series,
+   * where attending a second workshop is meant to go through an exception
+   * request. It was previously applied to every type, which meant a past
+   * hackathon permanently locked an attendee out of every future hackathon.
+   *
+   * Takes an EntityManager so the team path can run it inside its transaction.
    */
   private async assertNotAlreadyRegisteredForType(
     manager: EntityManager,
     attendeeId: string,
     event: Event,
   ): Promise<void> {
+    const sameEventExisting = await manager
+      .createQueryBuilder(Registration, 'r')
+      .where('r.attendee_id = :aid', { aid: attendeeId })
+      .andWhere('r.event_id = :eid', { eid: event.id })
+      .getOne();
+    if (sameEventExisting) {
+      throw new BadRequestException('This email is already registered for this event.');
+    }
+
+    if (!ONE_PER_TYPE_SLUGS.includes(event.event_type?.slug)) return;
+
     const sameTypeExisting = await manager
       .createQueryBuilder(Registration, 'r')
       .leftJoin('r.event', 'e')
