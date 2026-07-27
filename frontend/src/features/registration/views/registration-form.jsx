@@ -38,6 +38,7 @@ export default function RegistrationForm() {
     yearsExperience: '',
     priorHackathons: '',
     skills: [],
+    primarySkill: '',
     aiExperience: '',
     portfolioUrl: '',
     bestProject: '',

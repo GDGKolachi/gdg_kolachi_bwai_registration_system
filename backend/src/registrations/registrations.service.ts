@@ -12,11 +12,11 @@ import { CreateRegistrationDto } from './dto/create-registration.dto';
 import { CreateTeamRegistrationDto } from './dto/create-team-registration.dto';
 import {
   HACKATHON_DOMAINS,
-  HACKATHON_ROLES,
   DEFAULT_ROLES,
   YEARS_EXPERIENCE_OPTIONS,
   PRIOR_HACKATHON_OPTIONS,
   SKILL_OPTIONS,
+  SKILL_BUCKETS,
   MAX_SKILLS,
   AI_EXPERIENCE_OPTIONS,
   WORKED_TOGETHER_OPTIONS,
@@ -85,26 +85,26 @@ export class RegistrationsService {
     const isHackathon = typeSlug === 'hackathon';
     const isCommunityLounge = typeSlug === 'community-lounge';
 
-    // Validate best_describes_you against the type-specific list
-    const allowedRoles = isHackathon ? HACKATHON_ROLES : DEFAULT_ROLES;
-    if (!allowedRoles.includes(dto.best_describes_you)) {
+    // Hackathons ask for skills + a primary skill instead of the
+    // "what best describes you" dropdown; the primary skill is what gets
+    // stored on the attendee and what drives team formation.
+    if (!isHackathon && !DEFAULT_ROLES.includes(dto.best_describes_you)) {
       throw new BadRequestException(
-        `Invalid selection for "What best describes you?" — must be one of: ${allowedRoles.join(', ')}`,
+        `Invalid selection for "What best describes you?" — must be one of: ${DEFAULT_ROLES.join(', ')}`,
       );
     }
 
     // Type-specific field validation
     let roleBucket: string | null = null;
+    let profile = dto.best_describes_you;
     if (isHackathon) {
       if (!dto.domain || !HACKATHON_DOMAINS.includes(dto.domain)) {
         throw new BadRequestException('Hackathon registration requires a valid domain selection.');
       }
-      const cat = await this.roleCategoryRepo.findOne({
-        where: { role_name: dto.best_describes_you },
-      });
-      roleBucket = cat?.bucket || 'other';
       // Solo registrants answer the full shortlisting set.
       this.assertSkills(dto.skills);
+      profile = this.resolvePrimarySkill(dto.primary_skill, dto.skills);
+      roleBucket = await this.resolveBucket(this.registrationRepo.manager, profile);
       this.assertShortlistingAnswers(dto);
     } else if (isCommunityLounge) {
       const tracks = event.tracks || [];
@@ -137,12 +137,12 @@ export class RegistrationsService {
         linkedin: dto.linkedin,
         cnic: dto.cnic,
         gender: dto.gender,
-        best_describes_you: dto.best_describes_you,
+        best_describes_you: profile,
       });
       attendee = await this.attendeeRepo.save(attendee);
     } else {
       // Keep the latest role choice on the attendee.
-      attendee.best_describes_you = dto.best_describes_you;
+      attendee.best_describes_you = profile;
       attendee = await this.attendeeRepo.save(attendee);
     }
 
@@ -249,13 +249,12 @@ export class RegistrationsService {
         }
       }
 
+      // Every member picks skills and a primary skill — the primary skill is
+      // what gets stored on the attendee and drives team formation.
+      const profileByEmail = new Map<string, string>();
       for (const m of members) {
-        if (!HACKATHON_ROLES.includes(m.best_describes_you)) {
-          throw new BadRequestException(
-            `${m.name}: invalid selection for "What best describes you?" — must be one of: ${HACKATHON_ROLES.join(', ')}`,
-          );
-        }
         this.assertSkills(m.skills, m.name);
+        profileByEmail.set(m.email, this.resolvePrimarySkill(m.primary_skill, m.skills, m.name));
       }
 
       // Only the captain answers the heavy questions; the rest stay light.
@@ -275,6 +274,7 @@ export class RegistrationsService {
       const registrations: Registration[] = [];
       const roleBuckets: string[] = [];
       for (const m of members) {
+        const profile = profileByEmail.get(m.email)!;
         let attendee = attendeeByEmail.get(m.email);
         if (!attendee) {
           attendee = await manager.save(
@@ -287,16 +287,15 @@ export class RegistrationsService {
               linkedin: m.linkedin,
               cnic: m.cnic,
               gender: m.gender,
-              best_describes_you: m.best_describes_you,
+              best_describes_you: profile,
             }),
           );
         } else {
-          attendee.best_describes_you = m.best_describes_you;
+          attendee.best_describes_you = profile;
           attendee = await manager.save(attendee);
         }
 
-        const cat = await manager.findOne(RoleCategory, { where: { role_name: m.best_describes_you } });
-        const roleBucket = cat?.bucket || 'other';
+        const roleBucket = await this.resolveBucket(manager, profile);
         roleBuckets.push(roleBucket);
 
         const registration = await manager.save(
@@ -395,6 +394,36 @@ export class RegistrationsService {
   private answerError(message: string, who?: string): BadRequestException {
     if (who) return new BadRequestException(`${who}: ${message}`);
     return new BadRequestException(message.charAt(0).toUpperCase() + message.slice(1));
+  }
+
+  /**
+   * Hackathons have no role dropdown — the attendee marks one of their chosen
+   * skills as primary, and that is what lands in `attendees.best_describes_you`.
+   * Falls back to the only pick when a single skill was selected.
+   */
+  private resolvePrimarySkill(
+    primarySkill: string | undefined,
+    skills: string[] | undefined,
+    who?: string,
+  ): string {
+    const picked = skills ?? [];
+    if (!primarySkill) {
+      if (picked.length === 1) return picked[0];
+      throw this.answerError('please choose which skill is your primary one.', who);
+    }
+    if (!picked.includes(primarySkill)) {
+      throw this.answerError('your primary skill must be one of the skills you selected.', who);
+    }
+    return primarySkill;
+  }
+
+  /**
+   * role_categories stays the source of truth so admins can retune buckets
+   * without a deploy; SKILL_BUCKETS is the fallback when a row is missing.
+   */
+  private async resolveBucket(manager: EntityManager, profile: string): Promise<string> {
+    const cat = await manager.findOne(RoleCategory, { where: { role_name: profile } });
+    return cat?.bucket || SKILL_BUCKETS[profile] || 'other';
   }
 
   private assertSkills(skills: string[] | undefined, who?: string): void {

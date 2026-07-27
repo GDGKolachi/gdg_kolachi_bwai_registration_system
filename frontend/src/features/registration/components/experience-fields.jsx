@@ -1,7 +1,7 @@
 import {
   YEARS_EXPERIENCE_OPTIONS,
   PRIOR_HACKATHON_OPTIONS,
-  SKILL_OPTIONS,
+  SKILL_GROUPS,
   MAX_SKILLS,
   AI_EXPERIENCE_OPTIONS,
   MAX_BEST_PROJECT_LENGTH,
@@ -17,18 +17,21 @@ function slugify(value) {
 export default function ExperienceFields({ formData, onChange, errors, variant = 'full', idPrefix = '' }) {
   const skills = formData.skills || [];
   const skillsFull = skills.length >= MAX_SKILLS;
+  const hasSkills = skills.length > 0;
+  const primarySkill = formData.primarySkill || '';
 
   const setField = (name, value) => {
     onChange({ ...formData, [name]: value });
   };
 
+  // The primary skill must always be one of the ticked boxes: adopt the first
+  // pick automatically and move off a skill the user just unticked.
   const toggleSkill = (skill) => {
-    const next = skills.includes(skill)
-      ? skills.filter((s) => s !== skill)
-      : skills.length >= MAX_SKILLS
-        ? skills
-        : [...skills, skill];
-    onChange({ ...formData, skills: next });
+    const checked = skills.includes(skill);
+    if (!checked && skillsFull) return;
+    const next = checked ? skills.filter((s) => s !== skill) : [...skills, skill];
+    const nextPrimary = next.includes(primarySkill) ? primarySkill : next[0] || '';
+    onChange({ ...formData, skills: next, primarySkill: nextPrimary });
   };
 
   const bestProject = formData.bestProject || '';
@@ -36,59 +39,102 @@ export default function ExperienceFields({ formData, onChange, errors, variant =
   const isNearLimit = bestProject.length > MAX_BEST_PROJECT_LENGTH * 0.9;
 
   const skillsBlock = (
-    <div className="mb-5">
-      <span className="ui-label-sentence" id={`${idPrefix}skills-label`}>
-        Primary skills * <span className="font-normal text-slate-500">(pick up to {MAX_SKILLS})</span>
-      </span>
-      <div
-        role="group"
-        aria-labelledby={`${idPrefix}skills-label`}
-        className={`grid grid-cols-1 gap-2 rounded-xl border p-3 sm:grid-cols-2 ${
-          errors?.skills ? 'border-rose-300 bg-rose-50/40' : 'border-slate-200 bg-white'
-        }`}
-      >
-        {SKILL_OPTIONS.map((skill) => {
-          const checked = skills.includes(skill);
-          const disabled = !checked && skillsFull;
-          const skillId = `${idPrefix}skill-${slugify(skill)}`;
-          return (
-            <label
-              key={skill}
-              htmlFor={skillId}
-              className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 text-sm transition ${
-                checked
-                  ? 'border-gdg-blue bg-gdg-blue/5 font-medium text-slate-900'
-                  : disabled
-                    ? 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400'
-                    : 'border-slate-200 bg-white text-slate-700 hover:border-gdg-blue/50'
-              }`}
-            >
-              <input
-                id={skillId}
-                type="checkbox"
-                name={`${idPrefix}skills`}
-                value={skill}
-                checked={checked}
-                disabled={disabled}
-                onChange={() => toggleSkill(skill)}
-                className="h-4 w-4 shrink-0 rounded border-slate-300 text-gdg-blue focus:ring-gdg-blue/30 disabled:cursor-not-allowed"
-              />
-              {skill}
-            </label>
-          );
-        })}
-      </div>
-      <div className="mt-1.5 flex items-center justify-between gap-3">
-        {errors?.skills ? (
-          <div className="text-xs font-medium text-gdg-red">{errors.skills}</div>
-        ) : (
-          <span />
-        )}
-        <span className={`text-xs tabular-nums ${skillsFull ? 'font-medium text-amber-600' : 'text-slate-400'}`}>
-          {skills.length} of {MAX_SKILLS} selected
+    <>
+      <div className="mb-5">
+        <span className="ui-label-sentence" id={`${idPrefix}skills-label`}>
+          Your skills * <span className="font-normal text-slate-500">(pick up to {MAX_SKILLS})</span>
         </span>
+        <p className="mb-2 text-xs leading-relaxed text-slate-500">
+          Pick what you&apos;ll bring to a team — building, design, business and domain expertise all count.
+        </p>
+        <div
+          role="group"
+          aria-labelledby={`${idPrefix}skills-label`}
+          className={`space-y-4 rounded-xl border p-3 ${
+            errors?.skills ? 'border-rose-300 bg-rose-50/40' : 'border-slate-200 bg-white'
+          }`}
+        >
+          {SKILL_GROUPS.map((group) => (
+            <div key={group.label}>
+              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                {group.label}
+              </h4>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {group.skills.map((skill) => {
+                  const checked = skills.includes(skill);
+                  const disabled = !checked && skillsFull;
+                  const skillId = `${idPrefix}skill-${slugify(skill)}`;
+                  return (
+                    <label
+                      key={skill}
+                      htmlFor={skillId}
+                      className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 text-sm transition ${
+                        checked
+                          ? 'border-gdg-blue bg-gdg-blue/5 font-medium text-slate-900'
+                          : disabled
+                            ? 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400'
+                            : 'border-slate-200 bg-white text-slate-700 hover:border-gdg-blue/50'
+                      }`}
+                    >
+                      <input
+                        id={skillId}
+                        type="checkbox"
+                        name={`${idPrefix}skills`}
+                        value={skill}
+                        checked={checked}
+                        disabled={disabled}
+                        onChange={() => toggleSkill(skill)}
+                        className="h-4 w-4 shrink-0 rounded border-slate-300 text-gdg-blue focus:ring-gdg-blue/30 disabled:cursor-not-allowed"
+                      />
+                      {skill}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-1.5 flex items-center justify-between gap-3">
+          {errors?.skills ? (
+            <div className="text-xs font-medium text-gdg-red">{errors.skills}</div>
+          ) : (
+            <span />
+          )}
+          <span className={`text-xs tabular-nums ${skillsFull ? 'font-medium text-amber-600' : 'text-slate-400'}`}>
+            {skills.length} of {MAX_SKILLS} selected
+          </span>
+        </div>
       </div>
-    </div>
+
+      <div className="mb-5">
+        <label className="ui-label-sentence" htmlFor={`${idPrefix}primarySkill`}>
+          Primary skill *
+        </label>
+        <select
+          id={`${idPrefix}primarySkill`}
+          name="primarySkill"
+          value={primarySkill}
+          disabled={!hasSkills}
+          onChange={(e) => setField('primarySkill', e.target.value)}
+          className={`ui-input ${errors?.primarySkill ? errorCls : ''} ${
+            hasSkills ? '' : 'cursor-not-allowed bg-slate-50 text-slate-400'
+          }`}
+        >
+          <option value="">{hasSkills ? 'Select your primary skill' : 'Pick your skills first'}</option>
+          {skills.map((skill) => (
+            <option key={skill} value={skill}>{skill}</option>
+          ))}
+        </select>
+        <p className="mt-1.5 text-xs text-slate-500">
+          {hasSkills
+            ? 'The one strength a team can count on you for — we use it when forming teams.'
+            : 'Choose at least one skill above and you can pick your main one here.'}
+        </p>
+        {errors?.primarySkill && (
+          <div className="mt-1 text-xs font-medium text-gdg-red">{errors.primarySkill}</div>
+        )}
+      </div>
+    </>
   );
 
   if (variant === 'skills-only') return skillsBlock;

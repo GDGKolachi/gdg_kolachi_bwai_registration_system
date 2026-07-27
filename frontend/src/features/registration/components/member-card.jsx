@@ -49,7 +49,7 @@ export default function MemberCard({
               )}
             </span>
             <span className="mt-0.5 block truncate text-xs text-slate-500">
-              {member.bestDescribesYou || 'Role not set'} · {skillCount} {skillCount === 1 ? 'skill' : 'skills'}
+              {member.primarySkill || 'No primary skill'} · {skillCount} {skillCount === 1 ? 'skill' : 'skills'}
             </span>
           </span>
         </button>

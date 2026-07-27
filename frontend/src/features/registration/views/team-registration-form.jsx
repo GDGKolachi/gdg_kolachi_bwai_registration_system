@@ -22,6 +22,7 @@ function emptyMember() {
     gender: '',
     bestDescribesYou: '',
     skills: [],
+    primarySkill: '',
   };
 }
 

@@ -13,6 +13,7 @@ import {
   VALID_TRANSITIONS,
 } from '../../../../shared/constants/registration-status';
 import { formatDate } from '../../../../shared/utils/formatDate';
+import { SKILL_OPTIONS } from '../../../registration/registration-constants';
 
 function ExternalLinkIcon() {
   return (
@@ -40,7 +41,9 @@ const INITIAL_FILTERS = {
   date_to: '',
 };
 
-const PROFILE_OPTIONS = [
+// Hackathon registrants store their primary skill in best_describes_you, so the
+// filter offers both — older role values stay filterable.
+const PROFILE_OPTIONS = Array.from(new Set([
   'Student',
   'Young Professional',
   'Intermediate Expert',
@@ -61,7 +64,8 @@ const PROFILE_OPTIONS = [
   'SQA Engineer/Tester',
   'Product and Marketing',
   'Others',
-];
+  ...SKILL_OPTIONS,
+]));
 
 const DOMAIN_OPTIONS = [
   'Service & Software Solutions',
@@ -552,7 +556,7 @@ export default function RegistrationsViewer() {
               renderLabel={v => STATUS_LABELS[v] ?? v}
             />
             <MultiSelect
-              label="Best describes you"
+              label="Profile / primary skill"
               options={PROFILE_OPTIONS}
               value={draftFilters.best_describes_you}
               onChange={v => setDraftFilter('best_describes_you', v)}

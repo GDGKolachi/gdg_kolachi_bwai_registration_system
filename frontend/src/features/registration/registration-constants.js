@@ -58,20 +58,48 @@ export const PRIOR_HACKATHON_OPTIONS = [
   '6+',
 ];
 
-export const SKILL_OPTIONS = [
-  'Frontend',
-  'Backend',
-  'Mobile',
-  'AI/ML',
-  'Data & Analytics',
-  'Cloud/DevOps',
-  'Cybersecurity',
-  'UI/UX Design',
-  'Product/Business',
-  'Game Dev',
-  'Hardware/IoT',
-  'QA/Testing',
+/**
+ * Skills replace the "what best describes you" dropdown for hackathons.
+ * Grouped so the form reads as three equal tracks rather than a wall of
+ * engineering options — the hackathon is open to business and domain people,
+ * not just developers.
+ */
+export const SKILL_GROUPS = [
+  {
+    label: 'Build',
+    skills: [
+      'Frontend',
+      'Backend',
+      'Mobile',
+      'AI/ML',
+      'Data & Analytics',
+      'Cloud/DevOps',
+      'Cybersecurity',
+      'Game Dev',
+      'Hardware/IoT',
+      'QA/Testing',
+    ],
+  },
+  {
+    label: 'Design',
+    skills: ['UI/UX Design', 'Product Design', 'Graphic & Visual Design'],
+  },
+  {
+    label: 'Business & Domain',
+    skills: [
+      'Product/Business',
+      'Marketing & Growth',
+      'Research & Domain Expertise',
+      'Content & Storytelling',
+      'Project Management',
+      'Finance & Operations',
+      'Policy, Legal & Compliance',
+      'Community & Partnerships',
+    ],
+  },
 ];
+
+export const SKILL_OPTIONS = SKILL_GROUPS.flatMap(g => g.skills);
 
 export const MAX_SKILLS = 5;
 
