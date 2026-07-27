@@ -267,7 +267,7 @@ export class RegistrationsService {
       for (const m of members) {
         const existing = attendeeByEmail.get(m.email);
         if (existing) {
-          await this.assertNotAlreadyRegisteredForType(manager, existing.id, event);
+          await this.assertNotAlreadyRegisteredForType(manager, existing.id, event, m.name);
         }
       }
 
@@ -369,6 +369,7 @@ export class RegistrationsService {
     manager: EntityManager,
     attendeeId: string,
     event: Event,
+    who?: string,
   ): Promise<void> {
     const sameTypeExisting = await manager
       .createQueryBuilder(Registration, 'r')
@@ -377,13 +378,16 @@ export class RegistrationsService {
       .andWhere('e.event_type_id = :etid', { etid: event.event_type_id })
       .getOne();
     if (!sameTypeExisting) return;
+    // On the team path the captain filled in several people, so the message has
+    // to say which one — "this email" is meaningless across four members.
+    const subject = who ? `${who}'s email is` : 'This email is';
     if (event.allow_exceptions === false) {
       throw new BadRequestException(
-        `This email is already registered for a ${event.event_type?.name} event.`,
+        `${subject} already registered for a ${event.event_type?.name} event.`,
       );
     }
     throw new BadRequestException(
-      `This email is already registered for a ${event.event_type?.name} event. Please submit an exception request to change events.`,
+      `${subject} already registered for a ${event.event_type?.name} event. Please submit an exception request to change events.`,
     );
   }
 
