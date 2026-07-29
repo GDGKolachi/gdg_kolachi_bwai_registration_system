@@ -6,6 +6,7 @@ import { Admin } from '../entities/admin.entity';
 import { EventType } from '../entities/event-type.entity';
 import { RoleCategory } from '../entities/role-category.entity';
 import { SKILL_BUCKETS } from '../common/constants/hackathon.constants';
+import { AdminRole } from '../common/enums/admin-role.enum';
 
 const EVENT_TYPES = [
   { name: 'Workshop', slug: 'workshop', description: 'Hands-on learning session' },
@@ -58,7 +59,12 @@ export class SeedService implements OnModuleInit {
       const email = process.env.ADMIN_EMAIL || 'admin@gdgkolachi.com';
       const password = process.env.ADMIN_PASSWORD || 'admin123';
       const hash = await bcrypt.hash(password, 10);
-      await this.adminRepo.save({ email, password_hash: hash, name: 'GDG Admin' });
+      await this.adminRepo.save({
+        email,
+        password_hash: hash,
+        name: 'GDG Admin',
+        role: AdminRole.SUPER_ADMIN,
+      });
       this.logger.log(`Admin seeded: ${email}`);
     }
 

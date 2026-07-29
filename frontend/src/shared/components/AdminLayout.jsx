@@ -2,19 +2,30 @@ import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, Navigate } from 'react-router-dom';
 import BrandLogo from './BrandLogo';
 import { BRAND_NAME, BRAND_TAGLINE_ADMIN } from '../constants/branding';
+import { useCurrentUser } from '../../features/admin/auth/use-current-user';
+import { logout } from '../../features/admin/auth/auth-service';
+import { MANAGEMENT_ROLES, CHECKIN_ROLES, ROLES, roleLabel, roleBadgeClass } from '../../features/admin/auth/roles';
 
+// `allow` mirrors the route gates in App.jsx — hiding a link is cosmetic,
+// the route gate and the backend are the real enforcement.
 const navItems = [
-  { path: '/admin', label: 'Dashboard', exact: true },
-  { path: '/admin/events', label: 'Events' },
-  { path: '/admin/event-types', label: 'Event Types' },
-  { path: '/admin/registrations', label: 'Registrations' },
-  { path: '/admin/exceptions', label: 'Exceptions' },
-  { path: '/admin/checkin', label: 'Check-in' },
-  { path: '/admin/hackathon-checkin', label: 'Hackathon Check-in' },
-  { path: '/admin/qr-scan', label: 'QR Scan' },
-  { path: '/admin/mobile-checkin', label: 'Mobile Check-in' },
-  { path: '/admin/users', label: 'Users' },
+  { path: '/admin', label: 'Dashboard', exact: true, allow: MANAGEMENT_ROLES },
+  { path: '/admin/events', label: 'Events', allow: MANAGEMENT_ROLES },
+  { path: '/admin/event-types', label: 'Event Types', allow: MANAGEMENT_ROLES },
+  { path: '/admin/registrations', label: 'Registrations', allow: MANAGEMENT_ROLES },
+  { path: '/admin/exceptions', label: 'Exceptions', allow: MANAGEMENT_ROLES },
+  { path: '/admin/checkin', label: 'Check-in', allow: CHECKIN_ROLES },
+  { path: '/admin/hackathon-checkin', label: 'Hackathon Check-in', allow: CHECKIN_ROLES },
+  { path: '/admin/qr-scan', label: 'QR Scan', allow: CHECKIN_ROLES },
+  { path: '/admin/mobile-checkin', label: 'Mobile Check-in', allow: CHECKIN_ROLES },
+  { path: '/admin/users', label: 'Users', allow: [ROLES.SUPER_ADMIN] },
 ];
+
+function initialsOf(name) {
+  const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'A';
+  return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
+}
 
 function MenuIcon({ open, className = '' }) {
   return (
@@ -29,7 +40,7 @@ function MenuIcon({ open, className = '' }) {
 
 export default function AdminLayout() {
   const location = useLocation();
-  const token = localStorage.getItem('admin_token');
+  const { user, role } = useCurrentUser();
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   // Mobile drawer
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -53,10 +64,12 @@ export default function AdminLayout() {
     return () => { document.body.style.overflow = ''; };
   }, [mobileNavOpen, logoutConfirmOpen]);
 
-  if (!token) return <Navigate to="/admin/login" replace />;
+  if (!user) return <Navigate to="/admin/login" replace />;
+
+  const visibleNavItems = navItems.filter(item => !item.allow || item.allow.includes(role));
 
   const performLogout = () => {
-    localStorage.removeItem('admin_token');
+    logout();
     window.location.href = '/admin/login';
   };
 
@@ -105,7 +118,7 @@ export default function AdminLayout() {
 
         {/* Nav links — this section scrolls if items overflow */}
         <nav className="mt-2 flex flex-1 flex-col gap-0.5 overflow-y-auto px-2 py-2">
-          {navItems.map(item => {
+          {visibleNavItems.map(item => {
             const isActive = item.exact
               ? location.pathname === item.path
               : location.pathname.startsWith(item.path);
@@ -126,7 +139,22 @@ export default function AdminLayout() {
           })}
         </nav>
 
-        <div className="shrink-0 px-3 py-4">
+        <div className="shrink-0 border-t border-white/10 px-3 py-4">
+          {/* Signed-in admin + role */}
+          <div className="mb-3 flex items-center gap-2.5 rounded-xl bg-white/5 px-3 py-2.5">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gdg-blue/25 text-xs font-bold text-white"
+              aria-hidden>
+              {initialsOf(user.name)}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-white" title={user.email || user.name}>
+                {user.name || 'Admin'}
+              </p>
+              <span className={`mt-1 inline-flex rounded-full px-1.5 py-0.5 text-[0.65rem] font-semibold ${roleBadgeClass(role)}`}>
+                {roleLabel(role)}
+              </span>
+            </div>
+          </div>
           <button type="button" onClick={() => setLogoutConfirmOpen(true)}
             className="w-full cursor-pointer rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-white/10 hover:text-white whitespace-nowrap">
             Log out
@@ -162,6 +190,16 @@ export default function AdminLayout() {
           <div className={`min-w-0 flex-1 pr-2 lg:transition-opacity ${desktopSidebarOpen ? 'lg:opacity-0 lg:pointer-events-none' : 'lg:opacity-100'}`}>
             <p className="truncate text-sm font-bold text-slate-900">{BRAND_NAME}</p>
             <p className="truncate text-xs text-slate-500">{BRAND_TAGLINE_ADMIN}</p>
+          </div>
+
+          {/* Signed-in admin — stays visible when the sidebar is closed on phones */}
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <span className="hidden max-w-[10rem] truncate text-sm font-semibold text-slate-800 sm:block">
+              {user.name || 'Admin'}
+            </span>
+            <span className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[0.65rem] font-semibold ${roleBadgeClass(role)}`}>
+              {roleLabel(role)}
+            </span>
           </div>
         </header>
 

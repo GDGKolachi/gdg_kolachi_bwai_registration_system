@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from '../users-repository';
+import { ROLES, ROLE_OPTIONS, ROLE_DESCRIPTIONS, roleLabel, roleBadgeClass } from '../../auth/roles';
 
-const emptyForm = { name: '', email: '', password: '' };
+const emptyForm = { name: '', email: '', password: '', role: ROLES.ORGANIZER };
 
 export default function UsersManagement() {
   const [page, setPage] = useState(1);
@@ -27,7 +28,7 @@ export default function UsersManagement() {
   };
   const openEdit = u => {
     setEditingId(u.id);
-    setForm({ name: u.name, email: u.email, password: '' });
+    setForm({ name: u.name, email: u.email, password: '', role: u.role || ROLES.ORGANIZER });
     setErrors({});
     setShowModal(true);
   };
@@ -48,7 +49,7 @@ export default function UsersManagement() {
     if (Object.keys(v).length > 0) return;
 
     try {
-      const payload = { name: form.name, email: form.email };
+      const payload = { name: form.name, email: form.email, role: form.role };
       if (form.password) payload.password = form.password;
 
       if (editingId) {
@@ -69,8 +70,9 @@ export default function UsersManagement() {
     try {
       await deleteMutation.mutateAsync(id);
       toast.success('User deleted');
-    } catch {
-      toast.error('Failed to delete user');
+    } catch (err) {
+      // The backend refuses to delete the last super admin — show its reason.
+      toast.error(err.response?.data?.message || 'Failed to delete user');
     }
   };
 
@@ -108,6 +110,7 @@ export default function UsersManagement() {
             <tr>
               <th>Name</th>
               <th>Email</th>
+              <th>Role</th>
               <th>Created</th>
               <th>Actions</th>
             </tr>
@@ -117,6 +120,11 @@ export default function UsersManagement() {
               <tr key={u.id}>
                 <td className="font-semibold text-slate-900">{u.name}</td>
                 <td>{u.email}</td>
+                <td>
+                  <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ${roleBadgeClass(u.role)}`}>
+                    {roleLabel(u.role)}
+                  </span>
+                </td>
                 <td className="text-slate-600">{new Date(u.created_at).toLocaleDateString()}</td>
                 <td>
                   <div className="flex flex-wrap gap-2">
@@ -136,7 +144,7 @@ export default function UsersManagement() {
             ))}
             {users.length === 0 && (
               <tr>
-                <td colSpan={4} className="py-8 text-center text-sm text-slate-500">
+                <td colSpan={5} className="py-8 text-center text-sm text-slate-500">
                   No users found
                 </td>
               </tr>
@@ -209,6 +217,26 @@ export default function UsersManagement() {
                   className={inputCls}
                 />
                 {errors.email && <div className="mt-1 text-xs font-medium text-gdg-red">{errors.email}</div>}
+              </div>
+              <div className="mb-5">
+                <label className="ui-label-sentence" htmlFor="u-role">
+                  Role
+                </label>
+                <select
+                  id="u-role"
+                  value={form.role}
+                  onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
+                  className={inputCls}
+                >
+                  {ROLE_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
+                  {ROLE_DESCRIPTIONS[form.role]}
+                </p>
               </div>
               <div className="mb-5">
                 <label className="ui-label-sentence" htmlFor="u-pass">

@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { authApi } from '../auth-api';
-import { saveToken } from '../auth-service';
+import { saveSession } from '../auth-service';
+import { homePathForRole } from '../roles';
 import BrandLogo from '../../../../shared/components/BrandLogo';
 import { BRAND_NAME, BRAND_TAGLINE_ADMIN } from '../../../../shared/constants/branding';
 
@@ -43,9 +44,9 @@ export default function Login() {
     setLoading(true);
     try {
       const data = await authApi.login(email, password);
-      saveToken(data.access_token);
+      saveSession(data);
       toast.success('Welcome back!');
-      navigate('/admin');
+      navigate(homePathForRole(data.user?.role));
     } catch (err) {
       if (err.response?.status === 429) {
         toast.error('Too many login attempts. Please try again in a few minutes.');

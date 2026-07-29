@@ -58,6 +58,28 @@ export function useSendRejection() {
   });
 }
 
+export function useDeleteRegistration() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => adminRegistrationApi.softDelete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-registrations'] });
+      qc.invalidateQueries({ queryKey: ['admin-stats'] });
+    },
+  });
+}
+
+export function useRestoreRegistration() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => adminRegistrationApi.restore(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-registrations'] });
+      qc.invalidateQueries({ queryKey: ['admin-stats'] });
+    },
+  });
+}
+
 export function useImportCsvStatus() {
   const qc = useQueryClient();
   return useMutation({

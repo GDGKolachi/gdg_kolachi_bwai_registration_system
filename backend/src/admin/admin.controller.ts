@@ -1,6 +1,9 @@
 import { Controller, Get, Post, Patch, Delete, Param, Query, Body, UseGuards, Req, Res, BadRequestException } from '@nestjs/common';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { AdminRole, ORGANIZER_ROLES, CHECKIN_ROLES } from '../common/enums/admin-role.enum';
 import { AdminService } from './admin.service';
 import { EventsService } from '../events/events.service';
 import { RegistrationsService } from '../registrations/registrations.service';
@@ -8,7 +11,10 @@ import { ExceptionsService } from '../exceptions/exceptions.service';
 import { CreateEventDto } from '../events/dto/create-event.dto';
 
 @Controller('admin')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+// Default for every route here: Super Admin + Organizer. Routes a Volunteer
+// needs on event day opt back in with @Roles(...CHECKIN_ROLES).
+@Roles(...ORGANIZER_ROLES)
 export class AdminController {
   constructor(
     private adminService: AdminService,
@@ -99,6 +105,7 @@ export class AdminController {
     @Query('role_bucket') roleBucket?: string,
     @Query('ambassador') ambassador?: string,
     @Query('registration_mode') registrationMode?: string,
+    @Query('include_deleted') includeDeleted?: string,
     @Query('checked_in') checkedIn?: string,
     @Query('acknowledged') acknowledged?: string,
     @Query('date_from') dateFrom?: string,
@@ -121,6 +128,7 @@ export class AdminController {
       role_bucket: roleBucket,
       ambassador,
       registration_mode: registrationMode,
+      include_deleted: includeDeleted === 'true',
       checked_in: checkedIn !== undefined && checkedIn !== '' ? checkedIn === 'true' : undefined,
       acknowledged:
         acknowledged !== undefined && acknowledged !== '' ? acknowledged === 'true' : undefined,
@@ -202,16 +210,19 @@ export class AdminController {
   }
 
   // QR Scan
+  @Roles(...CHECKIN_ROLES)
   @Post('qr-scan')
   scanQrCode(@Body('qr_data') qrData: string) {
     return this.adminService.scanQrCode(qrData);
   }
 
+  @Roles(...CHECKIN_ROLES)
   @Patch('qr-scan/:id/attend')
   markAttendedFromScan(@Param('id') id: string) {
     return this.adminService.markAttendedFromScan(id);
   }
 
+  @Roles(...CHECKIN_ROLES)
   @Get('checkin-stats/:eventId')
   getCheckinStats(@Param('eventId') eventId: string) {
     return this.adminService.getCheckinStats(eventId);
@@ -234,6 +245,7 @@ export class AdminController {
   }
 
   // Check-in
+  @Roles(...CHECKIN_ROLES)
   @Get('checkin/search')
   searchCheckin(
     @Query('event_id') eventId: string,
@@ -243,12 +255,26 @@ export class AdminController {
     return this.adminService.searchCheckin(eventId || legacyEventId, query);
   }
 
+  @Roles(...CHECKIN_ROLES)
   @Patch('checkin/:id/toggle')
   toggleCheckin(@Param('id') id: string) {
     return this.adminService.toggleCheckin(id);
   }
 
+  // Soft delete — hides the participant everywhere and frees their seat.
+  // The row is kept and can be restored.
+  @Delete('registrations/:id')
+  softDeleteRegistration(@Param('id') id: string, @Req() req: any) {
+    return this.adminService.softDeleteRegistration(id, req.user?.id);
+  }
+
+  @Post('registrations/:id/restore')
+  restoreRegistration(@Param('id') id: string) {
+    return this.adminService.restoreRegistration(id);
+  }
+
   // Users (Admin) CRUD
+  @Roles(AdminRole.SUPER_ADMIN)
   @Get('users')
   getUsers(@Query('page') page?: string, @Query('limit') limit?: string) {
     return this.adminService.getUsers(
@@ -257,18 +283,21 @@ export class AdminController {
     );
   }
 
+  @Roles(AdminRole.SUPER_ADMIN)
   @Post('users')
   createUser(@Body() body: { email: string; password: string; name: string }) {
     return this.adminService.createUser(body);
   }
 
+  @Roles(AdminRole.SUPER_ADMIN)
   @Patch('users/:id')
   updateUser(@Param('id') id: string, @Body() body: { email?: string; password?: string; name?: string }) {
     return this.adminService.updateUser(id, body);
   }
 
+  @Roles(AdminRole.SUPER_ADMIN)
   @Delete('users/:id')
-  deleteUser(@Param('id') id: string) {
-    return this.adminService.deleteUser(id);
+  deleteUser(@Param('id') id: string, @Req() req: any) {
+    return this.adminService.deleteUser(id, req.user?.id);
   }
 }
