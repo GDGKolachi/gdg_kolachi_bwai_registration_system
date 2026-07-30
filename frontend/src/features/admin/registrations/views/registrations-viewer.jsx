@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useAdminEvents, useLockAcknowledgements, useUnlockAcknowledgements } from '../../event-management/admin-event-repository';
 import { useAdminRegistrations, useUpdateRegistrationStatus, useBulkUpdateStatus, useEventAmbassadors, useSendReminder, useSendRejection, useImportCsvStatus, useDeleteRegistration, useRestoreRegistration } from '../admin-registration-repository';
 import { adminRegistrationApi } from '../admin-registration-api';
 import { useCurrentUser } from '../../auth/use-current-user';
 import { MANAGEMENT_ROLES } from '../../auth/roles';
+import RegistrationDetailDrawer from '../components/registration-detail-drawer';
 import {
   STATUS_COLORS,
   STATUS_BUTTON_COLORS,
@@ -12,9 +13,9 @@ import {
   STATUS_FILTER_OPTIONS,
   BULK_STATUSES,
   ALL_STATUSES,
-  VALID_TRANSITIONS,
 } from '../../../../shared/constants/registration-status';
 import { formatDate } from '../../../../shared/utils/formatDate';
+import { linkedinUrl, githubUrl, externalUrl } from '../../../../shared/utils/profileUrl';
 import { SKILL_OPTIONS } from '../../../registration/registration-constants';
 
 function ExternalLinkIcon() {
@@ -86,6 +87,248 @@ const DOMAIN_OPTIONS = [
 ];
 
 const GENDER_OPTIONS = ['Male', 'Female', 'Non-Binary', 'Prefer not to say'];
+
+const COLUMN_PREF_KEY  = 'gdg.admin.registrations.hidden-columns.v1';
+const DENSITY_PREF_KEY = 'gdg.admin.registrations.density.v1';
+const FILTERS_PREF_KEY = 'gdg.admin.registrations.filters-open.v1';
+
+function readPref(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw === null ? fallback : JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
+
+function writePref(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Private-mode / quota failures are not worth surfacing — prefs are cosmetic.
+  }
+}
+
+function ProfileLink({ label, url, raw }) {
+  if (url) {
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={e => e.stopPropagation()}
+        className="inline-flex items-center gap-0.5 text-gdg-blue hover:underline"
+        title={url}
+      >
+        {label} <ExternalLinkIcon />
+      </a>
+    );
+  }
+  // Value present but unusable as a link — show it so the admin can still fix it.
+  return raw ? <span className="text-slate-400" title={`${label}: ${raw}`}>{label}?</span> : null;
+}
+
+/**
+ * One descriptor per grid column. Driving the header and body from the same
+ * list is what makes the column picker (and the sticky/aligned classes)
+ * possible without keeping two JSX blocks in sync.
+ */
+const COLUMNS = [
+  {
+    key: 'name',
+    label: 'Name',
+    sticky: true,
+    cellClass: 'whitespace-nowrap font-medium text-slate-900',
+    render: (r, ctx) => (
+      <span className="flex items-baseline gap-2">
+        <span className="w-6 shrink-0 text-right text-[0.7rem] tabular-nums text-slate-400">{ctx.rowNumber}</span>
+        <span className={`truncate ${r.deleted_at ? 'text-slate-400 line-through' : ''}`}>{r.attendee?.name || '—'}</span>
+        {r.deleted_at && (
+          <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[0.65rem] font-semibold text-slate-600 ring-1 ring-slate-200/80">
+            Deleted
+          </span>
+        )}
+      </span>
+    ),
+  },
+  {
+    key: 'team',
+    label: 'Team',
+    cellClass: 'whitespace-nowrap',
+    render: (r, ctx) => (ctx.teamLabel ? (
+      <span className="inline-flex items-center gap-1.5">
+        <span className="max-w-[140px] truncate" title={ctx.teamLabel}>{ctx.teamLabel}</span>
+        {r.is_captain && (
+          <span className="shrink-0 rounded-full bg-indigo-50 px-1.5 py-0.5 text-[0.65rem] font-semibold text-indigo-900 ring-1 ring-indigo-200/70">
+            Captain
+          </span>
+        )}
+      </span>
+    ) : '—'),
+  },
+  {
+    key: 'email',
+    label: 'Email',
+    cellClass: 'whitespace-nowrap',
+    render: r => (r.attendee?.email ? (
+      <a
+        href={`mailto:${r.attendee.email}`}
+        onClick={e => e.stopPropagation()}
+        className="text-slate-700 hover:text-gdg-blue hover:underline"
+      >
+        {r.attendee.email}
+      </a>
+    ) : '—'),
+  },
+  { key: 'phone',  label: 'Phone',  cellClass: 'whitespace-nowrap tabular-nums', render: r => r.attendee?.phone || '—' },
+  { key: 'cnic',   label: 'CNIC',   cellClass: 'whitespace-nowrap tabular-nums', render: r => r.attendee?.cnic  || '—' },
+  { key: 'gender', label: 'Gender', cellClass: 'whitespace-nowrap',              render: r => r.attendee?.gender || '—' },
+  {
+    key: 'university_org',
+    label: 'University / Org',
+    cellClass: 'max-w-[160px] truncate',
+    cellTitle: r => r.attendee?.university_org,
+    render: r => r.attendee?.university_org || '—',
+  },
+  {
+    key: 'profile',
+    label: 'Profile / skill',
+    defaultHidden: true,
+    cellClass: 'max-w-[160px] truncate',
+    cellTitle: r => r.attendee?.best_describes_you,
+    render: r => r.attendee?.best_describes_you || '—',
+  },
+  {
+    key: 'domain',
+    label: 'Domain',
+    defaultHidden: true,
+    cellClass: 'max-w-[180px] truncate',
+    cellTitle: r => r.domain,
+    render: r => r.domain || '—',
+  },
+  {
+    key: 'ambassador',
+    label: 'Ambassador',
+    cellClass: 'max-w-[160px] truncate',
+    cellTitle: r => r.ambassador,
+    render: r => r.ambassador || '—',
+  },
+  {
+    key: 'links',
+    label: 'Links',
+    cellClass: 'whitespace-nowrap',
+    render: (r, ctx) => (ctx.github || ctx.linkedin || ctx.portfolio || r.attendee?.github || r.attendee?.linkedin ? (
+      <span className="inline-flex items-center gap-2">
+        <ProfileLink label="GitHub"   url={ctx.github}    raw={r.attendee?.github} />
+        <ProfileLink label="LinkedIn" url={ctx.linkedin}  raw={r.attendee?.linkedin} />
+        <ProfileLink label="Portfolio" url={ctx.portfolio} raw={null} />
+      </span>
+    ) : '—'),
+  },
+  {
+    key: 'motivation',
+    label: 'Motivation',
+    cellClass: 'max-w-[200px]',
+    render: r => <span className="block truncate" title={r.motivation}>{r.motivation || '—'}</span>,
+  },
+  {
+    key: 'registered_at',
+    label: 'Registered',
+    sortable: true,
+    cellClass: 'whitespace-nowrap text-gdg-gray',
+    render: r => formatDate(r.registered_at),
+  },
+  {
+    key: 'status',
+    label: 'Status',
+    cellClass: 'whitespace-nowrap',
+    render: r => (
+      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLORS[r.status] || 'bg-slate-100 text-slate-600 ring-1 ring-slate-200/80'}`}>
+        {STATUS_LABELS[r.status] ?? r.status}
+      </span>
+    ),
+  },
+  {
+    key: 'acknowledged',
+    label: 'Ack',
+    headerTitle: 'User confirmed via shortlisted email',
+    cellClass: 'whitespace-nowrap text-center text-gdg-gray',
+    render: r => (r.acknowledged ? '✓' : '—'),
+  },
+  {
+    key: 'checked_in',
+    label: 'Checked in',
+    defaultHidden: true,
+    cellClass: 'whitespace-nowrap text-center text-gdg-gray',
+    render: r => (r.checked_in ? '✓' : '—'),
+  },
+];
+
+const DEFAULT_HIDDEN_COLUMNS = COLUMNS.filter(c => c.defaultHidden).map(c => c.key);
+
+function ColumnPicker({ hidden, onChange }) {
+  const [open, setOpen] = useState(false);
+  const visibleCount = COLUMNS.length - hidden.length;
+
+  const toggle = (key) => {
+    onChange(hidden.includes(key) ? hidden.filter(k => k !== key) : [...hidden, key]);
+  };
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition-colors hover:border-gdg-blue hover:text-gdg-blue"
+        aria-expanded={open}
+      >
+        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+        Columns
+        <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[0.65rem] text-slate-500">{visibleCount}</span>
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full z-20 mt-1 w-56 rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+            <div className="max-h-72 overflow-y-auto">
+              {COLUMNS.map(col => {
+                const shown = !hidden.includes(col.key);
+                return (
+                  <button
+                    key={col.key}
+                    type="button"
+                    onClick={() => toggle(col.key)}
+                    className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-slate-50 ${shown ? 'text-slate-700' : 'text-slate-400'}`}
+                  >
+                    <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${shown ? 'border-gdg-blue bg-gdg-blue text-white' : 'border-slate-300'}`}>
+                      {shown && (
+                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </span>
+                    {col.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="border-t border-slate-100 px-3 py-2">
+              <button
+                type="button"
+                onClick={() => onChange(DEFAULT_HIDDEN_COLUMNS)}
+                className="text-xs font-semibold text-gdg-blue hover:underline"
+              >
+                Reset to default
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 function MultiSelect({ label, options, value, onChange, renderLabel }) {
   const [open, setOpen] = useState(false);
@@ -213,6 +456,25 @@ export default function RegistrationsViewer() {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [sortOrder, setSortOrder] = useState('DESC');
 
+  // Grid presentation prefs, remembered per browser.
+  const [filtersOpen, setFiltersOpen]     = useState(() => readPref(FILTERS_PREF_KEY, true));
+  const [density, setDensity]             = useState(() => readPref(DENSITY_PREF_KEY, 'comfortable'));
+  const [hiddenColumns, setHiddenColumns] = useState(() => readPref(COLUMN_PREF_KEY, DEFAULT_HIDDEN_COLUMNS));
+
+  // Row-detail drawer: index into the currently loaded page, plus the edge to
+  // land on when Prev/Next steps across a page boundary.
+  const [detailIndex, setDetailIndex] = useState(null);
+  const [pendingEdge, setPendingEdge] = useState(null);
+
+  useEffect(() => writePref(FILTERS_PREF_KEY, filtersOpen), [filtersOpen]);
+  useEffect(() => writePref(DENSITY_PREF_KEY, density), [density]);
+  useEffect(() => writePref(COLUMN_PREF_KEY, hiddenColumns), [hiddenColumns]);
+
+  const visibleColumns = useMemo(
+    () => COLUMNS.filter(c => !hiddenColumns.includes(c.key)),
+    [hiddenColumns],
+  );
+
   const lockMutation   = useLockAcknowledgements();
   const unlockMutation = useUnlockAcknowledgements();
 
@@ -278,12 +540,63 @@ export default function RegistrationsViewer() {
   const totalPages    = result?.totalPages || 1;
   const total         = result?.total   || 0;
 
+  // While a page-crossing Prev/Next is in flight the open row is expressed as
+  // "whichever end of the next page lands", so it resolves during render
+  // instead of needing an effect to re-sync once the fetch returns.
+  const openIndex = pendingEdge
+    ? (registrations.length > 0 ? (pendingEdge === 'first' ? 0 : registrations.length - 1) : null)
+    : detailIndex;
+  const detailRegistration = openIndex == null ? null : registrations[openIndex] ?? null;
+  const detailOpen = pendingEdge
+    ? isLoading || registrations.length > 0
+    : detailIndex != null && (isLoading || detailRegistration != null);
+
+  const firstRowOnPage = limit === 0 ? 1 : (page - 1) * limit + 1;
+  const hasPrevRecord = openIndex != null && (openIndex > 0 || page > 1);
+  const hasNextRecord =
+    openIndex != null && (openIndex < registrations.length - 1 || (limit !== 0 && page < totalPages));
+
+  const goPrevRecord = () => {
+    if (openIndex == null) return;
+    setPendingEdge(null);
+    if (openIndex > 0) {
+      setDetailIndex(openIndex - 1);
+    } else if (page > 1) {
+      setDetailIndex(null);
+      setPendingEdge('last');
+      setPage(p => p - 1);
+    }
+  };
+
+  const goNextRecord = () => {
+    if (openIndex == null) return;
+    setPendingEdge(null);
+    if (openIndex < registrations.length - 1) {
+      setDetailIndex(openIndex + 1);
+    } else if (limit !== 0 && page < totalPages) {
+      setDetailIndex(null);
+      setPendingEdge('first');
+      setPage(p => p + 1);
+    }
+  };
+
+  const openDetail = (idx) => {
+    setPendingEdge(null);
+    setDetailIndex(idx);
+  };
+
+  const closeDetail = () => {
+    setDetailIndex(null);
+    setPendingEdge(null);
+  };
+
   const setDraftFilter = (key, value) => setDraftFilters(prev => ({ ...prev, [key]: value }));
 
   const applyFilters = () => {
     setAppliedFilters({ ...draftFilters });
     setPage(1);
     setSelectedIds(new Set());
+    closeDetail();
   };
 
   const clearAllFilters = () => {
@@ -291,6 +604,7 @@ export default function RegistrationsViewer() {
     setAppliedFilters(INITIAL_FILTERS);
     setPage(1);
     setSelectedIds(new Set());
+    closeDetail();
   };
 
   // Checkbox helpers
@@ -473,6 +787,10 @@ export default function RegistrationsViewer() {
   const inputCls = 'ui-input';
   const labelCls = 'ui-label';
 
+  // Sticky header cells need their own background so rows scroll under them.
+  const stickyHeadCls   = 'sticky top-0 border-b border-slate-200 py-3';
+  const densityCellCls  = density === 'compact' ? 'py-1.5 text-[0.8125rem]' : 'py-2.5';
+
   return (
     <div>
       <div className="admin-page-head">
@@ -493,6 +811,7 @@ export default function RegistrationsViewer() {
               setSelectedEvent(e.target.value);
               setPage(1);
               setSelectedIds(new Set());
+              closeDetail();
             }}
           >
             <option value="">Select an event</option>
@@ -551,15 +870,29 @@ export default function RegistrationsViewer() {
 
       {selectedEvent && (
         <div className="ui-card-quiet mb-6 p-4 sm:p-5">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <span className="text-sm font-bold text-slate-900">
+          <div className={`flex flex-wrap items-center justify-between gap-2 ${filtersOpen ? 'mb-4' : ''}`}>
+            <button
+              type="button"
+              onClick={() => setFiltersOpen(o => !o)}
+              className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-900"
+              aria-expanded={filtersOpen}
+            >
+              <svg
+                className={`h-4 w-4 text-slate-400 transition-transform ${filtersOpen ? '' : '-rotate-90'}`}
+                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
               Filters
               {activeAppliedCount > 0 && (
-                <span className="ml-2 rounded-full bg-gdg-blue px-2 py-0.5 text-xs font-semibold text-white shadow-sm shadow-blue-500/20">
+                <span className="ml-1 rounded-full bg-gdg-blue px-2 py-0.5 text-xs font-semibold text-white shadow-sm shadow-blue-500/20">
                   {activeAppliedCount} active
                 </span>
               )}
-            </span>
+              {!filtersOpen && (
+                <span className="ml-1 text-xs font-medium text-slate-400">(show)</span>
+              )}
+            </button>
             {(activeDraftCount > 0 || activeAppliedCount > 0) && (
               <button
                 type="button"
@@ -571,6 +904,8 @@ export default function RegistrationsViewer() {
             )}
           </div>
 
+          {filtersOpen && (
+          <>
           <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             <div>
               <label className={labelCls}>Name</label>
@@ -680,6 +1015,8 @@ export default function RegistrationsViewer() {
               </span>
             )}
           </div>
+          </>
+          )}
         </div>
       )}
 
@@ -1084,10 +1421,31 @@ export default function RegistrationsViewer() {
       {selectedEvent && !isLoading && (
         <>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <span className="text-sm font-medium text-slate-600">
-              Showing {registrations.length} of {total} registrations
-            </span>
-            <div className="flex items-center gap-2">
+            <div className="min-w-0">
+              <span className="text-sm font-medium text-slate-600">
+                Showing {registrations.length} of {total} registrations
+              </span>
+              <p className="mt-0.5 text-xs text-slate-400">
+                Click a row to open full details — then step through with ← / → .
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <ColumnPicker hidden={hiddenColumns} onChange={setHiddenColumns} />
+              <div className="inline-flex rounded-xl border border-slate-200 bg-white p-0.5 shadow-sm">
+                {['comfortable', 'compact'].map(mode => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setDensity(mode)}
+                    className={`rounded-lg px-2.5 py-1 text-xs font-semibold capitalize transition-colors ${
+                      density === mode ? 'bg-gdg-blue text-white' : 'text-slate-500 hover:text-gdg-blue'
+                    }`}
+                    aria-pressed={density === mode}
+                  >
+                    {mode}
+                  </button>
+                ))}
+              </div>
               <label className="text-xs font-medium text-slate-500" htmlFor="per-page-select">Per page</label>
               <select
                 id="per-page-select"
@@ -1098,6 +1456,7 @@ export default function RegistrationsViewer() {
                   setLimit(val);
                   setPage(1);
                   setSelectedIds(new Set());
+                  closeDetail();
                 }}
               >
                 <option value={20}>20</option>
@@ -1108,11 +1467,11 @@ export default function RegistrationsViewer() {
             </div>
           </div>
 
-          <div className="ui-table-wrap">
+          <div className="ui-table-wrap max-h-[calc(100dvh-15rem)] overflow-y-auto">
             <table className="w-full min-w-[56rem] border-collapse text-sm">
               <thead>
-                <tr className="bg-slate-50/95">
-                  <th className="w-10 border-b border-slate-200 px-3 py-3">
+                <tr className="bg-slate-50">
+                  <th className={`${stickyHeadCls} left-0 z-30 w-10 bg-slate-50 px-3`}>
                     <input
                       type="checkbox"
                       checked={allSelected}
@@ -1121,202 +1480,109 @@ export default function RegistrationsViewer() {
                       }}
                       onChange={toggleSelectAll}
                       className="h-4 w-4 cursor-pointer rounded accent-gdg-blue"
+                      aria-label="Select all rows on this page"
                     />
                   </th>
-                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    #
-                  </th>
-                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Name
-                  </th>
-                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Team
-                  </th>
-                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Email
-                  </th>
-                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Phone
-                  </th>
-                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    CNIC
-                  </th>
-                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Gender
-                  </th>
-                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    University / Org
-                  </th>
-                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Ambassador
-                  </th>
-                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    GitHub
-                  </th>
-                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    LinkedIn
-                  </th>
-                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Motivation
-                  </th>
-                  <th
-                    className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 cursor-pointer select-none hover:text-gdg-blue transition-colors"
-                    onClick={() => {
-                      setSortOrder(prev => prev === 'DESC' ? 'ASC' : 'DESC');
-                      setPage(1);
-                    }}
-                    title={`Sort by date (${sortOrder === 'DESC' ? 'newest first' : 'oldest first'})`}
-                  >
-                    <span className="inline-flex items-center gap-1">
-                      Registered
-                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        {sortOrder === 'DESC' ? (
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                        ) : (
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
-                        )}
-                      </svg>
-                    </span>
-                  </th>
-                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Status
-                  </th>
-                  <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Ack
-                  </th>
+                  {visibleColumns.map(col => (
+                    <th
+                      key={col.key}
+                      title={col.headerTitle}
+                      onClick={col.sortable ? () => { setSortOrder(prev => (prev === 'DESC' ? 'ASC' : 'DESC')); setPage(1); closeDetail(); } : undefined}
+                      aria-sort={col.sortable ? (sortOrder === 'DESC' ? 'descending' : 'ascending') : undefined}
+                      className={`${stickyHeadCls} z-20 whitespace-nowrap bg-slate-50 px-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 ${
+                        col.sticky ? 'left-10 z-30' : ''
+                      } ${col.sortable ? 'cursor-pointer select-none transition-colors hover:text-gdg-blue' : ''}`}
+                    >
+                      {col.sortable ? (
+                        <span className="inline-flex items-center gap-1">
+                          {col.label}
+                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            {sortOrder === 'DESC' ? (
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                            ) : (
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                            )}
+                          </svg>
+                        </span>
+                      ) : col.label}
+                    </th>
+                  ))}
                   {canManage && (
-                    <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    <th className={`${stickyHeadCls} z-20 whitespace-nowrap bg-slate-50 px-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500`}>
                       Actions
                     </th>
                   )}
+                  <th className={`${stickyHeadCls} z-20 w-10 bg-slate-50 px-3`}>
+                    <span className="sr-only">Details</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {registrations.map((r, idx) => {
                   const isSelected = selectedIds.has(r.id);
+                  const isActive   = openIndex === idx;
                   const a          = r.attendee || {};
                   const t          = r.team || r.team_member?.team || null;
                   const teamNumber = t?.team_number ?? r.team_number ?? null;
                   const teamName   = t?.name ?? r.team_name ?? null;
                   const teamLabel  = [teamNumber != null ? `#${teamNumber}` : null, teamName].filter(Boolean).join(' · ');
                   const isDeleted  = !!r.deleted_at;
+                  const ctx = {
+                    rowNumber: firstRowOnPage + idx,
+                    teamLabel,
+                    github:    githubUrl(a.github),
+                    linkedin:  linkedinUrl(a.linkedin),
+                    portfolio: externalUrl(r.portfolio_url),
+                  };
+                  // Deleted rows keep their own background so the sticky cells, which
+                  // repaint the row background to cover the scrolled content, match.
+                  const rowBg = isActive ? 'bg-sky-100/70' : isSelected ? 'bg-sky-50' : isDeleted ? 'bg-slate-50/60' : 'bg-white';
                   return (
-                    <tr key={r.id} className={`transition-colors hover:bg-slate-50/90 ${isSelected ? 'bg-sky-50/70' : ''} ${isDeleted ? 'bg-slate-50/60 text-slate-400' : ''}`}>
-
-                      {/* Checkbox */}
-                      <td className="py-2.5 px-3 border-b border-slate-100">
+                    <tr
+                      key={r.id}
+                      onClick={() => openDetail(idx)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          openDetail(idx);
+                        }
+                      }}
+                      tabIndex={0}
+                      aria-selected={isActive}
+                      className={`group cursor-pointer transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-gdg-blue ${rowBg} ${isActive ? '' : 'hover:bg-slate-50'} ${isDeleted ? 'text-slate-400' : ''}`}
+                    >
+                      {/* Checkbox — sticky so it survives horizontal scrolling */}
+                      <td
+                        onClick={e => e.stopPropagation()}
+                        className={`sticky left-0 z-10 border-b border-slate-100 px-3 ${densityCellCls} ${rowBg} ${isActive ? '' : 'group-hover:bg-slate-50'}`}
+                      >
                         <input
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => toggleOne(r.id)}
-                          className="w-4 h-4 rounded cursor-pointer accent-gdg-blue"
+                          className="h-4 w-4 cursor-pointer rounded accent-gdg-blue"
+                          aria-label={`Select ${a.name || 'registration'}`}
                         />
                       </td>
 
-                      {/* Row number */}
-                      <td className="border-b border-slate-100 py-2.5 px-3 whitespace-nowrap text-slate-600">
-                        {(limit === 0 ? 0 : (page - 1) * limit) + idx + 1}
-                      </td>
-
-                      {/* Name */}
-                      <td className="py-2.5 px-3 border-b border-slate-100 font-medium whitespace-nowrap">
-                        <span className={isDeleted ? 'text-slate-400 line-through' : ''}>{a.name || '—'}</span>
-                        {isDeleted && (
-                          <span className="ml-1.5 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[0.65rem] font-semibold text-slate-600 ring-1 ring-slate-200/80">
-                            Deleted
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Team */}
-                      <td className="py-2.5 px-3 border-b border-slate-100 whitespace-nowrap">
-                        {teamLabel ? (
-                          <span className="inline-flex items-center gap-1.5">
-                            <span className="max-w-[140px] truncate" title={teamLabel}>{teamLabel}</span>
-                            {r.is_captain && (
-                              <span className="shrink-0 rounded-full bg-indigo-50 px-1.5 py-0.5 text-[0.65rem] font-semibold text-indigo-900 ring-1 ring-indigo-200/70">
-                                Captain
-                              </span>
-                            )}
-                          </span>
-                        ) : '—'}
-                      </td>
-
-                      {/* Email */}
-                      <td className="py-2.5 px-3 border-b border-slate-100 whitespace-nowrap">{a.email || '—'}</td>
-
-                      {/* Phone */}
-                      <td className="py-2.5 px-3 border-b border-slate-100 whitespace-nowrap">{a.phone || '—'}</td>
-
-                      {/* CNIC */}
-                      <td className="py-2.5 px-3 border-b border-slate-100 whitespace-nowrap">{a.cnic || '—'}</td>
-
-                      {/* Gender */}
-                      <td className="py-2.5 px-3 border-b border-slate-100 whitespace-nowrap">{a.gender || '—'}</td>
-
-                      {/* University / Org */}
-                      <td className="py-2.5 px-3 border-b border-slate-100 max-w-[160px] truncate" title={a.university_org}>
-                        {a.university_org || '—'}
-                      </td>
-
-                      {/* Ambassador */}
-                      <td className="py-2.5 px-3 border-b border-slate-100 max-w-[160px] truncate" title={r.ambassador}>
-                        {r.ambassador || '—'}
-                      </td>
-
-                      {/* GitHub */}
-                      <td className="py-2.5 px-3 border-b border-slate-100 whitespace-nowrap">
-                        {a.github ? (
-                          <a
-                            href={a.github.startsWith('http') ? a.github : `https://github.com/${a.github}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-gdg-blue hover:underline inline-flex items-center gap-0.5"
-                          >
-                            GitHub <ExternalLinkIcon />
-                          </a>
-                        ) : '—'}
-                      </td>
-
-                      {/* LinkedIn */}
-                      <td className="py-2.5 px-3 border-b border-slate-100 whitespace-nowrap">
-                        {a.linkedin ? (
-                          <a
-                            href={a.linkedin.startsWith('http') ? a.linkedin : `https://linkedin.com/in/${a.linkedin}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-gdg-blue hover:underline inline-flex items-center gap-0.5"
-                          >
-                            LinkedIn <ExternalLinkIcon />
-                          </a>
-                        ) : '—'}
-                      </td>
-
-                      {/* Motivation */}
-                      <td className="py-2.5 px-3 border-b border-slate-100 max-w-[200px]">
-                        <span className="block truncate" title={r.motivation}>{r.motivation || '—'}</span>
-                      </td>
-
-                      {/* Registered At */}
-                      <td className="py-2.5 px-3 border-b border-slate-100 whitespace-nowrap text-gdg-gray">
-                        {formatDate(r.registered_at)}
-                      </td>
-
-                      {/* Status */}
-                      <td className="py-2.5 px-3 border-b border-slate-100 whitespace-nowrap">
-                        <span
-                          className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLORS[r.status] || 'bg-slate-100 text-slate-600 ring-1 ring-slate-200/80'}`}
+                      {visibleColumns.map(col => (
+                        <td
+                          key={col.key}
+                          title={col.cellTitle?.(r) || undefined}
+                          className={`border-b border-slate-100 px-3 ${densityCellCls} ${col.cellClass || ''} ${
+                            col.sticky ? `sticky left-10 z-10 ${rowBg} ${isActive ? '' : 'group-hover:bg-slate-50'}` : ''
+                          }`}
                         >
-                          {STATUS_LABELS[r.status] ?? r.status}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-3 border-b border-slate-100 whitespace-nowrap text-gdg-gray" title="User confirmed via shortlisted email">
-                        {r.acknowledged ? '✓' : '—'}
-                      </td>
+                          {col.render(r, ctx)}
+                        </td>
+                      ))}
 
-                      {/* Delete / restore */}
+                      {/* Delete / restore — stops propagation so it never opens the drawer */}
                       {canManage && (
-                        <td className="py-2.5 px-3 border-b border-slate-100 whitespace-nowrap">
+                        <td
+                          onClick={e => e.stopPropagation()}
+                          className={`border-b border-slate-100 px-3 whitespace-nowrap ${densityCellCls}`}
+                        >
                           {isDeleted ? (
                             <button
                               type="button"
@@ -1337,12 +1603,25 @@ export default function RegistrationsViewer() {
                           )}
                         </td>
                       )}
+
+                      {/* Open-details affordance */}
+                      <td className={`border-b border-slate-100 px-3 ${densityCellCls}`}>
+                        <span
+                          className="inline-flex text-slate-300 transition-colors group-hover:text-gdg-blue group-focus-visible:text-gdg-blue"
+                          title="View full details"
+                          aria-hidden
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                          </svg>
+                        </span>
+                      </td>
                     </tr>
                   );
                 })}
                 {registrations.length === 0 && (
                   <tr>
-                    <td colSpan={canManage ? 17 : 16} className="py-8 text-center text-sm text-slate-500">
+                    <td colSpan={visibleColumns.length + (canManage ? 3 : 2)} className="py-8 text-center text-sm text-slate-500">
                       No registrations found
                     </td>
                   </tr>
@@ -1375,6 +1654,28 @@ export default function RegistrationsViewer() {
             </div>
           )}
         </>
+      )}
+
+      {detailOpen && (
+        <RegistrationDetailDrawer
+          registration={detailRegistration}
+          index={openIndex ?? 0}
+          total={total}
+          positionLabel={
+            openIndex == null
+              ? 'Loading…'
+              : `Record ${firstRowOnPage + openIndex} of ${total}`
+          }
+          onClose={closeDetail}
+          onPrev={goPrevRecord}
+          onNext={goNextRecord}
+          hasPrev={hasPrevRecord}
+          hasNext={hasNextRecord}
+          onStatusChange={handleStatusChange}
+          statusPending={updateStatusMutation.isPending}
+          isSelected={detailRegistration ? selectedIds.has(detailRegistration.id) : false}
+          onToggleSelect={toggleOne}
+        />
       )}
     </div>
   );
