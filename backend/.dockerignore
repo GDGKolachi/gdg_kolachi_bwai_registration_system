@@ -1,0 +1,12 @@
+# Everything here is either rebuilt inside the image or must never reach it.
+node_modules
+dist
+.env
+.env.*
+!.env.example
+.git
+.gitignore
+npm-debug.log*
+coverage
+test
+*.md
