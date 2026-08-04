@@ -26,6 +26,9 @@ export function useUpdateRegistrationStatus() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-registrations'] });
       qc.invalidateQueries({ queryKey: ['admin-stats'] });
+      // Team rows carry per-status member counts, so they go stale too.
+      qc.invalidateQueries({ queryKey: ['teams'] });
+      qc.invalidateQueries({ queryKey: ['team'] });
     },
   });
 }
@@ -37,6 +40,9 @@ export function useBulkUpdateStatus() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-registrations'] });
       qc.invalidateQueries({ queryKey: ['admin-stats'] });
+      // Team rows carry per-status member counts, so they go stale too.
+      qc.invalidateQueries({ queryKey: ['teams'] });
+      qc.invalidateQueries({ queryKey: ['team'] });
     },
   });
 }
@@ -54,6 +60,9 @@ export function useSendRejection() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-registrations'] });
       qc.invalidateQueries({ queryKey: ['admin-stats'] });
+      // Team rows carry per-status member counts, so they go stale too.
+      qc.invalidateQueries({ queryKey: ['teams'] });
+      qc.invalidateQueries({ queryKey: ['team'] });
     },
   });
 }
@@ -65,6 +74,9 @@ export function useDeleteRegistration() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-registrations'] });
       qc.invalidateQueries({ queryKey: ['admin-stats'] });
+      // Team rows carry per-status member counts, so they go stale too.
+      qc.invalidateQueries({ queryKey: ['teams'] });
+      qc.invalidateQueries({ queryKey: ['team'] });
     },
   });
 }
@@ -76,6 +88,9 @@ export function useRestoreRegistration() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-registrations'] });
       qc.invalidateQueries({ queryKey: ['admin-stats'] });
+      // Team rows carry per-status member counts, so they go stale too.
+      qc.invalidateQueries({ queryKey: ['teams'] });
+      qc.invalidateQueries({ queryKey: ['team'] });
     },
   });
 }
@@ -87,6 +102,9 @@ export function useImportCsvStatus() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-registrations'] });
       qc.invalidateQueries({ queryKey: ['admin-stats'] });
+      // Team rows carry per-status member counts, so they go stale too.
+      qc.invalidateQueries({ queryKey: ['teams'] });
+      qc.invalidateQueries({ queryKey: ['team'] });
     },
   });
 }

@@ -2,6 +2,8 @@ import api from '../../../axios-instance';
 
 export const teamsApi = {
   list: (eventId) => api.get(`/admin/events/${eventId}/teams`).then(res => res.data),
+  // One team with its full roster (each member's registration + attendee).
+  getOne: (teamId) => api.get(`/admin/teams/${teamId}`).then(res => res.data),
   getConfig: (eventId) => api.get(`/admin/events/${eventId}/team-formation-config`).then(res => res.data),
   updateConfig: (eventId, data) =>
     api.patch(`/admin/events/${eventId}/team-formation-config`, data).then(res => res.data),
