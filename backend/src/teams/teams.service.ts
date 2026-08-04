@@ -52,6 +52,66 @@ export class TeamsService {
   }
 
   /**
+   * One team with its full roster, for the admin record drawer. `listForEvent`
+   * returns every team in the event and only summarises each member, which is
+   * far too much payload to answer "who else is on this person's team?" —
+   * this loads a single team and keeps each member's registration and attendee
+   * intact so the drawer can show the whole team without another round trip.
+   *
+   * Members come back captain-first, then by name, so the roster reads the same
+   * way whichever member you opened it from.
+   */
+  async getTeamDetail(teamId: string) {
+    const team = await this.teamRepo.findOne({
+      where: { id: teamId },
+      relations: ['members', 'members.registration', 'members.registration.attendee'],
+    });
+    if (!team) throw new NotFoundException('Team not found');
+
+    const config = await this.assignment.getOrCreateConfig(team.event_id);
+    const statusCounts: Record<string, number> = {};
+
+    const members = (team.members || [])
+      .filter((m) => m.registration)
+      .map((m) => {
+        const r = m.registration;
+        const isCaptain = r.is_captain || team.captain_registration_id === r.id;
+        // Deleted members stay in the roster, flagged — a team that silently
+        // loses a row reads as a team that was always that size.
+        if (!r.deleted_at) {
+          statusCounts[r.status] = (statusCounts[r.status] || 0) + 1;
+        }
+        return {
+          ...r,
+          is_captain: isCaptain,
+          member_id: m.id,
+          role_bucket_snapshot: m.role_bucket_snapshot,
+          domain_snapshot: m.domain_snapshot,
+          is_anchor: m.is_anchor,
+          assigned_at: m.assigned_at,
+          assigned_by: m.assigned_by,
+        };
+      })
+      .sort((a, b) => {
+        if (a.is_captain !== b.is_captain) return a.is_captain ? -1 : 1;
+        return (a.attendee?.name || '').localeCompare(b.attendee?.name || '');
+      });
+
+    const liveCount = members.filter((m) => !m.deleted_at).length;
+
+    const { members: _members, ...teamFields } = team;
+    return {
+      ...teamFields,
+      members,
+      member_count: liveCount,
+      status_counts: statusCounts,
+      below_minimum: liveCount < config.min_team_size,
+      min_team_size: config.min_team_size,
+      max_team_size: config.max_team_size,
+    };
+  }
+
+  /**
    * Shortlist / transition an entire team in one call. Every rule that matters
    * (valid transitions, QR generation, emails) already lives in
    * AdminService.bulkUpdateStatus — this only fans the roster into it.

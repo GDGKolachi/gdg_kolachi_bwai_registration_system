@@ -36,6 +36,12 @@ export class TeamsController {
     return this.teamsService.lock(eventId);
   }
 
+  // One team with its full roster — powers the team view in the record drawer.
+  @Get('teams/:teamId')
+  getTeam(@Param('teamId') teamId: string) {
+    return this.teamsService.getTeamDetail(teamId);
+  }
+
   @Post('teams/:teamId/unlock')
   unlockTeam(@Param('teamId') teamId: string) {
     return this.teamsService.unlockTeam(teamId);

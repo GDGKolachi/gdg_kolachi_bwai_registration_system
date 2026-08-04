@@ -6,6 +6,9 @@ import { adminRegistrationApi } from '../admin-registration-api';
 import { useCurrentUser } from '../../auth/use-current-user';
 import { MANAGEMENT_ROLES } from '../../auth/roles';
 import RegistrationDetailDrawer from '../components/registration-detail-drawer';
+import TeamsGrid from '../components/teams-grid';
+import { toTeamRow } from '../team-row';
+import { useTeams } from '../../teams/teams-repository';
 import {
   STATUS_COLORS,
   STATUS_BUTTON_COLORS,
@@ -91,6 +94,7 @@ const GENDER_OPTIONS = ['Male', 'Female', 'Non-Binary', 'Prefer not to say'];
 const COLUMN_PREF_KEY  = 'gdg.admin.registrations.hidden-columns.v1';
 const DENSITY_PREF_KEY = 'gdg.admin.registrations.density.v1';
 const FILTERS_PREF_KEY = 'gdg.admin.registrations.filters-open.v1';
+const VIEW_PREF_KEY    = 'gdg.admin.registrations.view-mode.v1';
 
 function readPref(key, fallback) {
   try {
@@ -460,6 +464,12 @@ export default function RegistrationsViewer() {
   const [filtersOpen, setFiltersOpen]     = useState(() => readPref(FILTERS_PREF_KEY, true));
   const [density, setDensity]             = useState(() => readPref(DENSITY_PREF_KEY, 'comfortable'));
   const [hiddenColumns, setHiddenColumns] = useState(() => readPref(COLUMN_PREF_KEY, DEFAULT_HIDDEN_COLUMNS));
+  // 'people' = one row per registrant, 'teams' = one row per team.
+  const [viewMode, setViewMode]           = useState(() => readPref(VIEW_PREF_KEY, 'people'));
+
+  // Team rows are opened by position in the filtered list, mirroring how the
+  // people grid tracks its open row.
+  const [openTeamIndex, setOpenTeamIndex] = useState(null);
 
   // Row-detail drawer: index into the currently loaded page, plus the edge to
   // land on when Prev/Next steps across a page boundary.
@@ -469,6 +479,7 @@ export default function RegistrationsViewer() {
   useEffect(() => writePref(FILTERS_PREF_KEY, filtersOpen), [filtersOpen]);
   useEffect(() => writePref(DENSITY_PREF_KEY, density), [density]);
   useEffect(() => writePref(COLUMN_PREF_KEY, hiddenColumns), [hiddenColumns]);
+  useEffect(() => writePref(VIEW_PREF_KEY, viewMode), [viewMode]);
 
   const visibleColumns = useMemo(
     () => COLUMNS.filter(c => !hiddenColumns.includes(c.key)),
@@ -539,6 +550,69 @@ export default function RegistrationsViewer() {
   const registrations = result?.data    || [];
   const totalPages    = result?.totalPages || 1;
   const total         = result?.total   || 0;
+
+  // Teams view. The event's teams arrive whole (rosters included) in one call,
+  // so filtering and paging happen in memory — a team spans registrations that
+  // the server-side pagination would otherwise split across pages.
+  const { data: allTeams, isLoading: teamsLoading } = useTeams(viewMode === 'teams' ? selectedEvent : '');
+
+  const teamRows = useMemo(() => {
+    if (viewMode !== 'teams') return [];
+    const rows = (Array.isArray(allTeams) ? allTeams : []).map(toTeamRow);
+
+    const text  = (v) => (v || '').toLowerCase();
+    const needle = text(appliedFilters.name);
+    const orgNeedle = text(appliedFilters.university_org);
+    const anyMember = (row, fn) => row.registrations.some(fn);
+
+    return rows
+      .filter(row => {
+        // A team matches when the team itself does, or any of its members do —
+        // filtering a roster down to matching members only would misrepresent
+        // the team's size, which is the whole point of this view.
+        if (needle && !(
+          text(row.label).includes(needle) ||
+          anyMember(row, r => text(r.attendee?.name).includes(needle))
+        )) return false;
+
+        if (appliedFilters.status.length > 0 &&
+            !anyMember(row, r => appliedFilters.status.includes(r.status))) return false;
+
+        if (appliedFilters.domain.length > 0 &&
+            !(appliedFilters.domain.includes(row.domain) || anyMember(row, r => appliedFilters.domain.includes(r.domain)))) return false;
+
+        if (appliedFilters.best_describes_you.length > 0 &&
+            !anyMember(row, r => appliedFilters.best_describes_you.includes(r.attendee?.best_describes_you))) return false;
+
+        if (appliedFilters.gender.length > 0 &&
+            !anyMember(row, r => appliedFilters.gender.includes(r.attendee?.gender))) return false;
+
+        if (appliedFilters.ambassador.length > 0 &&
+            !anyMember(row, r => appliedFilters.ambassador.includes(r.ambassador))) return false;
+
+        if (orgNeedle && !anyMember(row, r => text(r.attendee?.university_org).includes(orgNeedle))) return false;
+
+        if (appliedFilters.email && !anyMember(row, r => text(r.attendee?.email).includes(text(appliedFilters.email)))) return false;
+        if (appliedFilters.phone && !anyMember(row, r => text(r.attendee?.phone).includes(text(appliedFilters.phone)))) return false;
+        if (appliedFilters.cnic  && !anyMember(row, r => text(r.attendee?.cnic).includes(text(appliedFilters.cnic)))) return false;
+
+        if (appliedFilters.checked_in !== '' &&
+            !anyMember(row, r => r.checked_in === (appliedFilters.checked_in === 'true'))) return false;
+        if (appliedFilters.acknowledged !== '' &&
+            !anyMember(row, r => r.acknowledged === (appliedFilters.acknowledged === 'true'))) return false;
+
+        if (appliedFilters.date_from && !(row.registeredAt && row.registeredAt >= appliedFilters.date_from)) return false;
+        if (appliedFilters.date_to && !(row.registeredAt && row.registeredAt <= `${appliedFilters.date_to}T23:59:59.999Z`)) return false;
+
+        // A team whose every member is deleted only shows under "Show deleted".
+        if (appliedFilters.include_deleted !== 'true' && row.memberCount === 0) return false;
+
+        return true;
+      })
+      .sort((a, b) => (a.teamNumber ?? 0) - (b.teamNumber ?? 0));
+  }, [viewMode, allTeams, appliedFilters]);
+
+  const openTeam = openTeamIndex == null ? null : teamRows[openTeamIndex] ?? null;
 
   // While a page-crossing Prev/Next is in flight the open row is expressed as
   // "whichever end of the next page lands", so it resolves during render
@@ -625,6 +699,77 @@ export default function RegistrationsViewer() {
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+  };
+
+  // Teams view selection resolves to the member registration ids, so Export CSV,
+  // bulk status, reminders and rejections keep operating on registrations and
+  // need no knowledge of teams.
+  const isTeamSelected  = (row) => row.memberIds.length > 0 && row.memberIds.every(id => selectedIds.has(id));
+  const allTeamsSelected  = teamRows.length > 0 && teamRows.every(isTeamSelected);
+  const someTeamsSelected = teamRows.some(row => row.memberIds.some(id => selectedIds.has(id))) && !allTeamsSelected;
+
+  const toggleTeam = (row) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      const selected = row.memberIds.length > 0 && row.memberIds.every(id => next.has(id));
+      row.memberIds.forEach(id => (selected ? next.delete(id) : next.add(id)));
+      return next;
+    });
+  };
+
+  const toggleAllTeams = () => {
+    if (allTeamsSelected) {
+      setSelectedIds(new Set());
+      return;
+    }
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      teamRows.forEach(row => row.memberIds.forEach(id => next.add(id)));
+      return next;
+    });
+  };
+
+  const closeTeamDetail = () => setOpenTeamIndex(null);
+
+  const switchView = (mode) => {
+    if (mode === viewMode) return;
+    // The two grids count rows differently, so a selection carried across would
+    // be invisible in the grid the admin is now looking at.
+    setViewMode(mode);
+    setSelectedIds(new Set());
+    closeDetail();
+    closeTeamDetail();
+  };
+
+  const hasPrevTeam = openTeamIndex != null && openTeamIndex > 0;
+  const hasNextTeam = openTeamIndex != null && openTeamIndex < teamRows.length - 1;
+
+  // The drawer is registration-shaped, so a team opens on its captain with the
+  // team attached — that is what makes its roster tab load.
+  const teamDrawerRegistration = openTeam
+    ? (() => {
+        const base = openTeam.captain || openTeam.registrations[0] || null;
+        if (!base) return null;
+        return {
+          ...base,
+          team: {
+            id: openTeam.id,
+            team_number: openTeam.teamNumber,
+            name: openTeam.name,
+            origin: openTeam.origin,
+          },
+        };
+      })()
+    : null;
+
+  const handleTeamStatusChange = async (_registrationId, status) => {
+    if (!openTeam || openTeam.memberIds.length === 0) return;
+    try {
+      await bulkUpdateMutation.mutateAsync({ ids: openTeam.memberIds, status });
+      toast.success(`Team ${openTeam.label} → ${STATUS_LABELS[status] ?? status} (${openTeam.memberIds.length} members)`);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update team status');
+    }
   };
 
   const handleBulkUpdate = async (status) => {
@@ -1423,14 +1568,35 @@ export default function RegistrationsViewer() {
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
               <span className="text-sm font-medium text-slate-600">
-                Showing {registrations.length} of {total} registrations
+                {viewMode === 'teams'
+                  ? `Showing ${teamRows.length} team${teamRows.length === 1 ? '' : 's'}`
+                  : `Showing ${registrations.length} of ${total} registrations`}
               </span>
               <p className="mt-0.5 text-xs text-slate-400">
-                Click a row to open full details — then step through with ← / → .
+                {viewMode === 'teams'
+                  ? 'Click a team to open its full roster — then step through with ← / → .'
+                  : 'Click a row to open full details — then step through with ← / → .'}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <ColumnPicker hidden={hiddenColumns} onChange={setHiddenColumns} />
+              {/* People / teams. Teams collapse a roster into one row so a team
+                  is judged as a unit rather than as N unrelated registrants. */}
+              <div className="inline-flex rounded-xl border border-slate-200 bg-white p-0.5 shadow-sm">
+                {[{ key: 'people', label: 'People' }, { key: 'teams', label: 'Teams' }].map(({ key, label }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => switchView(key)}
+                    className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
+                      viewMode === key ? 'bg-gdg-blue text-white' : 'text-slate-500 hover:text-gdg-blue'
+                    }`}
+                    aria-pressed={viewMode === key}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {viewMode === 'people' && <ColumnPicker hidden={hiddenColumns} onChange={setHiddenColumns} />}
               <div className="inline-flex rounded-xl border border-slate-200 bg-white p-0.5 shadow-sm">
                 {['comfortable', 'compact'].map(mode => (
                   <button
@@ -1446,26 +1612,57 @@ export default function RegistrationsViewer() {
                   </button>
                 ))}
               </div>
-              <label className="text-xs font-medium text-slate-500" htmlFor="per-page-select">Per page</label>
-              <select
-                id="per-page-select"
-                className="ui-input !w-auto !py-1.5 !px-2.5 !text-xs"
-                value={limit}
-                onChange={e => {
-                  const val = Number(e.target.value);
-                  setLimit(val);
-                  setPage(1);
-                  setSelectedIds(new Set());
-                  closeDetail();
-                }}
-              >
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-                <option value={0}>All</option>
-              </select>
+              {/* Teams are fetched whole and paged in memory, so there is
+                  nothing for a page size to control. */}
+              {viewMode === 'people' && (
+                <>
+                  <label className="text-xs font-medium text-slate-500" htmlFor="per-page-select">Per page</label>
+                  <select
+                    id="per-page-select"
+                    className="ui-input !w-auto !py-1.5 !px-2.5 !text-xs"
+                    value={limit}
+                    onChange={e => {
+                      const val = Number(e.target.value);
+                      setLimit(val);
+                      setPage(1);
+                      setSelectedIds(new Set());
+                      closeDetail();
+                    }}
+                  >
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                    <option value={0}>All</option>
+                  </select>
+                </>
+              )}
             </div>
           </div>
+
+          {viewMode === 'teams' ? (
+            teamsLoading ? (
+              <div className="flex justify-center py-16">
+                <span className="flex items-center gap-3 text-sm font-medium text-slate-500">
+                  <span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-gdg-blue" aria-hidden />
+                  Loading teams…
+                </span>
+              </div>
+            ) : (
+              <TeamsGrid
+                rows={teamRows}
+                densityCellCls={densityCellCls}
+                stickyHeadCls={stickyHeadCls}
+                isTeamSelected={isTeamSelected}
+                onToggleTeam={toggleTeam}
+                onToggleAll={toggleAllTeams}
+                allSelected={allTeamsSelected}
+                someSelected={someTeamsSelected}
+                openTeamId={openTeam?.id ?? null}
+                onOpenTeam={setOpenTeamIndex}
+              />
+            )
+          ) : (
+          <>
 
           <div className="ui-table-wrap max-h-[calc(100dvh-15rem)] overflow-y-auto">
             <table className="w-full min-w-[56rem] border-collapse text-sm">
@@ -1653,10 +1850,33 @@ export default function RegistrationsViewer() {
               </button>
             </div>
           )}
+          </>
+          )}
         </>
       )}
 
-      {detailOpen && (
+      {viewMode === 'teams' && teamDrawerRegistration && (
+        <RegistrationDetailDrawer
+          key={openTeam.id}
+          registration={teamDrawerRegistration}
+          initialTab="team"
+          index={openTeamIndex ?? 0}
+          total={teamRows.length}
+          positionLabel={`Team ${(openTeamIndex ?? 0) + 1} of ${teamRows.length}`}
+          onClose={closeTeamDetail}
+          onPrev={() => setOpenTeamIndex(i => Math.max(0, (i ?? 0) - 1))}
+          onNext={() => setOpenTeamIndex(i => Math.min(teamRows.length - 1, (i ?? 0) + 1))}
+          hasPrev={hasPrevTeam}
+          hasNext={hasNextTeam}
+          onStatusChange={handleTeamStatusChange}
+          statusScopeNote={`Applies to all ${openTeam.memberIds.length} members`}
+          statusPending={bulkUpdateMutation.isPending}
+          isSelected={isTeamSelected(openTeam)}
+          onToggleSelect={() => toggleTeam(openTeam)}
+        />
+      )}
+
+      {viewMode === 'people' && detailOpen && (
         <RegistrationDetailDrawer
           registration={detailRegistration}
           index={openIndex ?? 0}

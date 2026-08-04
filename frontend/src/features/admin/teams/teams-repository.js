@@ -9,6 +9,18 @@ export function useTeams(eventId) {
   });
 }
 
+/**
+ * A single team with its whole roster. Used by the registration drawer, which
+ * only knows the team id attached to the row it opened.
+ */
+export function useTeam(teamId) {
+  return useQuery({
+    queryKey: ['team', teamId],
+    queryFn: () => teamsApi.getOne(teamId),
+    enabled: !!teamId,
+  });
+}
+
 export function useTeamFormationConfig(eventId) {
   return useQuery({
     queryKey: ['team-config', eventId],
