@@ -41,6 +41,9 @@ export function toTeamRow(team) {
     memberIds: live.map(m => m.registration.id),
     memberCount: live.length,
     statusCounts: team.status_counts || {},
+    // 'expired' is derived server-side, so the grid never compares clocks.
+    paymentState: team.payment_state || 'not_requested',
+    paymentHoursRemaining: team.payment_hours_remaining ?? null,
     belowMinimum: !!team.below_minimum,
     lockedAt: team.locked_at,
     registeredAt,

@@ -47,6 +47,25 @@ export class TeamsController {
     return this.teamsService.unlockTeam(teamId);
   }
 
+  // ── Deposit confirmation ───────────────────────────────────────────────
+
+  // Emails each team's captain (members CC'd) and starts the 24-hour window.
+  // Re-requesting resets the window, which is how a deadline gets extended.
+  @Post('teams/request-payment')
+  requestPayment(@Body('team_ids') teamIds: string[]) {
+    return this.teamsService.requestTeamPayment(Array.isArray(teamIds) ? teamIds : [teamIds]);
+  }
+
+  @Post('teams/:teamId/payment/confirm')
+  confirmPayment(@Param('teamId') teamId: string, @Req() req: any) {
+    return this.teamsService.confirmTeamPayment(teamId, req.user.id);
+  }
+
+  @Post('teams/:teamId/payment/reject')
+  rejectPayment(@Param('teamId') teamId: string, @Body('reason') reason: string) {
+    return this.teamsService.rejectTeamPayment(teamId, reason);
+  }
+
   // Atomic team shortlisting: applies one status to every member of the team.
   @Patch('teams/:teamId/status')
   updateTeamStatus(@Param('teamId') teamId: string, @Body('status') status: string) {

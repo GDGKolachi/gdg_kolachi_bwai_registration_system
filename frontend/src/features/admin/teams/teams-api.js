@@ -12,6 +12,13 @@ export const teamsApi = {
   lock: (eventId) =>
     api.post(`/admin/events/${eventId}/teams/lock`, {}).then(res => res.data),
   unlockTeam: (teamId) => api.post(`/admin/teams/${teamId}/unlock`, {}).then(res => res.data),
+  // Deposit confirmation
+  requestPayment: (teamIds) =>
+    api.post('/admin/teams/request-payment', { team_ids: teamIds }).then(res => res.data),
+  confirmPayment: (teamId) =>
+    api.post(`/admin/teams/${teamId}/payment/confirm`, {}).then(res => res.data),
+  rejectPayment: (teamId, reason) =>
+    api.post(`/admin/teams/${teamId}/payment/reject`, { reason }).then(res => res.data),
   updateTeamStatus: (teamId, status) =>
     api.patch(`/admin/teams/${teamId}/status`, { status }).then(res => res.data),
   moveMember: (teamId, registrationId) =>

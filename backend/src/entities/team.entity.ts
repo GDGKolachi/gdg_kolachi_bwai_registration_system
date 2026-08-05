@@ -43,6 +43,40 @@ export class Team {
   @Column({ type: 'varchar', nullable: true })
   worked_together_before: string | null;
 
+  // ── Deposit confirmation ───────────────────────────────────────────────
+  // One deposit per team, so it lives here rather than on each registration.
+  // 'expired' is never stored — it is derived from 'requested' + a passed
+  // deadline, so extending a deadline un-expires a team with no extra write.
+  @Column({ default: 'not_requested' })
+  payment_status: 'not_requested' | 'requested' | 'submitted' | 'paid' | 'rejected';
+
+  @Column({ type: 'timestamptz', nullable: true })
+  payment_requested_at: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  payment_deadline: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  payment_submitted_at: Date | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  payment_reference: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  payment_sender_name: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  payment_note: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  payment_confirmed_at: Date | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  payment_confirmed_by: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  payment_rejection_reason: string | null;
+
   @Column({ type: 'uuid', nullable: true })
   created_by: string | null;
 

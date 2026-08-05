@@ -8,6 +8,15 @@ import { Event } from '../entities/event.entity';
 import { Registration } from '../entities/registration.entity';
 import { TeamAssignmentService } from './team-assignment.service';
 import { AdminService } from '../admin/admin.service';
+import { EmailService } from '../email/email.service';
+import { TEAM_DEPOSIT, paymentState, canSubmitPayment, hoursRemaining } from './team-payment';
+
+/** "#195 · GYB Coders", or "#195" when the team was never named. */
+function teamLabel(team: { team_number?: number | null; name?: string | null }): string {
+  return [team.team_number != null ? `#${team.team_number}` : null, team.name]
+    .filter(Boolean)
+    .join(' · ') || 'your team';
+}
 
 @Injectable()
 export class TeamsService {
@@ -24,6 +33,7 @@ export class TeamsService {
     private registrationRepo: Repository<Registration>,
     private assignment: TeamAssignmentService,
     private adminService: AdminService,
+    private emailService: EmailService,
   ) {}
 
   async listForEvent(eventId: string) {
@@ -47,8 +57,187 @@ export class TeamsService {
         member_count: members.length,
         status_counts: statusCounts,
         below_minimum: members.length < config.min_team_size,
+        payment_state: paymentState(team),
+        payment_hours_remaining: hoursRemaining(team.payment_deadline),
       };
     });
+  }
+
+  // ── Deposit confirmation ─────────────────────────────────────────────────
+
+  /**
+   * Ask a team for its deposit and start the clock. Re-requesting is allowed
+   * and resets the window — that is how an admin grants an extension, and it
+   * un-expires a team without any separate "extend" concept.
+   *
+   * Teams that already paid are skipped rather than re-asked, so a careless
+   * bulk select cannot demand money twice.
+   */
+  async requestTeamPayment(teamIds: string[]) {
+    const succeeded: Array<{ team_id: string; team_label: string; captain_email: string }> = [];
+    const failed: Array<{ team_id: string; reason: string }> = [];
+
+    for (const teamId of teamIds) {
+      const team = await this.teamRepo.findOne({
+        where: { id: teamId },
+        relations: ['members', 'members.registration', 'members.registration.attendee', 'event'],
+      });
+      if (!team) { failed.push({ team_id: teamId, reason: 'Team not found' }); continue; }
+
+      if (team.payment_status === 'paid') {
+        failed.push({ team_id: teamId, reason: 'Already paid — not re-requested' });
+        continue;
+      }
+
+      const live = (team.members || [])
+        .map(m => m.registration)
+        .filter(r => r && !r.deleted_at);
+      if (live.length === 0) { failed.push({ team_id: teamId, reason: 'Team has no active members' }); continue; }
+
+      const captain =
+        live.find(r => r.id === team.captain_registration_id) ||
+        live.find(r => r.is_captain) ||
+        live[0];
+      const captainEmail = captain?.attendee?.email;
+      if (!captainEmail) { failed.push({ team_id: teamId, reason: 'No captain email' }); continue; }
+
+      const now = new Date();
+      const deadline = new Date(now.getTime() + TEAM_DEPOSIT.windowHours * 3_600_000);
+      const label = teamLabel(team);
+
+      const appUrl = (process.env.APP_URL || 'http://localhost:3000')
+        .replace(/\/api\/?$/, '')
+        .replace(/\/$/, '');
+
+      const result = await this.emailService.sendTeamPaymentRequestEmail({
+        captainEmail,
+        captainName: captain.attendee?.name || 'there',
+        memberEmails: live.map(r => r.attendee?.email).filter(Boolean) as string[],
+        teamLabel: label,
+        memberCount: live.length,
+        eventTitle: team.event?.title || 'the hackathon',
+        deadline,
+        submitUrl: `${appUrl}/teams/${team.id}/deposit`,
+        deposit: TEAM_DEPOSIT,
+      });
+
+      if (!result?.sent) {
+        // The clock must not start on a team that was never told, otherwise
+        // they expire without ever having received the request.
+        failed.push({ team_id: teamId, reason: 'Email failed to send — request not recorded' });
+        continue;
+      }
+
+      team.payment_status = 'requested';
+      team.payment_requested_at = now;
+      team.payment_deadline = deadline;
+      team.payment_rejection_reason = null;
+      await this.teamRepo.save(team);
+
+      succeeded.push({ team_id: team.id, team_label: label, captain_email: captainEmail });
+    }
+
+    return { requested: succeeded.length, succeeded, failed };
+  }
+
+  /**
+   * Public: the captain reports what they sent. Only reachable while the window
+   * is open or after a rejection, so a team cannot submit against a request
+   * that was never made.
+   */
+  async submitTeamPayment(
+    teamId: string,
+    body: { reference: string; sender_name: string; note?: string },
+  ) {
+    const team = await this.teamRepo.findOne({ where: { id: teamId } });
+    if (!team) throw new NotFoundException('Team not found');
+
+    if (team.payment_status === 'paid') {
+      throw new BadRequestException('This team’s deposit is already confirmed.');
+    }
+    if (!canSubmitPayment(team)) {
+      throw new BadRequestException(
+        team.payment_status === 'submitted'
+          ? 'Your deposit details are already with us and awaiting review.'
+          : 'This team has not been asked for a deposit.',
+      );
+    }
+
+    const reference = (body.reference || '').trim();
+    const senderName = (body.sender_name || '').trim();
+    if (!reference) throw new BadRequestException('Transaction ID is required.');
+    if (!senderName) throw new BadRequestException('The name on the sending account is required.');
+
+    team.payment_status = 'submitted';
+    team.payment_submitted_at = new Date();
+    team.payment_reference = reference;
+    team.payment_sender_name = senderName;
+    team.payment_note = (body.note || '').trim() || null;
+    team.payment_rejection_reason = null;
+    await this.teamRepo.save(team);
+
+    return { status: 'submitted', team_id: team.id };
+  }
+
+  /** Public: what the deposit page needs, with nothing sensitive in it. */
+  async getPublicPaymentView(teamId: string) {
+    const team = await this.teamRepo.findOne({
+      where: { id: teamId },
+      relations: ['members', 'members.registration', 'event'],
+    });
+    if (!team) throw new NotFoundException('Team not found');
+
+    const live = (team.members || [])
+      .map(m => m.registration)
+      .filter(r => r && !r.deleted_at);
+
+    return {
+      team_id: team.id,
+      team_label: teamLabel(team),
+      event_title: team.event?.title || 'the hackathon',
+      member_count: live.length,
+      state: paymentState(team),
+      deadline: team.payment_deadline,
+      hours_remaining: hoursRemaining(team.payment_deadline),
+      can_submit: canSubmitPayment(team),
+      rejection_reason: team.payment_rejection_reason,
+      submitted: team.payment_status === 'submitted' || team.payment_status === 'paid'
+        ? { reference: team.payment_reference, sender_name: team.payment_sender_name }
+        : null,
+      deposit: TEAM_DEPOSIT,
+    };
+  }
+
+  /** Admin: accept the deposit. */
+  async confirmTeamPayment(teamId: string, adminId: string) {
+    const team = await this.teamRepo.findOne({ where: { id: teamId } });
+    if (!team) throw new NotFoundException('Team not found');
+
+    team.payment_status = 'paid';
+    team.payment_confirmed_at = new Date();
+    team.payment_confirmed_by = adminId;
+    team.payment_rejection_reason = null;
+    await this.teamRepo.save(team);
+
+    return { status: 'paid', team_id: team.id };
+  }
+
+  /**
+   * Admin: send it back. The team stays able to resubmit, which is the point —
+   * a wrong transaction ID should not cost them their place.
+   */
+  async rejectTeamPayment(teamId: string, reason: string) {
+    const team = await this.teamRepo.findOne({ where: { id: teamId } });
+    if (!team) throw new NotFoundException('Team not found');
+    if (team.payment_status !== 'submitted') {
+      throw new BadRequestException('Only a submitted deposit can be rejected.');
+    }
+
+    team.payment_status = 'rejected';
+    team.payment_rejection_reason = (reason || '').trim() || 'Could not verify this transaction.';
+    await this.teamRepo.save(team);
+
+    return { status: 'rejected', team_id: team.id };
   }
 
   /**
@@ -108,6 +297,9 @@ export class TeamsService {
       below_minimum: liveCount < config.min_team_size,
       min_team_size: config.min_team_size,
       max_team_size: config.max_team_size,
+      payment_state: paymentState(team),
+      payment_hours_remaining: hoursRemaining(team.payment_deadline),
+      deposit: TEAM_DEPOSIT,
     };
   }
 

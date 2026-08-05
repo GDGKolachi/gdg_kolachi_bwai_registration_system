@@ -8,7 +8,8 @@ import {
 } from '../../../../shared/constants/registration-status';
 import { formatDateTime } from '../../../../shared/utils/formatDate';
 import { linkedinUrl, githubUrl, externalUrl, profileHandle } from '../../../../shared/utils/profileUrl';
-import { useTeam } from '../../teams/teams-repository';
+import { useTeam, useRequestTeamPayment, useConfirmTeamPayment, useRejectTeamPayment } from '../../teams/teams-repository';
+import { PAYMENT_LABELS, PAYMENT_COLORS, paymentCountdown } from '../../teams/payment-state';
 
 function Icon({ path, className = 'h-4 w-4' }) {
   return (
@@ -356,6 +357,145 @@ function RosterMember({ member, isCurrent }) {
   );
 }
 
+
+/**
+ * The team's deposit: where it stands, what the captain says they sent, and the
+ * actions that move it forward. Rejecting keeps the team able to resubmit — a
+ * mistyped transaction ID should not cost them their place.
+ */
+function DepositSection({ team }) {
+  const [rejecting, setRejecting] = useState(false);
+  const [reason, setReason] = useState('');
+
+  const request = useRequestTeamPayment();
+  const confirm = useConfirmTeamPayment();
+  const reject = useRejectTeamPayment();
+  const busy = request.isPending || confirm.isPending || reject.isPending;
+
+  const state = team.payment_state || 'not_requested';
+  const deposit = team.deposit;
+  const countdown = paymentCountdown(state, team.payment_hours_remaining);
+
+  const run = async (fn, okMessage) => {
+    try {
+      await fn();
+      toast.success(okMessage);
+      setRejecting(false);
+      setReason('');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Action failed');
+    }
+  };
+
+  return (
+    <SectionShell title="Deposit">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${PAYMENT_COLORS[state] || PAYMENT_COLORS.not_requested}`}>
+          {PAYMENT_LABELS[state] || state}
+        </span>
+        {countdown && <span className="text-xs text-slate-500">{countdown}</span>}
+        {deposit && (
+          <span className="text-xs text-slate-500">
+            {deposit.display} · {deposit.payeeName} ({deposit.payeeService}) · one payment per team
+          </span>
+        )}
+      </div>
+
+      {state === 'expired' && (
+        <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-900 ring-1 ring-rose-200/70">
+          The {deposit?.windowHours ?? 24}-hour window closed with nothing submitted. Nobody has been
+          rejected — decide whether to re-request (which restarts the clock) or drop the team.
+        </p>
+      )}
+
+      {state === 'rejected' && team.payment_rejection_reason && (
+        <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-900 ring-1 ring-rose-200/70">
+          Rejected: {team.payment_rejection_reason} — the team can still submit again.
+        </p>
+      )}
+
+      {(team.payment_reference || team.payment_sender_name) && (
+        <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+          <Field label="Transaction ID" value={team.payment_reference} copy={team.payment_reference} mono />
+          <Field label="Sent by" value={team.payment_sender_name} />
+          {team.payment_note && <Field label="Note from team" value={team.payment_note} wide />}
+          {team.payment_submitted_at && (
+            <Field label="Submitted at" value={formatDateTime(team.payment_submitted_at)} />
+          )}
+          {team.payment_confirmed_at && (
+            <Field label="Confirmed at" value={formatDateTime(team.payment_confirmed_at)} />
+          )}
+        </dl>
+      )}
+
+      {rejecting ? (
+        <div className="mt-4 space-y-2">
+          <label htmlFor="reject-reason" className="block text-xs font-semibold text-slate-600">
+            Why is this being sent back? The team sees this.
+          </label>
+          <textarea
+            id="reject-reason"
+            rows={2}
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+            placeholder="e.g. No transaction with this ID was received."
+            className="ui-input w-full !text-sm"
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => run(() => reject.mutateAsync({ teamId: team.id, reason }), 'Deposit sent back')}
+              className="ui-btn-danger !px-3 !py-1.5 text-xs disabled:opacity-50"
+            >
+              Confirm rejection
+            </button>
+            <button type="button" onClick={() => setRejecting(false)} className="ui-btn-secondary !px-3 !py-1.5 text-xs">
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {state === 'submitted' && (
+            <>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => run(() => confirm.mutateAsync(team.id), 'Deposit confirmed')}
+                className="rounded-lg bg-gdg-green px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+              >
+                Confirm payment
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setRejecting(true)}
+                className="ui-btn-secondary !px-3 !py-1.5 text-xs disabled:opacity-50"
+              >
+                Reject
+              </button>
+            </>
+          )}
+          {state !== 'paid' && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => run(
+                () => request.mutateAsync([team.id]),
+                state === 'not_requested' ? 'Deposit requested' : 'Request re-sent — clock restarted',
+              )}
+              className="ui-btn-secondary !px-3 !py-1.5 text-xs disabled:opacity-50"
+            >
+              {state === 'not_requested' ? 'Request deposit' : 'Re-send request'}
+            </button>
+          )}
+        </div>
+      )}
+    </SectionShell>
+  );
+}
+
 /** The whole team: summary, team-level answers, then every member. */
 function TeamPanel({ team, isLoading, isError, currentRegistrationId, teamLabelFallback }) {
   if (isLoading) {
@@ -432,6 +572,8 @@ function TeamPanel({ team, isLoading, isError, currentRegistrationId, teamLabelF
           </p>
         )}
       </SectionShell>
+
+      <DepositSection team={team} />
 
       <Section
         title="Team answers"
