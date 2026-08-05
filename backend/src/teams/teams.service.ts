@@ -208,9 +208,23 @@ export class TeamsService {
     };
   }
 
-  /** Admin: accept the deposit. */
+  /**
+   * Admin: accept the deposit, and shortlist the roster.
+   *
+   * The request email tells the team that verification is what shortlists them,
+   * so this does it rather than leaving an admin to remember a second click —
+   * otherwise the email promises something the system does not do.
+   *
+   * Shortlisting goes through AdminService.bulkUpdateStatus, so the transition
+   * rules, QR generation and entry-pass emails are the same ones every other
+   * path uses. Members already past shortlisted are left alone by those rules;
+   * a failure there does not undo the payment, which is a separate fact.
+   */
   async confirmTeamPayment(teamId: string, adminId: string) {
-    const team = await this.teamRepo.findOne({ where: { id: teamId } });
+    const team = await this.teamRepo.findOne({
+      where: { id: teamId },
+      relations: ['members', 'members.registration'],
+    });
     if (!team) throw new NotFoundException('Team not found');
 
     team.payment_status = 'paid';
@@ -219,7 +233,20 @@ export class TeamsService {
     team.payment_rejection_reason = null;
     await this.teamRepo.save(team);
 
-    return { status: 'paid', team_id: team.id };
+    const memberIds = (team.members || [])
+      .map((m) => m.registration)
+      .filter((r) => r && !r.deleted_at && r.status !== 'shortlisted')
+      .map((r) => r.id);
+
+    let shortlisted = 0;
+    let shortlistFailed: Array<{ id: string; error: string }> = [];
+    if (memberIds.length > 0) {
+      const result = await this.adminService.bulkUpdateStatus(memberIds, 'shortlisted');
+      shortlisted = result.succeeded.length;
+      shortlistFailed = result.failed || [];
+    }
+
+    return { status: 'paid', team_id: team.id, shortlisted, shortlist_failed: shortlistFailed };
   }
 
   /**

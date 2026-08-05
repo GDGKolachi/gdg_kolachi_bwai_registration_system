@@ -481,7 +481,10 @@ export class EmailService {
     eventTitle: string;
     deadline: Date;
     submitUrl: string;
-    deposit: { display: string; payeeName: string; payeeService: string; windowHours: number };
+    deposit: {
+      display: string; payeeName: string; bankName: string;
+      accountNumber: string; iban: string; swift: string; windowHours: number;
+    };
   }) {
     const {
       captainEmail, captainName, memberEmails, teamLabel, memberCount,
@@ -500,8 +503,28 @@ export class EmailService {
         <p style="margin: 0 0 4px; color: #5F6368; font-size: 13px; text-transform: uppercase; letter-spacing: 1px;">Amount</p>
         <p style="margin: 0 0 16px; font-size: 32px; font-weight: bold; color: #202124;">${deposit.display}</p>
         <p style="margin: 0 0 4px; color: #5F6368; font-size: 13px; text-transform: uppercase; letter-spacing: 1px;">Send to</p>
-        <p style="margin: 0; font-size: 18px; font-weight: bold; color: #202124;">${this.escapeHtml(deposit.payeeName)}</p>
-        <p style="margin: 2px 0 0; font-size: 15px; color: #5F6368;">${this.escapeHtml(deposit.payeeService)}</p>
+        <p style="margin: 0 0 12px; font-size: 18px; font-weight: bold; color: #202124;">${this.escapeHtml(deposit.payeeName)}</p>
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+          <tr>
+            <td style="padding: 6px 0; color: #5F6368; white-space: nowrap;">Bank</td>
+            <td style="padding: 6px 0; text-align: right; font-weight: bold; color: #202124;">${this.escapeHtml(deposit.bankName)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #5F6368; white-space: nowrap;">IBAN</td>
+            <td style="padding: 6px 0; text-align: right; font-family: monospace; font-size: 15px; font-weight: bold; color: #202124; word-break: break-all;">${this.escapeHtml(deposit.iban)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #5F6368; white-space: nowrap;">Account number</td>
+            <td style="padding: 6px 0; text-align: right; font-family: monospace; font-size: 15px; color: #202124;">${this.escapeHtml(deposit.accountNumber)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #5F6368; white-space: nowrap;">SWIFT</td>
+            <td style="padding: 6px 0; text-align: right; font-family: monospace; font-size: 15px; color: #202124;">${this.escapeHtml(deposit.swift)}</td>
+          </tr>
+        </table>
+        <p style="margin: 10px 0 0; font-size: 12px; color: #9AA0A6;">
+          A local transfer needs only the IBAN. SWIFT is for international wires.
+        </p>
       </div>
 
       <div style="background: #E8F0FE; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4285F4;">
@@ -528,12 +551,22 @@ export class EmailService {
           I have paid \u2014 submit details
         </a>
         <p style="margin: 12px 0 0; font-size: 12px; color: #9AA0A6;">
-          You will need the transaction ID from your ${this.escapeHtml(deposit.payeeService)} receipt.
+          You will need the transaction ID from your transfer receipt.
         </p>
       </div>
 
+      <div style="background: #E6F4EA; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #34A853;">
+        <p style="margin: 0; color: #1E8E3E;"><strong>What happens next</strong></p>
+        <ol style="margin: 8px 0 0; color: #202124; padding-left: 20px;">
+          <li>Send ${deposit.display} to the number above.</li>
+          <li>Submit the transaction ID using the button below.</li>
+          <li>We verify it against our records \u2014 and once verified, your team is
+              <strong>shortlisted</strong> and everyone receives their entry pass by email.</li>
+        </ol>
+      </div>
+
       <p style="color: #5F6368; font-size: 13px;">
-        Your spot is not confirmed until we have verified the deposit. If the link above does
+        Your team is shortlisted only once we have verified the deposit. If the link above does
         not work, copy this into your browser:<br />
         <span style="word-break: break-all; color: #1A73E8;">${submitUrl}</span>
       </p>

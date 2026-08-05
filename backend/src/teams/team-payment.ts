@@ -9,7 +9,12 @@ export const TEAM_DEPOSIT = Object.freeze({
   /** Rendered as-is in the email and on the submission page. */
   display: 'Rs 1,000',
   payeeName: 'Hassam Jawed',
-  payeeService: 'SadaPay',
+  bankName: 'Mashreq Bank',
+  accountNumber: '089200104180',
+  /** The one to lead with — a local transfer needs only this. */
+  iban: 'PK24MSHQ0000089200104180',
+  /** Only relevant for an international wire. */
+  swift: 'MSHQPKKK',
   /** One deposit covers the whole roster, regardless of team size. */
   perTeam: true,
   windowHours: 24,
