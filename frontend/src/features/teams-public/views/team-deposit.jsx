@@ -1,6 +1,29 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
+
+async function copy(value, label) {
+  try {
+    await navigator.clipboard.writeText(value);
+    toast.success(`${label} copied`);
+  } catch {
+    toast.error(`Could not copy — the ${label.toLowerCase()} is shown above`);
+  }
+}
+
+function CopyableValue({ value, label }) {
+  return (
+    <button
+      type="button"
+      onClick={() => copy(value, label)}
+      className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-2.5 py-1 font-mono text-sm tracking-wide text-slate-900 transition-colors hover:bg-slate-200"
+      title={`Tap to copy ${label.toLowerCase()}`}
+    >
+      <span className="break-all text-left">{value}</span>
+      <span className="shrink-0 font-sans text-[0.65rem] font-semibold uppercase text-slate-500">Copy</span>
+    </button>
+  );
+}
 import { depositApi } from '../deposit-api';
 
 function Row({ label, value }) {
@@ -105,15 +128,17 @@ export default function TeamDeposit() {
       </header>
 
       {state === 'paid' && (
-        <Banner tone="ok" title="Your deposit is confirmed">
-          Your team&rsquo;s place is secured. Nothing further is needed.
+        <Banner tone="ok" title="Deposit confirmed — your team is shortlisted">
+          Every member has been shortlisted and should have an entry pass by email.
+          Nothing further is needed.
         </Banner>
       )}
 
       {state === 'submitted' && (
         <Banner tone="info" title="Details received — awaiting verification">
-          We have your transaction ID and are checking it against our records. You do not
-          need to send anything again.
+          We have your transaction ID and are checking it against our records. Once it is
+          verified your team is <strong>shortlisted</strong> and everyone gets an entry pass
+          by email. You do not need to send anything again.
         </Banner>
       )}
 
@@ -145,9 +170,24 @@ export default function TeamDeposit() {
       <section className="ui-card mt-6 p-5">
         <h2 className="mb-3 text-sm font-bold text-slate-900">What to send</h2>
         <Row label="Amount" value={d.display} />
-        <Row label="To" value={d.payeeName} />
-        <Row label="Via" value={d.payeeService} />
+        <Row label="Account holder" value={d.payeeName} />
+        <Row label="Bank" value={d.bankName} />
+        <Row label="IBAN" value={<CopyableValue value={d.iban} label="IBAN" />} />
+        <Row label="Account number" value={<CopyableValue value={d.accountNumber} label="Account number" />} />
+        <Row label="SWIFT" value={<CopyableValue value={d.swift} label="SWIFT code" />} />
         <Row label="Covers" value={`All ${view.member_count} member${view.member_count === 1 ? '' : 's'}`} />
+        <p className="mt-3 text-xs text-slate-500">
+          A local transfer needs only the IBAN. SWIFT is for international wires.
+        </p>
+        <ol className="mt-4 space-y-1.5 border-t border-slate-100 pt-3 text-xs text-slate-600">
+          <li><strong className="text-slate-900">1.</strong> Send {d.display} to the number above.</li>
+          <li><strong className="text-slate-900">2.</strong> Submit the transaction ID below.</li>
+          <li>
+            <strong className="text-slate-900">3.</strong> We verify it — and once verified your
+            team is <strong className="text-slate-900">shortlisted</strong>, with entry passes
+            emailed to every member.
+          </li>
+        </ol>
         <p className="mt-3 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900 ring-1 ring-sky-200/70">
           This is <strong>one payment for the whole team</strong>. Please do not send it once
           per person — the captain pays {d.display} on behalf of everyone.
@@ -167,7 +207,7 @@ export default function TeamDeposit() {
               className="ui-input w-full"
               value={form.reference}
               onChange={e => setForm(f => ({ ...f, reference: e.target.value }))}
-              placeholder="From your SadaPay receipt"
+              placeholder="From your transfer receipt"
               required
             />
           </div>

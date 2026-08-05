@@ -31,7 +31,7 @@ export class TeamPaymentConfirmation1753800000000 implements MigrationInterface 
     await queryRunner.query(`ALTER TABLE "teams" ADD COLUMN IF NOT EXISTS "payment_deadline" TIMESTAMPTZ`);
     await queryRunner.query(`ALTER TABLE "teams" ADD COLUMN IF NOT EXISTS "payment_submitted_at" TIMESTAMPTZ`);
 
-    // What the captain tells us they sent, for reconciling against SadaPay.
+    // What the captain tells us they sent, for reconciling against the bank statement.
     await queryRunner.query(`ALTER TABLE "teams" ADD COLUMN IF NOT EXISTS "payment_reference" character varying`);
     await queryRunner.query(`ALTER TABLE "teams" ADD COLUMN IF NOT EXISTS "payment_sender_name" character varying`);
     await queryRunner.query(`ALTER TABLE "teams" ADD COLUMN IF NOT EXISTS "payment_note" text`);

@@ -378,8 +378,9 @@ function DepositSection({ team }) {
 
   const run = async (fn, okMessage) => {
     try {
-      await fn();
-      toast.success(okMessage);
+      // Actions may return their own message when it depends on the result.
+      const returned = await fn();
+      toast.success(typeof returned === 'string' ? returned : okMessage);
       setRejecting(false);
       setReason('');
     } catch (err) {
@@ -396,7 +397,7 @@ function DepositSection({ team }) {
         {countdown && <span className="text-xs text-slate-500">{countdown}</span>}
         {deposit && (
           <span className="text-xs text-slate-500">
-            {deposit.display} · {deposit.payeeName} ({deposit.payeeService}) · one payment per team
+            {deposit.display} · {deposit.payeeName} · {deposit.bankName} · {deposit.iban} · one payment per team
           </span>
         )}
       </div>
@@ -462,10 +463,18 @@ function DepositSection({ team }) {
               <button
                 type="button"
                 disabled={busy}
-                onClick={() => run(() => confirm.mutateAsync(team.id), 'Deposit confirmed')}
+                onClick={() => run(
+                  async () => {
+                    const res = await confirm.mutateAsync(team.id);
+                    return res?.shortlisted
+                      ? `Deposit confirmed — ${res.shortlisted} member${res.shortlisted === 1 ? '' : 's'} shortlisted`
+                      : 'Deposit confirmed';
+                  },
+                )}
                 className="rounded-lg bg-gdg-green px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                title="Confirms the deposit and shortlists every member, which is what the request email promised"
               >
-                Confirm payment
+                Confirm payment &amp; shortlist
               </button>
               <button
                 type="button"
