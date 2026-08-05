@@ -8,7 +8,7 @@ import { MANAGEMENT_ROLES } from '../../auth/roles';
 import RegistrationDetailDrawer from '../components/registration-detail-drawer';
 import TeamsGrid from '../components/teams-grid';
 import { toTeamRow } from '../team-row';
-import { useTeams } from '../../teams/teams-repository';
+import { useTeams, useRequestTeamPayment } from '../../teams/teams-repository';
 import {
   STATUS_COLORS,
   STATUS_BUTTON_COLORS,
@@ -762,6 +762,28 @@ export default function RegistrationsViewer() {
       })()
     : null;
 
+  // Teams whose whole roster is selected — asking for a deposit is a team-level
+  // act, so a partially-ticked team is deliberately not included.
+  const selectedTeams = teamRows.filter(isTeamSelected);
+  const requestPaymentMutation = useRequestTeamPayment();
+
+  const handleRequestDeposit = async () => {
+    if (selectedTeams.length === 0) return;
+    try {
+      const result = await requestPaymentMutation.mutateAsync(selectedTeams.map(t => t.id));
+      if (result.requested > 0) {
+        toast.success(`Deposit requested from ${result.requested} team${result.requested === 1 ? '' : 's'}`);
+      }
+      // Skips are worth surfacing: already-paid teams are not re-asked, and a
+      // team whose email bounced never had its clock started.
+      if (result.failed?.length > 0) {
+        toast(`${result.failed.length} skipped — ${result.failed[0].reason}`, { icon: '⚠️' });
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not request deposits');
+    }
+  };
+
   const handleTeamStatusChange = async (_registrationId, status) => {
     if (!openTeam || openTeam.memberIds.length === 0) return;
     try {
@@ -1186,6 +1208,22 @@ export default function RegistrationsViewer() {
               </button>
             ))}
           </div>
+          {viewMode === 'teams' && selectedTeams.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="hidden text-slate-500 sm:inline">|</span>
+              <button
+                type="button"
+                onClick={handleRequestDeposit}
+                disabled={requestPaymentMutation.isPending}
+                className="rounded-lg bg-amber-400 px-2.5 py-1.5 text-[0.7rem] font-semibold text-slate-900 disabled:opacity-50 sm:px-3 sm:text-xs"
+                title="Emails each captain and starts their 24-hour deposit window"
+              >
+                {requestPaymentMutation.isPending
+                  ? 'Requesting…'
+                  : `Request deposit (${selectedTeams.length})`}
+              </button>
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
             <button
               type="button"

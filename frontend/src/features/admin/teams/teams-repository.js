@@ -21,6 +21,40 @@ export function useTeam(teamId) {
   });
 }
 
+/** Emails the captains and starts each team's 24-hour deposit window. */
+export function useRequestTeamPayment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (teamIds) => teamsApi.requestPayment(teamIds),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['teams'] });
+      qc.invalidateQueries({ queryKey: ['team'] });
+    },
+  });
+}
+
+export function useConfirmTeamPayment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (teamId) => teamsApi.confirmPayment(teamId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['teams'] });
+      qc.invalidateQueries({ queryKey: ['team'] });
+    },
+  });
+}
+
+export function useRejectTeamPayment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ teamId, reason }) => teamsApi.rejectPayment(teamId, reason),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['teams'] });
+      qc.invalidateQueries({ queryKey: ['team'] });
+    },
+  });
+}
+
 export function useTeamFormationConfig(eventId) {
   return useQuery({
     queryKey: ['team-config', eventId],

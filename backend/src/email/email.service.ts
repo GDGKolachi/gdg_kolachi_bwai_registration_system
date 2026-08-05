@@ -462,4 +462,102 @@ export class EmailService {
       }
     }
   }
+
+  /**
+   * Deposit request for a selected team. Addressed to the captain, who is the
+   * one who pays, with the rest of the roster on CC so nobody's seat quietly
+   * depends on a teammate they cannot see.
+   *
+   * The deposit is one flat amount for the whole team — the copy says so
+   * explicitly, because four members each sending it is the obvious way for
+   * this to go wrong.
+   */
+  async sendTeamPaymentRequestEmail(params: {
+    captainEmail: string;
+    captainName: string;
+    memberEmails: string[];
+    teamLabel: string;
+    memberCount: number;
+    eventTitle: string;
+    deadline: Date;
+    submitUrl: string;
+    deposit: { display: string; payeeName: string; payeeService: string; windowHours: number };
+  }) {
+    const {
+      captainEmail, captainName, memberEmails, teamLabel, memberCount,
+      eventTitle, deadline, submitUrl, deposit,
+    } = params;
+
+    const deadlineText = deadline.toUTCString().replace('GMT', 'UTC');
+
+    const html = this.emailWrapper('#F9AB00', 'Confirm Your Team\u2019s Spot', `
+      <h2 style="color: #202124;">Hi ${this.escapeHtml(captainName)},</h2>
+      <p>Your team <strong>${this.escapeHtml(teamLabel)}</strong> has a place at
+      <strong>${this.escapeHtml(eventTitle)}</strong>. To lock it in, a refundable
+      deposit is required within <strong>${deposit.windowHours} hours</strong>.</p>
+
+      <div style="background: white; padding: 24px; border-radius: 8px; margin: 20px 0; border: 2px dashed #F9AB00;">
+        <p style="margin: 0 0 4px; color: #5F6368; font-size: 13px; text-transform: uppercase; letter-spacing: 1px;">Amount</p>
+        <p style="margin: 0 0 16px; font-size: 32px; font-weight: bold; color: #202124;">${deposit.display}</p>
+        <p style="margin: 0 0 4px; color: #5F6368; font-size: 13px; text-transform: uppercase; letter-spacing: 1px;">Send to</p>
+        <p style="margin: 0; font-size: 18px; font-weight: bold; color: #202124;">${this.escapeHtml(deposit.payeeName)}</p>
+        <p style="margin: 2px 0 0; font-size: 15px; color: #5F6368;">${this.escapeHtml(deposit.payeeService)}</p>
+      </div>
+
+      <div style="background: #E8F0FE; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4285F4;">
+        <p style="margin: 0; color: #1A73E8;"><strong>One payment for the whole team</strong></p>
+        <p style="margin: 8px 0 0; color: #202124;">
+          ${deposit.display} covers all ${memberCount} member${memberCount === 1 ? '' : 's'}.
+          Please do <strong>not</strong> send it once per person \u2014 the captain pays once on
+          behalf of the team.
+        </p>
+      </div>
+
+      <div style="background: #FFF3CD; padding: 16px; border-radius: 8px; margin: 20px 0;">
+        <p style="margin: 0; color: #856404;"><strong>\u23F0 Deadline: ${deadlineText}</strong></p>
+        <p style="margin: 8px 0 0; color: #856404;">
+          That is ${deposit.windowHours} hours from now. After it passes your team is flagged
+          for review \u2014 if you have paid and are simply late telling us, submit the details
+          anyway and we will sort it out.
+        </p>
+      </div>
+
+      <div style="text-align: center; margin: 28px 0;">
+        <p style="color: #5F6368; margin: 0 0 12px; font-size: 14px;">Once you have sent it, tell us here:</p>
+        <a href="${submitUrl}" style="background: #F9AB00; color: #202124; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-size: 16px; font-weight: bold; display: inline-block;">
+          I have paid \u2014 submit details
+        </a>
+        <p style="margin: 12px 0 0; font-size: 12px; color: #9AA0A6;">
+          You will need the transaction ID from your ${this.escapeHtml(deposit.payeeService)} receipt.
+        </p>
+      </div>
+
+      <p style="color: #5F6368; font-size: 13px;">
+        Your spot is not confirmed until we have verified the deposit. If the link above does
+        not work, copy this into your browser:<br />
+        <span style="word-break: break-all; color: #1A73E8;">${submitUrl}</span>
+      </p>
+    `);
+
+    if (!this.resend) { this.logger.warn('Resend not configured, skipping email'); return { sent: false }; }
+
+    // Members go on CC so the whole roster sees the same thread, while the
+    // captain stays the addressee who is expected to act.
+    const cc = memberEmails.filter(e => e && e.toLowerCase() !== captainEmail.toLowerCase());
+
+    const { data, error } = await this.resend.emails.send({
+      from: this.from,
+      to: [captainEmail],
+      cc: cc.length > 0 ? cc : undefined,
+      subject: `Action needed: confirm ${teamLabel} with a ${deposit.display} deposit`,
+      html,
+    });
+
+    if (error) {
+      this.logger.error(`Failed to send team payment email to ${captainEmail}`, error);
+      return { sent: false, error: String(error) };
+    }
+    this.logger.log(`Team payment email sent to ${captainEmail} (cc ${cc.length}), id: ${data.id}`);
+    return { sent: true, id: data.id };
+  }
 }

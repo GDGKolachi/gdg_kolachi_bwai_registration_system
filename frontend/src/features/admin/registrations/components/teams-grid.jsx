@@ -1,4 +1,5 @@
 import { STATUS_COLORS, STATUS_LABELS } from '../../../../shared/constants/registration-status';
+import { PAYMENT_LABELS, PAYMENT_COLORS, paymentCountdown } from '../../teams/payment-state';
 
 function StatusCounts({ counts }) {
   const entries = Object.entries(counts).filter(([, n]) => n > 0);
@@ -53,7 +54,7 @@ export default function TeamsGrid({
                 aria-label="Select all teams"
               />
             </th>
-            {['Team', 'Captain', 'Members', 'University / Org', 'Domain', 'Status', 'Origin'].map((label, i) => (
+            {['Team', 'Captain', 'Members', 'University / Org', 'Domain', 'Status', 'Deposit', 'Origin'].map((label, i) => (
               <th
                 key={label}
                 className={`${stickyHeadCls} whitespace-nowrap bg-slate-50 px-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 ${
@@ -149,6 +150,19 @@ export default function TeamsGrid({
                   <StatusCounts counts={row.statusCounts} />
                 </td>
 
+                <td className={`whitespace-nowrap border-b border-slate-100 px-3 ${densityCellCls}`}>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[0.65rem] font-semibold ${PAYMENT_COLORS[row.paymentState] || PAYMENT_COLORS.not_requested}`}>
+                      {PAYMENT_LABELS[row.paymentState] || row.paymentState}
+                    </span>
+                    {paymentCountdown(row.paymentState, row.paymentHoursRemaining) && (
+                      <span className="text-[0.65rem] text-slate-400">
+                        {paymentCountdown(row.paymentState, row.paymentHoursRemaining)}
+                      </span>
+                    )}
+                  </span>
+                </td>
+
                 <td className={`whitespace-nowrap border-b border-slate-100 px-3 text-xs text-slate-500 ${densityCellCls}`}>
                   {row.origin === 'self_registered' ? 'Self-registered' : 'Auto-formed'}
                 </td>
@@ -169,7 +183,7 @@ export default function TeamsGrid({
           })}
           {rows.length === 0 && (
             <tr>
-              <td colSpan={9} className="py-8 text-center text-sm text-slate-500">
+              <td colSpan={10} className="py-8 text-center text-sm text-slate-500">
                 No teams match these filters
               </td>
             </tr>
