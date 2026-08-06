@@ -21,6 +21,17 @@ export function useTeam(teamId) {
   });
 }
 
+/**
+ * Emails each selected team once — captain addressed, teammates CC'd. Nothing
+ * about the team changes, so no cache needs invalidating.
+ */
+export function useMessageTeams() {
+  return useMutation({
+    mutationFn: ({ teamIds, subject, message, includeEventDetails, includeRoster }) =>
+      teamsApi.messageTeams(teamIds, { subject, message, includeEventDetails, includeRoster }),
+  });
+}
+
 /** Emails the captains and starts each team's 24-hour deposit window. */
 export function useRequestTeamPayment() {
   const qc = useQueryClient();

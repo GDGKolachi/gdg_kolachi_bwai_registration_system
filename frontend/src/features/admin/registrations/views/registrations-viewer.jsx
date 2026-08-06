@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useAdminEvents, useLockAcknowledgements, useUnlockAcknowledgements } from '../../event-management/admin-event-repository';
-import { useAdminRegistrations, useUpdateRegistrationStatus, useBulkUpdateStatus, useEventAmbassadors, useSendReminder, useSendRejection, useImportCsvStatus, useDeleteRegistration, useRestoreRegistration } from '../admin-registration-repository';
+import { useAdminRegistrations, useUpdateRegistrationStatus, useBulkUpdateStatus, useEventAmbassadors, useSendReminder, useSendRejection, useSendAcknowledgementExpired, useImportCsvStatus, useDeleteRegistration, useRestoreRegistration } from '../admin-registration-repository';
 import { adminRegistrationApi } from '../admin-registration-api';
 import { useCurrentUser } from '../../auth/use-current-user';
 import { MANAGEMENT_ROLES } from '../../auth/roles';
 import RegistrationDetailDrawer from '../components/registration-detail-drawer';
 import TeamsGrid from '../components/teams-grid';
 import { toTeamRow } from '../team-row';
-import { useTeams, useRequestTeamPayment } from '../../teams/teams-repository';
+import { useTeams, useRequestTeamPayment, useMessageTeams } from '../../teams/teams-repository';
 import {
   STATUS_COLORS,
   STATUS_BUTTON_COLORS,
@@ -506,6 +506,20 @@ export default function RegistrationsViewer() {
   const [rejectionOpen, setRejectionOpen] = useState(false);
   const [alsoReject, setAlsoReject] = useState(true);
 
+  // "Window closed" modal — for shortlisted people who never confirmed.
+  const sendExpiredMutation = useSendAcknowledgementExpired();
+  const [expiredOpen, setExpiredOpen] = useState(false);
+  const [expiredMessage, setExpiredMessage] = useState('');
+  const [expiredAlsoReject, setExpiredAlsoReject] = useState(true);
+
+  // Team message modal — captain on To, teammates on CC.
+  const messageTeamsMutation = useMessageTeams();
+  const [teamMessageOpen, setTeamMessageOpen] = useState(false);
+  const [teamSubject, setTeamSubject] = useState('');
+  const [teamMessage, setTeamMessage] = useState('');
+  const [teamIncludeDetails, setTeamIncludeDetails] = useState(true);
+  const [teamIncludeRoster, setTeamIncludeRoster] = useState(true);
+
   // Import CSV modal state
   const importCsvMutation = useImportCsvStatus();
   const [importOpen, setImportOpen] = useState(false);
@@ -784,6 +798,43 @@ export default function RegistrationsViewer() {
     }
   };
 
+  // Everyone the team email will actually reach: one To per team, the rest CC'd.
+  const teamMessageRecipients = selectedTeams.reduce((n, t) => n + t.memberCount, 0);
+  const shortlistedTeamCount = selectedTeams.filter(
+    t => t.memberCount > 0 && (t.statusCounts.shortlisted ?? 0) === t.memberCount,
+  ).length;
+
+  const openTeamMessageModal = () => {
+    if (selectedTeams.length === 0) return;
+    setTeamSubject('');
+    setTeamMessage('');
+    setTeamIncludeDetails(true);
+    setTeamIncludeRoster(true);
+    setTeamMessageOpen(true);
+  };
+
+  const sendTeamMessage = async () => {
+    if (selectedTeams.length === 0 || !teamMessage.trim()) return;
+    try {
+      const result = await messageTeamsMutation.mutateAsync({
+        teamIds: selectedTeams.map(t => t.id),
+        subject: teamSubject,
+        message: teamMessage,
+        includeEventDetails: teamIncludeDetails,
+        includeRoster: teamIncludeRoster,
+      });
+      if (result.sent > 0) {
+        toast.success(`Emailed ${result.sent} team${result.sent === 1 ? '' : 's'} — captains, teammates CC'd`);
+      }
+      if (result.failed?.length > 0) {
+        toast(`${result.failed.length} team(s) skipped — ${result.failed[0].reason}`, { icon: '⚠️' });
+      }
+      setTeamMessageOpen(false);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not send the team email');
+    }
+  };
+
   const handleTeamStatusChange = async (_registrationId, status) => {
     if (!openTeam || openTeam.memberIds.length === 0) return;
     try {
@@ -819,10 +870,49 @@ export default function RegistrationsViewer() {
     r => selectedIds.has(r.id) && r.status !== 'attended',
   ).length;
 
+  // Shortlisted but never confirmed — the only people whose window can close.
+  // A row already flagged expired stays eligible so a failed send can be retried.
+  const expiredEligibleSelected = registrations.filter(
+    r => selectedIds.has(r.id) &&
+      !r.acknowledged &&
+      !r.deleted_at &&
+      (r.status === 'shortlisted' || r.acknowledgement_expired),
+  ).length;
+
   const openReminderModal = () => {
     if (selectedIds.size === 0) return;
     setReminderMessage('');
     setReminderOpen(true);
+  };
+
+  const openExpiredModal = () => {
+    if (selectedIds.size === 0) return;
+    setExpiredMessage('');
+    setExpiredAlsoReject(true);
+    setExpiredOpen(true);
+  };
+
+  const sendExpired = async () => {
+    if (selectedIds.size === 0) return;
+    try {
+      const result = await sendExpiredMutation.mutateAsync({
+        ids: Array.from(selectedIds),
+        message: expiredMessage,
+        alsoReject: expiredAlsoReject,
+      });
+      const parts = [];
+      if (result.sent > 0) parts.push(`Notified ${result.sent} recipient(s)`);
+      if (result.expired > 0) parts.push(`${result.expired} marked expired`);
+      if (result.statusUpdated > 0) parts.push(`${result.statusUpdated} rejected`);
+      if (parts.length > 0) toast.success(parts.join('. '));
+      if (result.failed?.length > 0) {
+        toast(`${result.failed.length} skipped — ${result.failed[0].error}`, { icon: '⚠️' });
+      }
+      setExpiredOpen(false);
+      setSelectedIds(new Set());
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to send expiry notices');
+    }
   };
 
   const openRejectionModal = () => {
@@ -1222,6 +1312,18 @@ export default function RegistrationsViewer() {
                   ? 'Requesting…'
                   : `Request deposit (${selectedTeams.length})`}
               </button>
+              <button
+                type="button"
+                onClick={openTeamMessageModal}
+                disabled={messageTeamsMutation.isPending}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-gdg-blue px-2.5 py-1.5 text-[0.7rem] font-semibold text-white disabled:opacity-50 sm:px-3 sm:text-xs"
+                title={`Emails each captain with their teammates on CC — ${teamMessageRecipients} recipient(s)`}
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                </svg>
+                Email team{selectedTeams.length === 1 ? '' : 's'} ({selectedTeams.length})
+              </button>
             </div>
           )}
           <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
@@ -1251,6 +1353,23 @@ export default function RegistrationsViewer() {
               Send reminder
               {reminderEligibleSelected > 0 && (
                 <span className="rounded-full bg-white/20 px-1.5 py-0.5 text-[0.65rem]">{reminderEligibleSelected}</span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={openExpiredModal}
+              disabled={expiredEligibleSelected === 0}
+              title={expiredEligibleSelected === 0
+                ? 'Only shortlisted registrations that never confirmed can expire'
+                : `Will tell ${expiredEligibleSelected} recipient(s) their window closed`}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-500 px-2.5 py-1.5 text-[0.7rem] font-semibold text-white shadow-sm hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-50 sm:px-3 sm:text-xs"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Window closed
+              {expiredEligibleSelected > 0 && (
+                <span className="rounded-full bg-white/20 px-1.5 py-0.5 text-[0.65rem]">{expiredEligibleSelected}</span>
               )}
             </button>
             <button
@@ -1430,6 +1549,210 @@ export default function RegistrationsViewer() {
                   </>
                 ) : (
                   <>Send to {rejectionEligibleSelected} recipient(s)</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Team message modal — one email per team, captain To, teammates CC */}
+      {teamMessageOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onClick={() => !messageTeamsMutation.isPending && setTeamMessageOpen(false)}>
+          <div
+            className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Email selected teams</h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  One email per team — the captain on <strong>To</strong>, every teammate on <strong>CC</strong>, so replies reach the whole team.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTeamMessageOpen(false)}
+                disabled={messageTeamsMutation.isPending}
+                className="text-slate-400 hover:text-slate-600 disabled:opacity-50"
+                aria-label="Close"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mb-3 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900 ring-1 ring-sky-200/70">
+              <strong>{selectedTeams.length}</strong> team(s) · <strong>{teamMessageRecipients}</strong> recipient(s).
+              {shortlistedTeamCount > 0 && (
+                <span> {shortlistedTeamCount} fully shortlisted.</span>
+              )}
+              {shortlistedTeamCount < selectedTeams.length && (
+                <span> {selectedTeams.length - shortlistedTeamCount} not fully shortlisted — they will be emailed too.</span>
+              )}
+            </div>
+
+            <label className="ui-label" htmlFor="team-subject">Subject (optional)</label>
+            <input
+              id="team-subject"
+              type="text"
+              className={inputCls}
+              placeholder="Defaults to “<event> — a message for #12 · Team name”"
+              value={teamSubject}
+              onChange={e => setTeamSubject(e.target.value)}
+              maxLength={150}
+              disabled={messageTeamsMutation.isPending}
+            />
+
+            <label className="ui-label mt-3" htmlFor="team-message">Message</label>
+            <textarea
+              id="team-message"
+              className={`${inputCls} min-h-[140px] resize-y`}
+              placeholder="e.g. Doors open at 8:30 AM at the side gate. Bring your own laptop and charger — power strips are limited. Your table number will be on the board at entry."
+              value={teamMessage}
+              onChange={e => setTeamMessage(e.target.value)}
+              maxLength={4000}
+              disabled={messageTeamsMutation.isPending}
+            />
+            <p className="mt-1 text-right text-[0.65rem] text-slate-400">{teamMessage.length}/4000</p>
+
+            <div className="mt-2 space-y-2">
+              <label className="flex cursor-pointer items-center gap-2 rounded-lg bg-slate-50 px-3 py-2.5">
+                <input
+                  type="checkbox"
+                  checked={teamIncludeDetails}
+                  onChange={e => setTeamIncludeDetails(e.target.checked)}
+                  disabled={messageTeamsMutation.isPending}
+                  className="h-4 w-4 rounded accent-gdg-blue"
+                />
+                <span className="text-sm text-slate-700">Include event date, time and venue</span>
+              </label>
+              <label className="flex cursor-pointer items-center gap-2 rounded-lg bg-slate-50 px-3 py-2.5">
+                <input
+                  type="checkbox"
+                  checked={teamIncludeRoster}
+                  onChange={e => setTeamIncludeRoster(e.target.checked)}
+                  disabled={messageTeamsMutation.isPending}
+                  className="h-4 w-4 rounded accent-gdg-blue"
+                />
+                <span className="text-sm text-slate-700">Include the team roster and who was emailed</span>
+              </label>
+            </div>
+
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setTeamMessageOpen(false)}
+                disabled={messageTeamsMutation.isPending}
+                className="ui-btn-secondary !px-4 !py-2 text-sm disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={sendTeamMessage}
+                disabled={messageTeamsMutation.isPending || !teamMessage.trim() || selectedTeams.length === 0}
+                className="inline-flex items-center gap-2 rounded-xl bg-gdg-blue px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {messageTeamsMutation.isPending ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/60 border-t-white" aria-hidden />
+                    Sending…
+                  </>
+                ) : (
+                  <>Send to {selectedTeams.length} team{selectedTeams.length === 1 ? '' : 's'}</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* "Window closed" modal — unconfirmed shortlisted registrations */}
+      {expiredOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onClick={() => !sendExpiredMutation.isPending && setExpiredOpen(false)}>
+          <div
+            className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Tell them the window closed</h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  For shortlisted people who never confirmed: the deadline has passed and their spot has been released.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setExpiredOpen(false)}
+                disabled={sendExpiredMutation.isPending}
+                className="text-slate-400 hover:text-slate-600 disabled:opacity-50"
+                aria-label="Close"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mb-3 rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-700 ring-1 ring-slate-200/80">
+              <strong>{expiredEligibleSelected}</strong> of {selectedIds.size} selected registration(s) are eligible.
+              {selectedIds.size - expiredEligibleSelected > 0 && (
+                <span> {selectedIds.size - expiredEligibleSelected} will be skipped (already confirmed, or not shortlisted).</span>
+              )}
+            </div>
+
+            <label className="ui-label" htmlFor="expired-message">Extra note (optional)</label>
+            <textarea
+              id="expired-message"
+              className={`${inputCls} min-h-[110px] resize-y`}
+              placeholder="e.g. We held confirmations open until Friday 6 PM and had a long waiting list. Watch this space — the next workshop opens in two weeks."
+              value={expiredMessage}
+              onChange={e => setExpiredMessage(e.target.value)}
+              maxLength={2000}
+              disabled={sendExpiredMutation.isPending}
+            />
+            <p className="mt-1 text-right text-[0.65rem] text-slate-400">{expiredMessage.length}/2000</p>
+
+            <label className="mt-2 flex cursor-pointer items-center gap-2 rounded-lg bg-slate-50 px-3 py-3">
+              <input
+                type="checkbox"
+                checked={expiredAlsoReject}
+                onChange={e => setExpiredAlsoReject(e.target.checked)}
+                disabled={sendExpiredMutation.isPending}
+                className="h-4 w-4 rounded accent-gdg-red"
+              />
+              <div>
+                <span className="text-sm font-semibold text-slate-800">Also set status to Rejected</span>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  They are flagged as expired either way. Leave this on to free the seat outright.
+                </p>
+              </div>
+            </label>
+
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setExpiredOpen(false)}
+                disabled={sendExpiredMutation.isPending}
+                className="ui-btn-secondary !px-4 !py-2 text-sm disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={sendExpired}
+                disabled={sendExpiredMutation.isPending || expiredEligibleSelected === 0}
+                className="inline-flex items-center gap-2 rounded-xl bg-slate-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {sendExpiredMutation.isPending ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/60 border-t-white" aria-hidden />
+                    Sending…
+                  </>
+                ) : (
+                  <>Notify {expiredEligibleSelected} recipient(s)</>
                 )}
               </button>
             </div>

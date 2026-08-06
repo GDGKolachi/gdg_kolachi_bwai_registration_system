@@ -56,6 +56,16 @@ export const adminRegistrationApi = {
   // can be brought back with restore().
   softDelete: (id) => api.delete(`/admin/registrations/${id}`).then((res) => res.data),
   restore: (id) => api.post(`/admin/registrations/${id}/restore`).then((res) => res.data),
+  // "Your window closed and the spot is gone" — for shortlisted registrations
+  // that never confirmed.
+  sendAcknowledgementExpired: (ids, message, alsoReject) =>
+    api
+      .post('/admin/registrations/acknowledgement-expired', {
+        ids: Array.isArray(ids) ? ids : [ids],
+        message: message || '',
+        also_reject: alsoReject,
+      })
+      .then((res) => res.data),
   sendRejection: (ids, alsoReject) =>
     api
       .post('/admin/registrations/rejection', {

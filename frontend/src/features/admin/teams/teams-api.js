@@ -12,6 +12,17 @@ export const teamsApi = {
   lock: (eventId) =>
     api.post(`/admin/events/${eventId}/teams/lock`, {}).then(res => res.data),
   unlockTeam: (teamId) => api.post(`/admin/teams/${teamId}/unlock`, {}).then(res => res.data),
+  // One email per team — captain on To, the rest of the roster on CC.
+  messageTeams: (teamIds, { subject, message, includeEventDetails, includeRoster } = {}) =>
+    api
+      .post('/admin/teams/message', {
+        team_ids: teamIds,
+        subject: subject || '',
+        message: message || '',
+        include_event_details: includeEventDetails !== false,
+        include_roster: includeRoster !== false,
+      })
+      .then(res => res.data),
   // Deposit confirmation
   requestPayment: (teamIds) =>
     api.post('/admin/teams/request-payment', { team_ids: teamIds }).then(res => res.data),

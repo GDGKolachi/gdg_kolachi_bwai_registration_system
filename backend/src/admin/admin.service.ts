@@ -419,6 +419,100 @@ export class AdminService {
     return { sent: result.sent, failed };
   }
 
+  /**
+   * Tell shortlisted people who never confirmed that their window closed and the
+   * spot is gone. Distinct from a rejection: these were selected, and the email
+   * has to say so — being dropped for silence reads very differently from not
+   * being picked.
+   *
+   * Eligible are the unacknowledged who are either still shortlisted, or already
+   * flagged expired by a previous run. That second case is what makes this
+   * re-runnable: with `alsoReject` on, the first run leaves them 'rejected', and
+   * without it a failed send could otherwise never be retried.
+   *
+   * The flags are written before the email goes out — releasing the seat is the
+   * admin's decision, not the mail server's — and any address that failed comes
+   * back by name so it can be chased.
+   */
+  async sendAcknowledgementExpired(
+    registrationIds: string[],
+    opts: { message?: string; alsoReject?: boolean },
+  ) {
+    if (!Array.isArray(registrationIds) || registrationIds.length === 0) {
+      throw new BadRequestException('At least one registration ID is required');
+    }
+
+    const alsoReject = opts.alsoReject ?? false;
+    const recipients: Array<{
+      email: string;
+      name: string;
+      event: any;
+      deadline: Date | null;
+    }> = [];
+    const failed: { id: string; error: string }[] = [];
+    let expired = 0;
+    let statusUpdated = 0;
+
+    for (const id of registrationIds) {
+      const registration = await this.registrationRepo.findOne({
+        where: { id },
+        relations: ['attendee', 'event'],
+      });
+      if (!registration) {
+        failed.push({ id, error: 'Registration not found' });
+        continue;
+      }
+      if (registration.deleted_at) {
+        failed.push({ id, error: 'Registration is deleted' });
+        continue;
+      }
+      if (registration.acknowledged) {
+        failed.push({ id, error: 'Already confirmed their spot — skipped' });
+        continue;
+      }
+      if (registration.status !== 'shortlisted' && !registration.acknowledgement_expired) {
+        failed.push({
+          id,
+          error: `Only unconfirmed shortlisted registrations expire (was "${registration.status}")`,
+        });
+        continue;
+      }
+
+      if (!registration.acknowledgement_expired) {
+        registration.acknowledgement_expired = true;
+        expired++;
+      }
+
+      if (alsoReject && registration.status === 'shortlisted') {
+        registration.status = 'rejected';
+        statusUpdated++;
+      }
+      await this.registrationRepo.save(registration);
+
+      recipients.push({
+        email: registration.attendee.email,
+        name: registration.attendee.name,
+        event: registration.event,
+        deadline: registration.event?.acknowledgement_deadline ?? null,
+      });
+    }
+
+    if (recipients.length === 0) {
+      return { sent: 0, expired, statusUpdated, failed };
+    }
+
+    const result = await this.emailService.sendAcknowledgementExpiredBatch(
+      recipients,
+      opts.message || '',
+    );
+
+    for (const email of result.failedEmails || []) {
+      failed.push({ id: email, error: 'Marked expired, but the email failed to send' });
+    }
+
+    return { sent: result.sent, expired, statusUpdated, failed };
+  }
+
   async sendRejection(registrationIds: string[], alsoReject: boolean) {
     if (!Array.isArray(registrationIds) || registrationIds.length === 0) {
       throw new BadRequestException('At least one registration ID is required');

@@ -53,6 +53,21 @@ export function useSendReminder() {
   });
 }
 
+export function useSendAcknowledgementExpired() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ ids, message, alsoReject }) =>
+      adminRegistrationApi.sendAcknowledgementExpired(ids, message, alsoReject),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-registrations'] });
+      qc.invalidateQueries({ queryKey: ['admin-stats'] });
+      // Team rows carry per-status member counts, so they go stale too.
+      qc.invalidateQueries({ queryKey: ['teams'] });
+      qc.invalidateQueries({ queryKey: ['team'] });
+    },
+  });
+}
+
 export function useSendRejection() {
   const qc = useQueryClient();
   return useMutation({
