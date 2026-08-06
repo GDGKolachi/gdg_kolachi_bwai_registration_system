@@ -63,6 +63,96 @@ export class TeamsService {
     });
   }
 
+  /**
+   * Who is on the team right now, and who speaks for it. Soft-deleted members
+   * are dropped — they should never be emailed — and the captain falls back
+   * from the explicit pointer, to whoever registered the team, to the first
+   * live member, so a team is never unreachable just because that pointer was
+   * never set.
+   */
+  private rosterOf(team: Team) {
+    const live = (team.members || [])
+      .map(m => m.registration)
+      .filter(r => r && !r.deleted_at);
+
+    const captain =
+      live.find(r => r.id === team.captain_registration_id) ||
+      live.find(r => r.is_captain) ||
+      live[0] ||
+      null;
+
+    return { live, captain };
+  }
+
+  // ── Team messaging ───────────────────────────────────────────────────────
+
+  /**
+   * Send one admin-written email per team: the captain on To, the rest of the
+   * roster on CC. Anything a team needs to hear — venue changes, what to bring,
+   * a schedule fix — reaches everyone at once, in a thread they can all reply to.
+   *
+   * Each team gets its own send rather than one blast to everybody, so the
+   * roster block and CC list are that team's own, and one failure costs one
+   * team rather than the whole batch.
+   */
+  async messageTeams(
+    teamIds: string[],
+    opts: { subject?: string; message: string; includeEventDetails?: boolean; includeRoster?: boolean },
+  ) {
+    const message = (opts.message || '').trim();
+    if (!message) throw new BadRequestException('A message is required.');
+
+    const succeeded: Array<{ team_id: string; team_label: string; captain_email: string; cc_count: number }> = [];
+    const failed: Array<{ team_id: string; reason: string }> = [];
+
+    for (const teamId of teamIds) {
+      const team = await this.teamRepo.findOne({
+        where: { id: teamId },
+        relations: ['members', 'members.registration', 'members.registration.attendee', 'event'],
+      });
+      if (!team) { failed.push({ team_id: teamId, reason: 'Team not found' }); continue; }
+
+      const { live, captain } = this.rosterOf(team);
+      if (live.length === 0) { failed.push({ team_id: teamId, reason: 'Team has no active members' }); continue; }
+
+      const captainEmail = captain?.attendee?.email;
+      if (!captainEmail) { failed.push({ team_id: teamId, reason: 'No captain email' }); continue; }
+
+      const label = teamLabel(team);
+      const eventTitle = team.event?.title || 'the hackathon';
+
+      const result = await this.emailService.sendTeamMessageEmail({
+        captainEmail,
+        captainName: captain.attendee?.name || 'there',
+        memberEmails: live.map(r => r.attendee?.email).filter(Boolean) as string[],
+        teamLabel: label,
+        eventTitle,
+        subject: (opts.subject || '').trim() || `${eventTitle} — a message for ${label}`,
+        message,
+        event: opts.includeEventDetails === false ? null : team.event || null,
+        roster: opts.includeRoster === false ? [] : live.map(r => ({
+          name: r.attendee?.name || 'Member',
+          email: r.attendee?.email || '',
+          is_captain: r.id === captain.id,
+        })),
+      });
+
+      if (!result?.sent) {
+        failed.push({ team_id: teamId, reason: result?.error ? 'Email failed to send' : 'Email failed to send' });
+        continue;
+      }
+
+      succeeded.push({
+        team_id: team.id,
+        team_label: label,
+        captain_email: captainEmail,
+        cc_count: result.cc_count ?? 0,
+      });
+    }
+
+    return { sent: succeeded.length, succeeded, failed };
+  }
+
   // ── Deposit confirmation ─────────────────────────────────────────────────
 
   /**
@@ -89,15 +179,9 @@ export class TeamsService {
         continue;
       }
 
-      const live = (team.members || [])
-        .map(m => m.registration)
-        .filter(r => r && !r.deleted_at);
+      const { live, captain } = this.rosterOf(team);
       if (live.length === 0) { failed.push({ team_id: teamId, reason: 'Team has no active members' }); continue; }
 
-      const captain =
-        live.find(r => r.id === team.captain_registration_id) ||
-        live.find(r => r.is_captain) ||
-        live[0];
       const captainEmail = captain?.attendee?.email;
       if (!captainEmail) { failed.push({ team_id: teamId, reason: 'No captain email' }); continue; }
 

@@ -47,6 +47,28 @@ export class TeamsController {
     return this.teamsService.unlockTeam(teamId);
   }
 
+  // ── Team messaging ─────────────────────────────────────────────────────
+
+  // One admin-written email per team: captain on To, the rest of the roster on CC.
+  @Post('teams/message')
+  messageTeams(
+    @Body() body: {
+      team_ids: string[];
+      subject?: string;
+      message: string;
+      include_event_details?: boolean;
+      include_roster?: boolean;
+    },
+  ) {
+    const teamIds = Array.isArray(body.team_ids) ? body.team_ids : [body.team_ids].filter(Boolean);
+    return this.teamsService.messageTeams(teamIds, {
+      subject: body.subject,
+      message: body.message,
+      includeEventDetails: body.include_event_details,
+      includeRoster: body.include_roster,
+    });
+  }
+
   // ── Deposit confirmation ───────────────────────────────────────────────
 
   // Emails each team's captain (members CC'd) and starts the 24-hour window.

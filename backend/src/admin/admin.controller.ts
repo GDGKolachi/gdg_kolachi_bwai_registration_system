@@ -201,6 +201,20 @@ export class AdminController {
     return this.adminService.sendReminder(ids, message);
   }
 
+  // Tells unconfirmed shortlisted registrations that their window closed and the
+  // spot is gone. Flags them expired, and optionally rejects them outright.
+  @Post('registrations/acknowledgement-expired')
+  sendAcknowledgementExpired(
+    @Body('ids') ids: string[],
+    @Body('message') message: string,
+    @Body('also_reject') alsoReject: boolean,
+  ) {
+    return this.adminService.sendAcknowledgementExpired(ids, {
+      message,
+      alsoReject: alsoReject ?? false,
+    });
+  }
+
   @Post('registrations/rejection')
   sendRejection(
     @Body('ids') ids: string[],

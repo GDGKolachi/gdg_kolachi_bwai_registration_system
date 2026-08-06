@@ -593,4 +593,174 @@ export class EmailService {
     this.logger.log(`Team payment email sent to ${captainEmail} (cc ${cc.length}), id: ${data.id}`);
     return { sent: true, id: data.id };
   }
+
+  /**
+   * A free-form note from the organisers to one team. Addressed to the captain
+   * with the rest of the roster on CC, so a reply lands in front of everyone who
+   * has to act on it rather than in the captain's inbox alone — the same
+   * addressing the deposit request uses, for the same reason.
+   *
+   * The admin writes the subject and the body; everything else is context they
+   * would otherwise retype for every team — when and where the event is, and
+   * who this actually went to.
+   */
+  async sendTeamMessageEmail(params: {
+    captainEmail: string;
+    captainName: string;
+    memberEmails: string[];
+    teamLabel: string;
+    eventTitle: string;
+    subject: string;
+    message: string;
+    event?: { title: string; date: string; time: string; venue: string; special_instructions?: string; is_online?: boolean } | null;
+    roster?: Array<{ name: string; email: string; is_captain: boolean }>;
+  }) {
+    const {
+      captainEmail, captainName, memberEmails, teamLabel,
+      eventTitle, subject, message, event, roster,
+    } = params;
+
+    const messageBlock = `
+      <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4285F4;">
+        <div style="margin: 0; color: #202124; white-space: pre-line; line-height: 1.6;">${this.escapeHtml(message)}</div>
+      </div>
+    `;
+
+    const rosterBlock = roster && roster.length > 0 ? `
+      <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <p style="margin: 0 0 12px; color: #5F6368; font-size: 13px; text-transform: uppercase; letter-spacing: 1px;">Your team</p>
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+          ${roster.map(m => `
+            <tr>
+              <td style="padding: 6px 0; color: #202124; font-weight: bold;">
+                ${this.escapeHtml(m.name)}${m.is_captain ? ' <span style="color: #1A73E8; font-weight: normal; font-size: 12px;">(captain)</span>' : ''}
+              </td>
+              <td style="padding: 6px 0; text-align: right; color: #5F6368; word-break: break-all;">${this.escapeHtml(m.email)}</td>
+            </tr>
+          `).join('')}
+        </table>
+        <p style="margin: 12px 0 0; font-size: 12px; color: #9AA0A6;">
+          Everyone listed above received this email — the captain directly, the rest on CC.
+        </p>
+      </div>
+    ` : '';
+
+    const instructionsBlock = event?.special_instructions ? `
+      <div style="background: #E8F0FE; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4285F4;">
+        <p style="margin: 0; color: #1A73E8;"><strong>📋 Event Instructions:</strong></p>
+        <div style="margin: 8px 0 0; color: #202124; white-space: pre-line;">${event.special_instructions}</div>
+      </div>
+    ` : '';
+
+    const html = this.emailWrapper('#4285F4', `A message about ${teamLabel}`, `
+      <h2 style="color: #202124; margin: 0 0 10px;">Hi ${this.escapeHtml(captainName)} and team 👋</h2>
+      <p style="margin: 0;">This is about your team <strong>${this.escapeHtml(teamLabel)}</strong> at
+      <strong>${this.escapeHtml(eventTitle)}</strong>.</p>
+      ${messageBlock}
+      ${event ? this.eventDetailsBlock(event) : ''}
+      ${instructionsBlock}
+      ${rosterBlock}
+      <p style="color: #5F6368; font-size: 13px; margin: 20px 0 0;">See you there! 🎉</p>
+    `);
+
+    if (!this.resend) { this.logger.warn('Resend not configured, skipping team message'); return { sent: false, error: 'Email service not configured' }; }
+
+    const cc = memberEmails.filter(e => e && e.toLowerCase() !== captainEmail.toLowerCase());
+
+    const { data, error } = await this.resend.emails.send({
+      from: this.from,
+      to: [captainEmail],
+      cc: cc.length > 0 ? cc : undefined,
+      subject,
+      html,
+    });
+
+    if (error) {
+      this.logger.error(`Failed to send team message to ${captainEmail}`, error);
+      return { sent: false, error: String(error) };
+    }
+    this.logger.log(`Team message sent to ${captainEmail} (cc ${cc.length}), id: ${data.id}`);
+    return { sent: true, id: data.id, cc_count: cc.length };
+  }
+
+  /**
+   * The window closed and they never confirmed, so the seat went to someone
+   * else. Sent one message at a time rather than through batch.send() because a
+   * partial failure has to be reported per person — this is the email that ends
+   * someone's participation, and "we think it sent" is not good enough.
+   *
+   * The copy is deliberately final about the seat and warm about the next event:
+   * the intent is to close the loop, not to scold anyone for missing a deadline.
+   */
+  async sendAcknowledgementExpiredBatch(
+    recipients: Array<{
+      email: string;
+      name: string;
+      event: { title: string; date: string; time: string; venue: string; is_online?: boolean };
+      deadline?: Date | string | null;
+    }>,
+    customMessage: string,
+  ) {
+    if (!this.resend) {
+      this.logger.warn('Resend not configured, skipping acknowledgement-expired batch');
+      return { sent: 0, failedEmails: recipients.map(r => r.email) };
+    }
+
+    const safeMessage = (customMessage || '').trim();
+    let sentCount = 0;
+    const failedEmails: string[] = [];
+
+    for (const r of recipients) {
+      const deadlineText = r.deadline
+        ? (r.deadline instanceof Date ? r.deadline : new Date(r.deadline)).toUTCString().replace('GMT', 'UTC')
+        : null;
+
+      const customBlock = safeMessage ? `
+        <div style="background: white; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #5F6368;">
+          <p style="margin: 0 0 6px; color: #5F6368; font-weight: bold;">📌 A note from the organizers</p>
+          <div style="margin: 0; color: #202124; white-space: pre-line;">${this.escapeHtml(safeMessage)}</div>
+        </div>
+      ` : '';
+
+      const html = this.emailWrapper('#5F6368', 'Confirmation window closed', `
+        <h2 style="color: #202124; margin: 0 0 10px;">Hi ${this.escapeHtml(r.name)},</h2>
+        <p style="margin: 0;">You were shortlisted for <strong>${this.escapeHtml(r.event.title)}</strong>, and we asked you to
+        confirm your spot${deadlineText ? ` by <strong>${deadlineText}</strong>` : ''}.</p>
+
+        <div style="background: #FDECEA; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #EA4335;">
+          <p style="margin: 0; color: #9B1C1C;"><strong>That deadline has now passed and we did not hear from you.</strong></p>
+          <p style="margin: 8px 0 0; color: #202124;">
+            Your spot has been released to someone on the waiting list, so you will
+            <strong>not be able to attend</strong>. Any entry pass sent to you earlier is no longer valid.
+          </p>
+        </div>
+        ${customBlock}
+        <p style="color: #5F6368;">Seats are limited and we hold them only for people we can confirm, which is why the
+        window is firm. If you believe this is a mistake, reply to the team that shortlisted you as soon as possible.</p>
+        <p style="color: #5F6368;">We would genuinely like to see you at a future GDG Kolachi event — you stay on our
+        list and will hear about the next one. 🚀</p>
+      `);
+
+      try {
+        const { data, error } = await this.resend.emails.send({
+          from: this.from,
+          to: [r.email],
+          subject: `Your spot for ${r.event.title} has been released`,
+          html,
+        });
+        if (error) {
+          this.logger.error(`Acknowledgement-expired email failed for ${r.email}`, error);
+          failedEmails.push(r.email);
+        } else {
+          sentCount++;
+          this.logger.log(`Acknowledgement-expired email sent to ${r.email}, id: ${data.id}`);
+        }
+      } catch (err) {
+        this.logger.error(`Acknowledgement-expired email exception for ${r.email}`, err);
+        failedEmails.push(r.email);
+      }
+    }
+
+    return { sent: sentCount, failedEmails };
+  }
 }
