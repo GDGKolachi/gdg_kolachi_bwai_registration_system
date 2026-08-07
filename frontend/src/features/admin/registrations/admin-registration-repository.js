@@ -53,6 +53,14 @@ export function useSendReminder() {
   });
 }
 
+/** Sends only the WhatsApp group link. Nothing about the registration changes. */
+export function useSendWhatsappGroup() {
+  return useMutation({
+    mutationFn: ({ ids, groupUrl, message }) =>
+      adminRegistrationApi.sendWhatsappGroup(ids, groupUrl, message),
+  });
+}
+
 export function useSendAcknowledgementExpired() {
   const qc = useQueryClient();
   return useMutation({

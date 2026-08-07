@@ -420,6 +420,90 @@ export class AdminService {
   }
 
   /**
+   * Send the WhatsApp group invite and nothing else.
+   *
+   * The link is checked against WhatsApp's own invite host before a single
+   * email goes out. A blast is exactly the wrong place to discover that the
+   * wrong thing was pasted into the box, and a group link cannot be recalled
+   * once it is in an inbox.
+   *
+   * Recipients are limited to people who actually have a place — shortlisted or
+   * confirmed, the same rule the reminder uses. The group is for participants,
+   * so a rejected applicant receiving the invite is a leak, not a courtesy.
+   */
+  async sendWhatsappGroup(
+    registrationIds: string[],
+    opts: { groupUrl: string; message?: string },
+  ) {
+    if (!Array.isArray(registrationIds) || registrationIds.length === 0) {
+      throw new BadRequestException('At least one registration ID is required');
+    }
+
+    const groupUrl = (opts.groupUrl || '').trim();
+    if (!groupUrl) throw new BadRequestException('A WhatsApp group link is required.');
+
+    let parsed: URL;
+    try {
+      parsed = new URL(groupUrl);
+    } catch {
+      throw new BadRequestException('That is not a valid link. Paste the full URL, starting with https://');
+    }
+    if (parsed.protocol !== 'https:' || parsed.hostname.toLowerCase() !== 'chat.whatsapp.com') {
+      throw new BadRequestException(
+        'That does not look like a WhatsApp group invite. It should start with https://chat.whatsapp.com/ — open the group, tap Invite via link, and copy it.',
+      );
+    }
+
+    const ELIGIBLE = new Set(['shortlisted', 'confirmed']);
+    const eligible: Array<{ email: string; name: string; event: { title: string } }> = [];
+    const failed: { id: string; error: string }[] = [];
+
+    for (const id of registrationIds) {
+      const registration = await this.registrationRepo.findOne({
+        where: { id },
+        relations: ['attendee', 'event'],
+      });
+      if (!registration) {
+        failed.push({ id, error: 'Registration not found' });
+        continue;
+      }
+      if (registration.deleted_at) {
+        failed.push({ id, error: 'Registration is deleted' });
+        continue;
+      }
+      if (!ELIGIBLE.has(registration.status)) {
+        failed.push({
+          id,
+          error: `The group link only goes to shortlisted/confirmed participants (was "${registration.status}")`,
+        });
+        continue;
+      }
+
+      eligible.push({
+        email: registration.attendee.email,
+        name: registration.attendee.name,
+        event: { title: registration.event.title },
+      });
+    }
+
+    if (eligible.length === 0) {
+      return { sent: 0, failed };
+    }
+
+    const result = await this.emailService.sendWhatsappGroupBatch(
+      eligible,
+      groupUrl,
+      opts.message || '',
+    );
+
+    for (const email of result.failedEmails || []) {
+      failed.push({ id: email, error: 'Email failed to send' });
+    }
+
+    return { sent: result.sent, failed };
+  }
+
+  /**
    * Tell shortlisted people who never confirmed that their window closed and the
    * spot is gone. Distinct from a rejection: these were selected, and the email
    * has to say so — being dropped for silence reads very differently from not

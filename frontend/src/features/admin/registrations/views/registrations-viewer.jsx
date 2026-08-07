@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useAdminEvents, useLockAcknowledgements, useUnlockAcknowledgements } from '../../event-management/admin-event-repository';
-import { useAdminRegistrations, useUpdateRegistrationStatus, useBulkUpdateStatus, useEventAmbassadors, useSendReminder, useSendRejection, useSendAcknowledgementExpired, useImportCsvStatus, useDeleteRegistration, useRestoreRegistration } from '../admin-registration-repository';
+import { useAdminRegistrations, useUpdateRegistrationStatus, useBulkUpdateStatus, useEventAmbassadors, useSendReminder, useSendRejection, useSendAcknowledgementExpired, useSendWhatsappGroup, useImportCsvStatus, useDeleteRegistration, useRestoreRegistration } from '../admin-registration-repository';
 import { adminRegistrationApi } from '../admin-registration-api';
 import { useCurrentUser } from '../../auth/use-current-user';
 import { MANAGEMENT_ROLES } from '../../auth/roles';
@@ -95,6 +95,9 @@ const COLUMN_PREF_KEY  = 'gdg.admin.registrations.hidden-columns.v1';
 const DENSITY_PREF_KEY = 'gdg.admin.registrations.density.v1';
 const FILTERS_PREF_KEY = 'gdg.admin.registrations.filters-open.v1';
 const VIEW_PREF_KEY    = 'gdg.admin.registrations.view-mode.v1';
+// The group link is retyped for every send otherwise, and it is long enough
+// that retyping it is how the wrong one gets sent. Keyed per event.
+const WHATSAPP_PREF_KEY = 'gdg.admin.registrations.whatsapp-link.v1';
 
 function readPref(key, fallback) {
   try {
@@ -506,6 +509,12 @@ export default function RegistrationsViewer() {
   const [rejectionOpen, setRejectionOpen] = useState(false);
   const [alsoReject, setAlsoReject] = useState(true);
   const [rejectionMessage, setRejectionMessage] = useState('');
+
+  // WhatsApp group modal — the link, and nothing else in the email.
+  const sendWhatsappMutation = useSendWhatsappGroup();
+  const [whatsappOpen, setWhatsappOpen] = useState(false);
+  const [whatsappLink, setWhatsappLink] = useState('');
+  const [whatsappMessage, setWhatsappMessage] = useState('');
 
   // "Window closed" modal — for shortlisted people who never confirmed.
   const sendExpiredMutation = useSendAcknowledgementExpired();
@@ -924,6 +933,41 @@ export default function RegistrationsViewer() {
     if (selectedIds.size === 0) return;
     setReminderMessage('');
     setReminderOpen(true);
+  };
+
+  // The group is for participants, so the same eligibility as the reminder.
+  const whatsappEligibleSelected = reminderEligibleSelected;
+
+  // Checked here as well as on the server: catching a wrong paste before the
+  // send button lights up is cheaper than catching it after.
+  const whatsappLinkValid = /^https:\/\/chat\.whatsapp\.com\/\S+$/i.test(whatsappLink.trim());
+
+  const openWhatsappModal = () => {
+    if (selectedIds.size === 0) return;
+    setWhatsappLink(readPref(`${WHATSAPP_PREF_KEY}.${selectedEvent}`, ''));
+    setWhatsappMessage('');
+    setWhatsappOpen(true);
+  };
+
+  const sendWhatsappGroup = async () => {
+    if (selectedIds.size === 0 || !whatsappLinkValid) return;
+    try {
+      const result = await sendWhatsappMutation.mutateAsync({
+        ids: Array.from(selectedIds),
+        groupUrl: whatsappLink.trim(),
+        message: whatsappMessage,
+      });
+      if (result.sent > 0) {
+        toast.success(`Group link sent to ${result.sent} recipient(s)`);
+        writePref(`${WHATSAPP_PREF_KEY}.${selectedEvent}`, whatsappLink.trim());
+      }
+      if (result.failed?.length > 0) {
+        toast(`${result.failed.length} skipped — ${result.failed[0].error}`, { icon: '⚠️' });
+      }
+      setWhatsappOpen(false);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to send the group link');
+    }
   };
 
   const openExpiredModal = () => {
@@ -1388,6 +1432,23 @@ export default function RegistrationsViewer() {
             </button>
             <button
               type="button"
+              onClick={openWhatsappModal}
+              disabled={whatsappEligibleSelected === 0}
+              title={whatsappEligibleSelected === 0
+                ? 'The group link only goes to shortlisted or confirmed participants'
+                : `Will send the group link to ${whatsappEligibleSelected} recipient(s)`}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#25D366] px-2.5 py-1.5 text-[0.7rem] font-semibold text-white shadow-sm hover:bg-[#1da851] disabled:cursor-not-allowed disabled:opacity-50 sm:px-3 sm:text-xs"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+              </svg>
+              WhatsApp group
+              {whatsappEligibleSelected > 0 && (
+                <span className="rounded-full bg-white/25 px-1.5 py-0.5 text-[0.65rem]">{whatsappEligibleSelected}</span>
+              )}
+            </button>
+            <button
+              type="button"
               onClick={openTeamMessageModal}
               disabled={messageTeams.length === 0 || messageTeamsMutation.isPending}
               title={messageTeams.length === 0
@@ -1612,6 +1673,103 @@ export default function RegistrationsViewer() {
                   </>
                 ) : (
                   <>Send to {rejectionEligibleSelected} recipient(s)</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* WhatsApp group modal — the link is the whole email */}
+      {whatsappOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onClick={() => !sendWhatsappMutation.isPending && setWhatsappOpen(false)}>
+          <div
+            className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Send the WhatsApp group link</h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  A short email containing the group link and nothing else — no entry pass, no schedule.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setWhatsappOpen(false)}
+                disabled={sendWhatsappMutation.isPending}
+                className="text-slate-400 hover:text-slate-600 disabled:opacity-50"
+                aria-label="Close"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mb-3 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900 ring-1 ring-emerald-200/70">
+              <strong>{whatsappEligibleSelected}</strong> of {selectedIds.size} selected registration(s) are eligible.
+              {selectedIds.size - whatsappEligibleSelected > 0 && (
+                <span> {selectedIds.size - whatsappEligibleSelected} will be skipped (not shortlisted/confirmed).</span>
+              )}
+            </div>
+
+            <label className="ui-label" htmlFor="whatsapp-link">Group invite link</label>
+            <input
+              id="whatsapp-link"
+              type="url"
+              inputMode="url"
+              className={`${inputCls} font-mono text-sm ${whatsappLink && !whatsappLinkValid ? 'border-rose-300 focus:border-gdg-red focus:ring-gdg-red/15' : ''}`}
+              placeholder="https://chat.whatsapp.com/…"
+              value={whatsappLink}
+              onChange={e => setWhatsappLink(e.target.value)}
+              disabled={sendWhatsappMutation.isPending}
+              autoFocus
+            />
+            {whatsappLink && !whatsappLinkValid ? (
+              <p className="mt-1 text-xs font-medium text-gdg-red">
+                That is not a group invite link. In WhatsApp: open the group → Invite via link → Copy link. It starts with https://chat.whatsapp.com/
+              </p>
+            ) : (
+              <p className="mt-1 text-xs text-slate-400">
+                Remembered for this event, so you only paste it once.
+              </p>
+            )}
+
+            <label className="ui-label mt-3" htmlFor="whatsapp-note">Short note (optional)</label>
+            <textarea
+              id="whatsapp-note"
+              className={`${inputCls} min-h-[90px] resize-y`}
+              placeholder="e.g. All day-of announcements go here, so please join before Friday."
+              value={whatsappMessage}
+              onChange={e => setWhatsappMessage(e.target.value)}
+              maxLength={1000}
+              disabled={sendWhatsappMutation.isPending}
+            />
+            <p className="mt-1 text-right text-[0.65rem] text-slate-400">{whatsappMessage.length}/1000</p>
+
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setWhatsappOpen(false)}
+                disabled={sendWhatsappMutation.isPending}
+                className="ui-btn-secondary !px-4 !py-2 text-sm disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={sendWhatsappGroup}
+                disabled={sendWhatsappMutation.isPending || !whatsappLinkValid || whatsappEligibleSelected === 0}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#25D366] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#1da851] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {sendWhatsappMutation.isPending ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/60 border-t-white" aria-hidden />
+                    Sending…
+                  </>
+                ) : (
+                  <>Send link to {whatsappEligibleSelected} recipient(s)</>
                 )}
               </button>
             </div>

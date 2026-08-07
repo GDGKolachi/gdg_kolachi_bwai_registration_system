@@ -56,6 +56,15 @@ export const adminRegistrationApi = {
   // can be brought back with restore().
   softDelete: (id) => api.delete(`/admin/registrations/${id}`).then((res) => res.data),
   restore: (id) => api.post(`/admin/registrations/${id}/restore`).then((res) => res.data),
+  // Just the WhatsApp group invite — no pass, no schedule.
+  sendWhatsappGroup: (ids, groupUrl, message) =>
+    api
+      .post('/admin/registrations/whatsapp-group', {
+        ids: Array.isArray(ids) ? ids : [ids],
+        group_url: groupUrl,
+        message: message || '',
+      })
+      .then((res) => res.data),
   // "Your window closed and the spot is gone" — for shortlisted registrations
   // that never confirmed.
   sendAcknowledgementExpired: (ids, message, alsoReject) =>

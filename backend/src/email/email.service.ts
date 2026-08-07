@@ -284,6 +284,79 @@ export class EmailService {
     return { sent: sentCount };
   }
 
+  /**
+   * Nothing but the group link, a button to it, and whatever short note the
+   * admin added. No QR, no schedule, no instructions — this email exists so the
+   * link is findable in an inbox rather than buried three replies deep in a
+   * longer email nobody re-opens.
+   *
+   * The raw URL is printed under the button because a link in an email is the
+   * thing most likely to be opened on a laptop and needed on a phone.
+   */
+  async sendWhatsappGroupBatch(
+    recipients: Array<{ email: string; name: string; event: { title: string } }>,
+    groupUrl: string,
+    customMessage = '',
+  ) {
+    if (!this.resend) {
+      this.logger.warn('Resend not configured, skipping WhatsApp group batch');
+      return { sent: 0, failedEmails: recipients.map(r => r.email) };
+    }
+
+    const safeUrl = this.escapeHtml(groupUrl);
+    const safeMessage = (customMessage || '').trim();
+    const customBlock = safeMessage ? `
+      <div style="background: white; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #25D366;">
+        <div style="margin: 0; color: #202124; white-space: pre-line;">${this.escapeHtml(safeMessage)}</div>
+      </div>
+    ` : '';
+
+    let sentCount = 0;
+    const failedEmails: string[] = [];
+
+    for (const r of recipients) {
+      const html = this.emailWrapper('#25D366', 'Join the WhatsApp group', `
+        <h2 style="color: #202124; margin: 0 0 10px;">Hi ${this.escapeHtml(r.name)} 👋</h2>
+        <p style="margin: 0;">Everything else about <strong>${this.escapeHtml(r.event.title)}</strong> happens in the
+        WhatsApp group — announcements, last-minute changes and questions. Please join now so you do not miss anything.</p>
+        ${customBlock}
+        <div style="text-align: center; margin: 28px 0;">
+          <a href="${safeUrl}" style="background: #25D366; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-size: 16px; font-weight: bold; display: inline-block;">
+            💬 Join the WhatsApp group
+          </a>
+        </div>
+        <p style="color: #5F6368; font-size: 13px; margin: 0;">
+          If the button does not work, open this link on your phone:<br />
+          <span style="word-break: break-all; color: #1A73E8;">${safeUrl}</span>
+        </p>
+        <p style="color: #9AA0A6; font-size: 12px; margin: 20px 0 0;">
+          Please keep this link to yourself — it is meant for confirmed participants only.
+        </p>
+      `);
+
+      try {
+        const { data, error } = await this.resend.emails.send({
+          from: this.from,
+          to: [r.email],
+          subject: `Join the ${r.event.title} WhatsApp group`,
+          html,
+        });
+        if (error) {
+          this.logger.error(`WhatsApp group email failed for ${r.email}`, error);
+          failedEmails.push(r.email);
+        } else {
+          sentCount++;
+          this.logger.log(`WhatsApp group email sent to ${r.email}, id: ${data.id}`);
+        }
+      } catch (err) {
+        this.logger.error(`WhatsApp group email exception for ${r.email}`, err);
+        failedEmails.push(r.email);
+      }
+    }
+
+    return { sent: sentCount, failedEmails };
+  }
+
   private escapeHtml(s: string): string {
     return s
       .replace(/&/g, '&amp;')
