@@ -798,14 +798,54 @@ export default function RegistrationsViewer() {
     }
   };
 
-  // Everyone the team email will actually reach: one To per team, the rest CC'd.
-  const teamMessageRecipients = selectedTeams.reduce((n, t) => n + t.memberCount, 0);
-  const shortlistedTeamCount = selectedTeams.filter(
-    t => t.memberCount > 0 && (t.statusCounts.shortlisted ?? 0) === t.memberCount,
-  ).length;
+  /**
+   * Which teams the selection points at, in either grid.
+   *
+   * In the teams view a team counts only when its whole roster is ticked, the
+   * same rule the deposit request uses. In the people view any selected member
+   * pulls in their team — the email goes to the entire roster regardless of who
+   * was ticked, so requiring the whole team to be selected first would be a
+   * hurdle that changes nothing about what gets sent. The modal says so plainly.
+   */
+  const messageTeams = viewMode === 'teams'
+    ? selectedTeams.map(t => ({
+        id: t.id,
+        label: t.label,
+        memberCount: t.memberCount,
+        fullyShortlisted: t.memberCount > 0 && (t.statusCounts.shortlisted ?? 0) === t.memberCount,
+      }))
+    : (() => {
+        // Rows carry only a team stub, so roster size is unknown here — the
+        // count of teams is the honest number to show.
+        const byId = new Map();
+        for (const r of registrations) {
+          if (!selectedIds.has(r.id) || !r.team?.id) continue;
+          if (byId.has(r.team.id)) continue;
+          byId.set(r.team.id, {
+            id: r.team.id,
+            label: [r.team.team_number != null ? `#${r.team.team_number}` : null, r.team.name]
+              .filter(Boolean).join(' · ') || 'Team',
+            memberCount: null,
+            fullyShortlisted: false,
+          });
+        }
+        return [...byId.values()];
+      })();
+
+  // Everyone the team email will reach — one To per team, the rest CC'd. Only
+  // knowable in the teams view, where the rosters are loaded.
+  const teamMessageRecipients = viewMode === 'teams'
+    ? messageTeams.reduce((n, t) => n + t.memberCount, 0)
+    : null;
+  const shortlistedTeamCount = messageTeams.filter(t => t.fullyShortlisted).length;
+
+  // People-view rows that are on no team at all — they get nothing from this.
+  const selectedWithoutTeam = viewMode === 'teams'
+    ? 0
+    : registrations.filter(r => selectedIds.has(r.id) && !r.team?.id).length;
 
   const openTeamMessageModal = () => {
-    if (selectedTeams.length === 0) return;
+    if (messageTeams.length === 0) return;
     setTeamSubject('');
     setTeamMessage('');
     setTeamIncludeDetails(true);
@@ -814,10 +854,10 @@ export default function RegistrationsViewer() {
   };
 
   const sendTeamMessage = async () => {
-    if (selectedTeams.length === 0 || !teamMessage.trim()) return;
+    if (messageTeams.length === 0 || !teamMessage.trim()) return;
     try {
       const result = await messageTeamsMutation.mutateAsync({
-        teamIds: selectedTeams.map(t => t.id),
+        teamIds: messageTeams.map(t => t.id),
         subject: teamSubject,
         message: teamMessage,
         includeEventDetails: teamIncludeDetails,
@@ -1312,18 +1352,6 @@ export default function RegistrationsViewer() {
                   ? 'Requesting…'
                   : `Request deposit (${selectedTeams.length})`}
               </button>
-              <button
-                type="button"
-                onClick={openTeamMessageModal}
-                disabled={messageTeamsMutation.isPending}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-gdg-blue px-2.5 py-1.5 text-[0.7rem] font-semibold text-white disabled:opacity-50 sm:px-3 sm:text-xs"
-                title={`Emails each captain with their teammates on CC — ${teamMessageRecipients} recipient(s)`}
-              >
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-                </svg>
-                Email team{selectedTeams.length === 1 ? '' : 's'} ({selectedTeams.length})
-              </button>
             </div>
           )}
           <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
@@ -1353,6 +1381,23 @@ export default function RegistrationsViewer() {
               Send reminder
               {reminderEligibleSelected > 0 && (
                 <span className="rounded-full bg-white/20 px-1.5 py-0.5 text-[0.65rem]">{reminderEligibleSelected}</span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={openTeamMessageModal}
+              disabled={messageTeams.length === 0 || messageTeamsMutation.isPending}
+              title={messageTeams.length === 0
+                ? 'None of the selected registrations are on a team'
+                : `Emails ${messageTeams.length} captain(s) with their teammates on CC`}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-gdg-blue px-2.5 py-1.5 text-[0.7rem] font-semibold text-white shadow-sm shadow-blue-500/20 hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50 sm:px-3 sm:text-xs"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+              </svg>
+              Email team{messageTeams.length === 1 ? '' : 's'}
+              {messageTeams.length > 0 && (
+                <span className="rounded-full bg-white/20 px-1.5 py-0.5 text-[0.65rem]">{messageTeams.length}</span>
               )}
             </button>
             <button
@@ -1584,14 +1629,27 @@ export default function RegistrationsViewer() {
             </div>
 
             <div className="mb-3 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900 ring-1 ring-sky-200/70">
-              <strong>{selectedTeams.length}</strong> team(s) · <strong>{teamMessageRecipients}</strong> recipient(s).
-              {shortlistedTeamCount > 0 && (
-                <span> {shortlistedTeamCount} fully shortlisted.</span>
+              <strong>{messageTeams.length}</strong> team(s)
+              {teamMessageRecipients != null && <> · <strong>{teamMessageRecipients}</strong> recipient(s)</>}.
+              {viewMode === 'teams' ? (
+                <>
+                  {shortlistedTeamCount > 0 && <span> {shortlistedTeamCount} fully shortlisted.</span>}
+                  {shortlistedTeamCount < messageTeams.length && (
+                    <span> {messageTeams.length - shortlistedTeamCount} not fully shortlisted — they will be emailed too.</span>
+                  )}
+                </>
+              ) : (
+                <span> Every member of each team is emailed, including anyone you did not select.</span>
               )}
-              {shortlistedTeamCount < selectedTeams.length && (
-                <span> {selectedTeams.length - shortlistedTeamCount} not fully shortlisted — they will be emailed too.</span>
+              {selectedWithoutTeam > 0 && (
+                <span> {selectedWithoutTeam} selected registration(s) are on no team and get nothing.</span>
               )}
             </div>
+            {viewMode !== 'teams' && messageTeams.length > 0 && (
+              <p className="mb-3 text-xs text-slate-500">
+                Going to: {messageTeams.map(t => t.label).join(', ')}
+              </p>
+            )}
 
             <label className="ui-label" htmlFor="team-subject">Subject (optional)</label>
             <input
@@ -1652,7 +1710,7 @@ export default function RegistrationsViewer() {
               <button
                 type="button"
                 onClick={sendTeamMessage}
-                disabled={messageTeamsMutation.isPending || !teamMessage.trim() || selectedTeams.length === 0}
+                disabled={messageTeamsMutation.isPending || !teamMessage.trim() || messageTeams.length === 0}
                 className="inline-flex items-center gap-2 rounded-xl bg-gdg-blue px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {messageTeamsMutation.isPending ? (
@@ -1661,7 +1719,7 @@ export default function RegistrationsViewer() {
                     Sending…
                   </>
                 ) : (
-                  <>Send to {selectedTeams.length} team{selectedTeams.length === 1 ? '' : 's'}</>
+                  <>Send to {messageTeams.length} team{messageTeams.length === 1 ? '' : 's'}</>
                 )}
               </button>
             </div>
