@@ -71,7 +71,8 @@ export function useSendAcknowledgementExpired() {
 export function useSendRejection() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ ids, alsoReject }) => adminRegistrationApi.sendRejection(ids, alsoReject),
+    mutationFn: ({ ids, alsoReject, message }) =>
+      adminRegistrationApi.sendRejection(ids, alsoReject, message),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-registrations'] });
       qc.invalidateQueries({ queryKey: ['admin-stats'] });

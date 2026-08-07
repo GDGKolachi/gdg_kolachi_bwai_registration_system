@@ -66,11 +66,12 @@ export const adminRegistrationApi = {
         also_reject: alsoReject,
       })
       .then((res) => res.data),
-  sendRejection: (ids, alsoReject) =>
+  sendRejection: (ids, alsoReject, message) =>
     api
       .post('/admin/registrations/rejection', {
         ids: Array.isArray(ids) ? ids : [ids],
         also_reject: alsoReject,
+        message: message || '',
       })
       .then((res) => res.data),
 };

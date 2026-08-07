@@ -513,7 +513,7 @@ export class AdminService {
     return { sent: result.sent, expired, statusUpdated, failed };
   }
 
-  async sendRejection(registrationIds: string[], alsoReject: boolean) {
+  async sendRejection(registrationIds: string[], alsoReject: boolean, customMessage = '') {
     if (!Array.isArray(registrationIds) || registrationIds.length === 0) {
       throw new BadRequestException('At least one registration ID is required');
     }
@@ -554,7 +554,7 @@ export class AdminService {
       return { sent: 0, statusUpdated: statusUpdated.length, failed };
     }
 
-    const result = await this.emailService.sendRejectionBatch(eligible);
+    const result = await this.emailService.sendRejectionBatch(eligible, customMessage);
     return { sent: result.sent, statusUpdated: statusUpdated.length, failed };
   }
 
