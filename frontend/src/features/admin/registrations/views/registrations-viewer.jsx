@@ -505,6 +505,7 @@ export default function RegistrationsViewer() {
   const sendRejectionMutation = useSendRejection();
   const [rejectionOpen, setRejectionOpen] = useState(false);
   const [alsoReject, setAlsoReject] = useState(true);
+  const [rejectionMessage, setRejectionMessage] = useState('');
 
   // "Window closed" modal — for shortlisted people who never confirmed.
   const sendExpiredMutation = useSendAcknowledgementExpired();
@@ -958,6 +959,7 @@ export default function RegistrationsViewer() {
   const openRejectionModal = () => {
     if (selectedIds.size === 0) return;
     setAlsoReject(true);
+    setRejectionMessage('');
     setRejectionOpen(true);
   };
 
@@ -967,6 +969,7 @@ export default function RegistrationsViewer() {
       const result = await sendRejectionMutation.mutateAsync({
         ids: Array.from(selectedIds),
         alsoReject,
+        message: rejectionMessage,
       });
       const parts = [];
       if (result.sent > 0) parts.push(`Rejection email sent to ${result.sent} recipient(s)`);
@@ -1528,7 +1531,7 @@ export default function RegistrationsViewer() {
       {rejectionOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onClick={() => !sendRejectionMutation.isPending && setRejectionOpen(false)}>
           <div
-            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl"
+            className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
             onClick={e => e.stopPropagation()}
           >
             <div className="mb-4 flex items-start justify-between gap-4">
@@ -1557,6 +1560,21 @@ export default function RegistrationsViewer() {
                 <span> {selectedIds.size - rejectionEligibleSelected} will be skipped (already attended).</span>
               )}
             </div>
+
+            <label className="ui-label" htmlFor="rejection-message">Custom message (optional)</label>
+            <textarea
+              id="rejection-message"
+              className={`${inputCls} min-h-[110px] resize-y`}
+              placeholder="e.g. This cohort was picked for prior Python experience, which we asked about in the form. The next intake opens in March and previous applicants are very welcome."
+              value={rejectionMessage}
+              onChange={e => setRejectionMessage(e.target.value)}
+              maxLength={2000}
+              disabled={sendRejectionMutation.isPending}
+            />
+            <p className="mt-1 text-right text-[0.65rem] text-slate-400">{rejectionMessage.length}/2000</p>
+            <p className="mb-3 text-xs text-slate-500">
+              Added after the standard paragraph, not instead of it — everyone still gets the reason and the encouragement to apply again.
+            </p>
 
             <label className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-3 cursor-pointer">
               <input

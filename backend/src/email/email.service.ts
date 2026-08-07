@@ -324,10 +324,25 @@ export class EmailService {
     this.logger.log(`Rejection email sent to ${email}, id: ${data.id}`);
   }
 
+  /**
+   * `customMessage` is the organisers' own words for this particular round —
+   * what the cohort was chosen for, when the next one opens. It sits after the
+   * standard paragraph rather than replacing it, so the reason a rejection
+   * exists is always stated even when nobody writes anything.
+   */
   async sendRejectionBatch(
     recipients: Array<{ email: string; name: string; event: { title: string } }>,
+    customMessage = '',
   ) {
     if (!this.resend) { this.logger.warn('Resend not configured, skipping rejection batch'); return { sent: 0 }; }
+
+    const safeMessage = (customMessage || '').trim();
+    const customBlock = safeMessage ? `
+      <div style="background: white; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #5F6368;">
+        <p style="margin: 0 0 6px; color: #5F6368; font-weight: bold;">📌 A note from the organizers</p>
+        <div style="margin: 0; color: #202124; white-space: pre-line;">${this.escapeHtml(safeMessage)}</div>
+      </div>
+    ` : '';
 
     const batchSize = 100;
     let sentCount = 0;
@@ -343,6 +358,7 @@ export class EmailService {
           <div style="background: white; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #EA4335;">
             <p style="margin: 0; color: #5F6368;">We received a large number of applications and had limited spots available. This does not reflect on your abilities — we encourage you to apply for future GDG Kolachi events!</p>
           </div>
+          ${customBlock}
           <p style="color: #5F6368;">Stay connected with us for upcoming opportunities. We'd love to see you at a future event! 🚀</p>
         `);
 

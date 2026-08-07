@@ -219,8 +219,9 @@ export class AdminController {
   sendRejection(
     @Body('ids') ids: string[],
     @Body('also_reject') alsoReject: boolean,
+    @Body('message') message: string,
   ) {
-    return this.adminService.sendRejection(ids, alsoReject ?? false);
+    return this.adminService.sendRejection(ids, alsoReject ?? false, message || '');
   }
 
   // QR Scan
