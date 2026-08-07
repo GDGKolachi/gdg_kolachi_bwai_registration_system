@@ -201,6 +201,17 @@ export class AdminController {
     return this.adminService.sendReminder(ids, message);
   }
 
+  // Sends only the WhatsApp group invite. The link is validated before any
+  // email goes out — a blast is the wrong place to find out it was wrong.
+  @Post('registrations/whatsapp-group')
+  sendWhatsappGroup(
+    @Body('ids') ids: string[],
+    @Body('group_url') groupUrl: string,
+    @Body('message') message: string,
+  ) {
+    return this.adminService.sendWhatsappGroup(ids, { groupUrl, message });
+  }
+
   // Tells unconfirmed shortlisted registrations that their window closed and the
   // spot is gone. Flags them expired, and optionally rejects them outright.
   @Post('registrations/acknowledgement-expired')
