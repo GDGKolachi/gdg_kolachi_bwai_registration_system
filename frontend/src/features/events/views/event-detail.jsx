@@ -34,7 +34,7 @@ export default function EventDetail() {
   if (error) {
     return (
       <div className="ui-card border-rose-200/80 bg-rose-50/50 px-5 py-4 text-sm font-medium text-rose-800">
-        Event not found.
+        {error.response?.status === 429 ? 'Lots of people are opening this right now. Please wait a minute and refresh.' : 'Event not found.'}
       </div>
     );
   }

@@ -9,7 +9,11 @@ import { EventsService } from '../events/events.service';
 import { RegistrationsService } from '../registrations/registrations.service';
 import { ExceptionsService } from '../exceptions/exceptions.service';
 import { CreateEventDto } from '../events/dto/create-event.dto';
+import { SkipThrottle } from '@nestjs/throttler';
 
+// Signed-in staff only; not rate limited, since every volunteer phone at the
+// door shares the venue's one public address.
+@SkipThrottle()
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
 // Default for every route here: Super Admin + Organizer. Routes a Volunteer

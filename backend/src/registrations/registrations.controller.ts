@@ -14,13 +14,13 @@ export class RegistrationsController {
   }
 
   @Post()
-  @Throttle({ default: { ttl: 60000, limit: 100 } })
+  @Throttle({ default: { ttl: 60000, limit: 30 } })
   register(@Body() dto: CreateRegistrationDto) {
     return this.registrationsService.register(dto);
   }
 
   @Post('team')
-  @Throttle({ default: { ttl: 60000, limit: 100 } })
+  @Throttle({ default: { ttl: 60000, limit: 30 } })
   registerTeam(@Body() dto: CreateTeamRegistrationDto) {
     return this.registrationsService.registerTeam(dto);
   }

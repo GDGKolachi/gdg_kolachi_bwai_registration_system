@@ -5,9 +5,13 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { CHECKIN_ROLES, ORGANIZER_ROLES } from '../common/enums/admin-role.enum';
 import { TeamsService } from './teams.service';
 import { TeamAssignmentService } from './team-assignment.service';
+import { SkipThrottle } from '@nestjs/throttler';
 
 // Organizer-only by default, like AdminController; the routes the hackathon
 // check-in screen needs opt back in with @Roles(...CHECKIN_ROLES).
+// Signed-in staff only; not rate limited, since every volunteer phone at the
+// door shares the venue's one public address.
+@SkipThrottle()
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(...ORGANIZER_ROLES)

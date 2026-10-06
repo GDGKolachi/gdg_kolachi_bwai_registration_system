@@ -8,7 +8,8 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post('login')
-  @Throttle({ default: { ttl: 60000, limit: 100 } })
+  // Per visitor; volunteers logging in together share the venue Wi-Fi's address.
+  @Throttle({ default: { ttl: 60000, limit: 30 } })
   async login(@Body() dto: LoginDto) {
     return this.authService.login(dto.email, dto.password);
   }
