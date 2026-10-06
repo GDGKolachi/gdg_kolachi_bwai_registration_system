@@ -125,8 +125,10 @@ export default function EventTypesManagement() {
               </div>
               <div className="mb-4">
                 <label className="ui-label-sentence" htmlFor="et-slug">Slug</label>
-                <input id="et-slug" className="ui-input" value={form.slug} onChange={(e) => setForm((f) => ({ ...f, slug: slugify(e.target.value) }))} />
-                <div className="mt-1 text-xs text-slate-400">Used internally and in URLs. Lowercase, hyphens only.</div>
+                <input id="et-slug" className="ui-input disabled:bg-slate-100" disabled={!!editingId} value={form.slug} onChange={(e) => setForm((f) => ({ ...f, slug: slugify(e.target.value) }))} />
+                <div className="mt-1 text-xs text-slate-400">
+                  {editingId ? 'Fixed once created: the app relies on it.' : 'Used internally and in URLs. Lowercase, hyphens only.'}
+                </div>
               </div>
               <div className="mb-4">
                 <label className="ui-label-sentence" htmlFor="et-desc">Description</label>
