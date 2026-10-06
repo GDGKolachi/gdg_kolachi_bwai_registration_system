@@ -18,6 +18,32 @@ function teamLabel(team: { team_number?: number | null; name?: string | null }):
     .join(' · ') || 'your team';
 }
 
+// What team lists carry per member: enough to show and place people, nothing
+// sensitive (no CNIC, phone or answers), since check-in volunteers load them too.
+function memberSummary(m: TeamMember) {
+  const r = m.registration;
+  return {
+    ...m,
+    registration: r && {
+      id: r.id,
+      event_id: r.event_id,
+      status: r.status,
+      domain: r.domain,
+      checked_in: r.checked_in,
+      checked_in_at: r.checked_in_at,
+      acknowledged: r.acknowledged,
+      deleted_at: r.deleted_at,
+      attendee: r.attendee && {
+        id: r.attendee.id,
+        name: r.attendee.name,
+        email: r.attendee.email,
+        university_org: r.attendee.university_org,
+        best_describes_you: r.attendee.best_describes_you,
+      },
+    },
+  };
+}
+
 @Injectable()
 export class TeamsService {
   constructor(
@@ -54,6 +80,7 @@ export class TeamsService {
       }
       return {
         ...team,
+        members: members.map(memberSummary),
         member_count: members.length,
         status_counts: statusCounts,
         below_minimum: members.length < config.min_team_size,

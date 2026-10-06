@@ -29,6 +29,8 @@ export class AdminController {
   }
 
   // Event CRUD
+  // Check-in screens need the event list too; it holds no personal data.
+  @Roles(...CHECKIN_ROLES)
   @Get('events')
   getEvents(@Query('page') page?: string, @Query('limit') limit?: string) {
     if (page || limit) {
