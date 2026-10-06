@@ -124,6 +124,26 @@ describe('check-in', () => {
     const svc = checkinSetup(reg);
     await Promise.all([svc.setCheckin(reg.id, true), svc.setCheckin(reg.id, true)]);
     expect(reg.checked_in).toBe(true);
+  });
+
+  it.each(['shortlisted', 'confirmed'])('checking a %s person in and out at the desk leaves their status as it was', async (status) => {
+    const reg = registration({ status, checked_in: false, acknowledged: status === 'shortlisted' });
+    const svc = checkinSetup(reg);
+    await svc.setCheckin(reg.id, true);
+    expect(reg).toMatchObject({ status, checked_in: true });
+    await svc.setCheckin(reg.id, false);
+    expect(reg).toMatchObject({ status, checked_in: false });
+  });
+
+  it('a QR check-in marks the registration attended', async () => {
+    const reg = registration({ status: 'shortlisted', checked_in: false });
+    await checkinSetup(reg).markAttendedFromScan(reg.id);
+    expect(reg).toMatchObject({ status: 'attended', checked_in: true });
+  });
+
+  it('a QR check-in after a desk check-in still marks the registration attended', async () => {
+    const reg = registration({ status: 'confirmed', checked_in: true, checked_in_at: new Date() });
+    await checkinSetup(reg).markAttendedFromScan(reg.id);
     expect(reg.status).toBe('attended');
   });
 
@@ -161,7 +181,7 @@ describe('check-in', () => {
   it('lets a shortlisted person whose confirmation window expired in (the scanner warns instead)', async () => {
     const reg = registration({ status: 'shortlisted', acknowledgement_expired: true, checked_in: false });
     await checkinSetup(reg).setCheckin(reg.id, true);
-    expect(reg.status).toBe('attended');
+    expect(reg.checked_in).toBe(true);
   });
 
   it.each([

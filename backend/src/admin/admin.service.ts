@@ -701,7 +701,7 @@ export class AdminService {
   }
 
   async markAttendedFromScan(registrationId: string) {
-    return this.setCheckin(registrationId, true);
+    return this.setCheckin(registrationId, true, true);
   }
 
   async getCheckinStats(eventId: string) {
@@ -738,10 +738,11 @@ export class AdminService {
    * Sets check-in to the state the volunteer asked for rather than flipping it,
    * so two devices acting on the same person can't undo each other (no state =
    * toggle, for pages loaded before this changed). Only people with a place can
-   * be checked in. Undoing puts an attended registration back where it was:
-   * confirmed if they confirmed their spot, shortlisted otherwise.
+   * be checked in. Desk check-in leaves the status alone; a QR "attend" also
+   * marks it attended, and undoing that puts it back to confirmed if they
+   * confirmed their spot, shortlisted otherwise.
    */
-  async setCheckin(registrationId: string, checkedIn?: boolean) {
+  async setCheckin(registrationId: string, checkedIn?: boolean, markAttended = false) {
     const reg = await this.registrationRepo.findOne({ where: { id: registrationId } });
     if (!reg) throw new NotFoundException('Registration not found');
     if (reg.deleted_at) throw new BadRequestException('Cannot check in: registration was deleted');
@@ -751,8 +752,8 @@ export class AdminService {
       if (!['shortlisted', 'confirmed', 'attended'].includes(reg.status)) {
         throw new BadRequestException(`Cannot check in: registration is "${reg.status}"`);
       }
-      if (!(reg.checked_in && reg.status === 'attended')) {
-        reg.status = 'attended';
+      if (!reg.checked_in || (markAttended && reg.status !== 'attended')) {
+        if (markAttended) reg.status = 'attended';
         reg.checked_in = true;
         reg.checked_in_at = reg.checked_in_at ?? new Date();
         await this.registrationRepo.save(reg);
