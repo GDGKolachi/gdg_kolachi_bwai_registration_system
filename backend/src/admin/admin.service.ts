@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { Event } from '../entities/event.entity';
@@ -326,23 +326,25 @@ export class AdminService {
 
     if (newStatus === 'shortlisted') {
       registration.acknowledged = false;
-      const qrData = JSON.stringify({
-        registrationId: registration.id,
-        name: registration.attendee.name,
-        email: registration.attendee.email,
-        phone: registration.attendee.phone,
-        cnic: registration.attendee.cnic,
-      });
+      // The ticket carries only the id; the scanner looks everything else up.
+      const qrData = JSON.stringify({ registrationId: registration.id });
       registration.qr_code_data = qrData;
-      await this.registrationRepo.save(registration);
 
-      await this.emailService.sendShortlistedEmail(
+      // Email first: if it doesn't go out, the status stays as it was so the
+      // organizer can simply shortlist again instead of being stuck.
+      const email = await this.emailService.sendShortlistedEmail(
         registration.attendee.email,
         registration.attendee.name,
         registration.event,
         registration.id,
         qrData,
       );
+      if (email.error) {
+        throw new ServiceUnavailableException(
+          `Not shortlisted: the email to ${registration.attendee.email} did not send (${email.error}). Try again.`,
+        );
+      }
+      await this.registrationRepo.save(registration);
     } else if (newStatus === 'attended') {
       registration.checked_in = true;
       registration.checked_in_at = new Date();
@@ -389,15 +391,10 @@ export class AdminService {
         continue;
       }
 
-      let qrData = registration.qr_code_data;
-      if (!qrData && !registration.event.is_online) {
-        qrData = JSON.stringify({
-          registrationId: registration.id,
-          name: registration.attendee.name,
-          email: registration.attendee.email,
-          phone: registration.attendee.phone,
-          cnic: registration.attendee.cnic,
-        });
+      // Rebuilt from the id rather than read from qr_code_data: tickets issued
+      // before this change embedded the attendee's contact details and CNIC.
+      const qrData = registration.event.is_online ? '' : JSON.stringify({ registrationId: registration.id });
+      if (qrData && registration.qr_code_data !== qrData) {
         registration.qr_code_data = qrData;
         await this.registrationRepo.save(registration);
       }
@@ -407,7 +404,7 @@ export class AdminService {
         name: registration.attendee.name,
         event: registration.event,
         registrationId: registration.id,
-        qrData: qrData || '',
+        qrData,
       });
     }
 
@@ -416,6 +413,7 @@ export class AdminService {
     }
 
     const result = await this.emailService.sendReminderBatch(eligible, customMessage);
+    for (const id of result.failedIds) failed.push({ id, error: 'Reminder email did not send' });
     return { sent: result.sent, failed };
   }
 
@@ -602,7 +600,7 @@ export class AdminService {
       throw new BadRequestException('At least one registration ID is required');
     }
 
-    const eligible: Array<{ email: string; name: string; event: { title: string } }> = [];
+    const eligible: Array<{ id: string; email: string; name: string; event: { title: string } }> = [];
     const failed: { id: string; error: string }[] = [];
     const statusUpdated: string[] = [];
 
@@ -628,6 +626,7 @@ export class AdminService {
       }
 
       eligible.push({
+        id,
         email: registration.attendee.email,
         name: registration.attendee.name,
         event: { title: registration.event.title },
@@ -639,6 +638,7 @@ export class AdminService {
     }
 
     const result = await this.emailService.sendRejectionBatch(eligible, customMessage);
+    for (const failedId of result.failedIds) failed.push({ id: failedId, error: 'Rejection email did not send' });
     return { sent: result.sent, statusUpdated: statusUpdated.length, failed };
   }
 

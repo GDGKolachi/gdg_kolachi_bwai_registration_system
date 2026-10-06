@@ -901,11 +901,11 @@ export default function RegistrationsViewer() {
       const result = await bulkUpdateMutation.mutateAsync({ ids: Array.from(selectedIds), status });
       if (result.failed?.length > 0) {
         toast.success(`${result.succeeded.length} updated`);
-        toast.error(`${result.failed.length} could not be updated (invalid transition)`);
+        toast.error(`${result.failed.length} not updated (still selected) — ${result.failed[0].error}`);
       } else {
         toast.success(`${result.succeeded.length} registration(s) → ${status}`);
       }
-      setSelectedIds(new Set());
+      setSelectedIds(new Set((result.failed || []).map((f) => f.id)));
     } catch (err) {
       toast.error(err.response?.data?.message || 'Bulk update failed');
     }
@@ -1020,10 +1020,10 @@ export default function RegistrationsViewer() {
       if (result.statusUpdated > 0) parts.push(`${result.statusUpdated} status(es) updated to rejected`);
       if (parts.length > 0) toast.success(parts.join('. '));
       if (result.failed?.length > 0) {
-        toast.error(`${result.failed.length} failed`);
+        toast.error(`${result.failed.length} failed (still selected) — ${result.failed[0].error}`);
       }
       setRejectionOpen(false);
-      setSelectedIds(new Set());
+      setSelectedIds(new Set((result.failed || []).map((f) => f.id)));
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to send rejection emails');
     }
@@ -1038,12 +1038,12 @@ export default function RegistrationsViewer() {
       });
       if (result.failed?.length > 0) {
         toast.success(`Reminder sent to ${result.sent} recipient(s)`);
-        toast.error(`${result.failed.length} skipped (not shortlisted/confirmed)`);
+        toast.error(`${result.failed.length} not sent (still selected) — ${result.failed[0].error}`);
       } else {
         toast.success(`Reminder sent to ${result.sent} recipient(s)`);
       }
       setReminderOpen(false);
-      setSelectedIds(new Set());
+      setSelectedIds(new Set((result.failed || []).map((f) => f.id)));
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to send reminder');
     }
@@ -1091,7 +1091,7 @@ export default function RegistrationsViewer() {
       const result = await importCsvMutation.mutateAsync({ csv: importCsvText, status: importStatus });
       if (result.failed?.length > 0) {
         toast.success(`${result.succeeded.length} updated to ${importStatus}`);
-        toast.error(`${result.failed.length} failed (invalid transition or not found)`);
+        toast.error(`${result.failed.length} failed — ${result.failed[0].error}`);
       } else {
         toast.success(`${result.succeeded.length} registration(s) updated to ${importStatus}`);
       }
