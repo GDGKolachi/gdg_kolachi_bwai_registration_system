@@ -466,6 +466,10 @@ function DepositSection({ team }) {
                 onClick={() => run(
                   async () => {
                     const res = await confirm.mutateAsync(team.id);
+                    const failed = res?.shortlist_failed || [];
+                    if (failed.length > 0) {
+                      toast.error(`${failed.length} member${failed.length === 1 ? '' : 's'} not shortlisted: ${failed[0].error}. Set the team to shortlisted again to retry.`);
+                    }
                     return res?.shortlisted
                       ? `Deposit confirmed — ${res.shortlisted} member${res.shortlisted === 1 ? '' : 's'} shortlisted`
                       : 'Deposit confirmed';

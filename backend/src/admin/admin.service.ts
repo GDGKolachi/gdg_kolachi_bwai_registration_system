@@ -742,24 +742,29 @@ export class AdminService {
    * confirmed if they confirmed their spot, shortlisted otherwise.
    */
   async setCheckin(registrationId: string, checkedIn?: boolean) {
-    const reg = await this.registrationRepo.findOne({ where: { id: registrationId, deleted_at: IsNull() } });
+    const reg = await this.registrationRepo.findOne({ where: { id: registrationId } });
     if (!reg) throw new NotFoundException('Registration not found');
+    if (reg.deleted_at) throw new BadRequestException('Cannot check in: registration was deleted');
     const want = checkedIn ?? !reg.checked_in;
 
     if (want) {
       if (!['shortlisted', 'confirmed', 'attended'].includes(reg.status)) {
         throw new BadRequestException(`Cannot check in: registration is "${reg.status}"`);
       }
-      if (reg.checked_in && reg.status === 'attended') return reg;
-      reg.status = 'attended';
-      reg.checked_in = true;
-      reg.checked_in_at = reg.checked_in_at ?? new Date();
+      if (!(reg.checked_in && reg.status === 'attended')) {
+        reg.status = 'attended';
+        reg.checked_in = true;
+        reg.checked_in_at = reg.checked_in_at ?? new Date();
+        await this.registrationRepo.save(reg);
+      }
     } else {
       if (reg.status === 'attended') reg.status = statusBeforeAttended(reg);
       reg.checked_in = false;
       reg.checked_in_at = null;
+      await this.registrationRepo.save(reg);
     }
-    return this.registrationRepo.save(reg);
+    // Not the whole row: older tickets' qr_code_data still holds contact details.
+    return { id: reg.id, status: reg.status, checked_in: reg.checked_in, checked_in_at: reg.checked_in_at };
   }
 
   async getUsers(page = 1, limit = 20) {

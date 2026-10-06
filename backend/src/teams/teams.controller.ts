@@ -23,8 +23,8 @@ export class TeamsController {
 
   @Roles(...CHECKIN_ROLES)
   @Get('events/:eventId/teams')
-  list(@Param('eventId') eventId: string) {
-    return this.teamsService.listForEvent(eventId);
+  list(@Param('eventId') eventId: string, @Req() req: any) {
+    return this.teamsService.listForEvent(eventId, req.user?.role);
   }
 
   @Get('events/:eventId/team-formation-config')

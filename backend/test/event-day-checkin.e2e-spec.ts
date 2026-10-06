@@ -317,22 +317,33 @@ describe('check-in lists show only what the door needs', () => {
     },
   );
 
-  test.each(roles)(
-    'the hackathon team list shows $who no CNIC, phone number or motivation',
-    async ({ role }) => {
-      const hackathon = await givenEvent(backend, 'hackathon');
-      const [a, b, c, d, e, f, g] = waitingAtTheDoor(hackathon, 7);
-      await givenTeam(backend, hackathon, [a, b, c, d], {
-        selfRegistered: true,
-        deposit: 'submitted',
-      });
-      await givenTeam(backend, hackathon, [e, f, g]);
-      const admin = await backend.givenAdmin(role);
+  async function teamListSeenBy(role: Role) {
+    const hackathon = await givenEvent(backend, 'hackathon');
+    const [a, b, c, d, e, f, g] = waitingAtTheDoor(hackathon, 7);
+    await givenTeam(backend, hackathon, [a, b, c, d], {
+      selfRegistered: true,
+      deposit: 'submitted',
+    });
+    await givenTeam(backend, hackathon, [e, f, g]);
+    const admin = await backend.givenAdmin(role);
+    return { res: await teamList(admin, hackathon), people: hackathon.people };
+  }
 
-      const res = await teamList(admin, hackathon);
+  test('the hackathon team list shows a volunteer no CNIC, phone number or motivation', async () => {
+    const { res, people } = await teamListSeenBy('volunteer');
+
+    expect(res.status).toBe(200);
+    expect(privateDetailsFoundIn(res.body, people)).toEqual([]);
+  });
+
+  // The organizers' team view filters on phone and CNIC and opens full records from this list.
+  test.each(roles.filter((r) => r.role !== 'volunteer'))(
+    'the hackathon team list still gives $who the full member records',
+    async ({ role }) => {
+      const { res, people } = await teamListSeenBy(role);
 
       expect(res.status).toBe(200);
-      expect(privateDetailsFoundIn(res.body, hackathon.people)).toEqual([]);
+      expect(privateDetailsFoundIn(res.body, people)).not.toEqual([]);
     },
   );
 

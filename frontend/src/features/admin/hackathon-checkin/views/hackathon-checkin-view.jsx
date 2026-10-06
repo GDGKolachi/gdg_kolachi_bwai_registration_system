@@ -116,7 +116,7 @@ export default function HackathonCheckinView() {
         lastResult = { attendee: registration.attendee, team: result.team, isNewTeam: result.isNewTeam, roleBucket: result.roleBucket };
         successCount++;
       } catch (err) {
-        toast.error(`${registration.attendee?.name}: ${err.response?.data?.message || 'Assignment failed'}`);
+        toast.error(`${registration.attendee?.name}: ${apiErrorMessage(err, 'Assignment failed')}`);
       }
     }
     if (successCount > 0) {
@@ -146,7 +146,7 @@ export default function HackathonCheckinView() {
         if (lastAssignment?.attendee?.email === registration.attendee?.email) setLastAssignment(null);
         successCount++;
       } catch (err) {
-        toast.error(`${registration.attendee?.name}: ${err.response?.data?.message || 'Unassign failed'}`);
+        toast.error(`${registration.attendee?.name}: ${apiErrorMessage(err, 'Unassign failed')}`);
       }
     }
     if (successCount > 0) {
@@ -171,7 +171,7 @@ export default function HackathonCheckinView() {
       toast.success('Unassigned');
       refetchTeams();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Unassign failed');
+      toast.error(apiErrorMessage(err, 'Unassign failed'));
     }
   };
 

@@ -103,7 +103,8 @@ test.each(['/registrations', '/registrations/team'])(
 test('one busy client does not use up the request allowance of another client', async () => {
   const busy = backend.fromClientIp(newClientIp());
   let busyStatus = 200;
-  for (let i = 0; i < 150 && busyStatus !== 429; i++)
+  // The public event pages allow 300 a minute per client (a campus shares one address).
+  for (let i = 0; i < 350 && busyStatus !== 429; i++)
     busyStatus = (await busy.get('/events')).status;
 
   const res = await backend.fromClientIp(newClientIp()).get('/events');

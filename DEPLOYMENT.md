@@ -223,7 +223,7 @@ gcloud compute ssh gdg-bwai-vm --zone=us-central1-a --command="bash /tmp/script.
   `/var/www/certbot` mount):
 
   ```bash
-  sudo certbot certonly --webroot -w /var/www/certbot -d register.gdgkolachi.com     --deploy-hook "docker exec gdg_frontend nginx -s reload"
+  sudo certbot certonly --webroot -w /var/www/certbot -d register.gdgkolachi.com --deploy-hook "docker exec gdg_frontend nginx -s reload"
   sudo certbot renew --dry-run
   ```
 

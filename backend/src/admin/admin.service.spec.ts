@@ -150,7 +150,12 @@ describe('check-in', () => {
   });
 
   it('refuses to check in a deleted registration', async () => {
-    await expect(checkinSetup(null).setCheckin('gone', true)).rejects.toThrow('Registration not found');
+    const reg = registration({ status: 'shortlisted', checked_in: false, deleted_at: new Date() });
+    await expect(checkinSetup(reg).setCheckin(reg.id, true)).rejects.toThrow('registration was deleted');
+  });
+
+  it('says a registration that does not exist was not found', async () => {
+    await expect(checkinSetup(null).setCheckin('missing', true)).rejects.toThrow('Registration not found');
   });
 
   it('lets a shortlisted person whose confirmation window expired in (the scanner warns instead)', async () => {
