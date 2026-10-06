@@ -3,7 +3,7 @@ import { AdminService } from './admin.service';
 
 Logger.overrideLogger(false);
 
-function registration(overrides: Record<string, any> = {}) {
+function registration(overrides: Record<string, any> = {}): any {
   return {
     id: 'b6f1c2de-0000-4000-8000-000000000001',
     status: 'pending',
@@ -106,5 +106,65 @@ describe('reminders', () => {
     const { svc, emailService } = setup(reg, { sent: true });
     await svc.sendReminder([reg.id], '');
     expect(emailService.sendReminderBatch.mock.calls[0][0][0].qrData).toBe('');
+  });
+});
+
+describe('check-in', () => {
+  function checkinSetup(reg: any) {
+    const registrationRepo = {
+      findOne: jest.fn(async () => reg),
+      save: jest.fn(async (r: any) => r),
+    };
+    const svc = new AdminService(null as any, registrationRepo as any, null as any, null as any, null as any, null as any);
+    return svc;
+  }
+
+  it('leaves a person checked in when two devices check them in at the same moment', async () => {
+    const reg = registration({ status: 'shortlisted', checked_in: false, checked_in_at: null });
+    const svc = checkinSetup(reg);
+    await Promise.all([svc.setCheckin(reg.id, true), svc.setCheckin(reg.id, true)]);
+    expect(reg.checked_in).toBe(true);
+    expect(reg.status).toBe('attended');
+  });
+
+  it('keeps the first check-in time when the same ticket is checked in again', async () => {
+    const first = new Date('2026-10-10T07:05:00Z');
+    const reg = registration({ status: 'attended', checked_in: true, checked_in_at: first });
+    await checkinSetup(reg).setCheckin(reg.id, true);
+    expect(reg.checked_in_at).toBe(first);
+  });
+
+  it('still flips the state when no state is sent, for check-in pages opened before the update', async () => {
+    const reg = registration({ status: 'confirmed', checked_in: false, acknowledged: true });
+    const svc = checkinSetup(reg);
+    await svc.setCheckin(reg.id);
+    expect(reg.checked_in).toBe(true);
+    await svc.setCheckin(reg.id);
+    expect(reg.checked_in).toBe(false);
+  });
+
+  it.each(['pending', 'rejected'])('refuses to check in a %s registration', async (status) => {
+    const reg = registration({ status, checked_in: false });
+    await expect(checkinSetup(reg).setCheckin(reg.id, true)).rejects.toThrow(`registration is "${status}"`);
+    expect(reg.checked_in).toBe(false);
+  });
+
+  it('refuses to check in a deleted registration', async () => {
+    await expect(checkinSetup(null).setCheckin('gone', true)).rejects.toThrow('Registration not found');
+  });
+
+  it('lets a shortlisted person whose confirmation window expired in (the scanner warns instead)', async () => {
+    const reg = registration({ status: 'shortlisted', acknowledgement_expired: true, checked_in: false });
+    await checkinSetup(reg).setCheckin(reg.id, true);
+    expect(reg.status).toBe('attended');
+  });
+
+  it.each([
+    [true, 'confirmed'],
+    [false, 'shortlisted'],
+  ])('undoing a check-in for someone with acknowledged=%s puts them back to %s', async (acknowledged, expected) => {
+    const reg = registration({ status: 'attended', checked_in: true, checked_in_at: new Date(), acknowledged });
+    await checkinSetup(reg).setCheckin(reg.id, false);
+    expect(reg).toMatchObject({ status: expected, checked_in: false, checked_in_at: null });
   });
 });

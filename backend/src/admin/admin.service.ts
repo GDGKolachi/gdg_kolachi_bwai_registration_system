@@ -10,6 +10,11 @@ import { EmailService } from '../email/email.service';
 import { AdminRole, ADMIN_ROLES } from '../common/enums/admin-role.enum';
 import * as bcrypt from 'bcrypt';
 
+// Where an attended registration goes when its check-in is undone.
+export function statusBeforeAttended(reg: { acknowledged: boolean }): string {
+  return reg.acknowledged ? 'confirmed' : 'shortlisted';
+}
+
 @Injectable()
 export class AdminService {
   constructor(
@@ -673,7 +678,7 @@ export class AdminService {
       relations: ['attendee', 'event', 'event.event_type'],
     });
 
-    if (!registration) throw new NotFoundException('Registration not found');
+    if (!registration || registration.deleted_at) throw new NotFoundException('This ticket is not valid (registration not found or deleted)');
 
     return {
       registrationId: registration.id,
@@ -689,21 +694,14 @@ export class AdminService {
       workshop: registration.event.title,
       status: registration.status,
       checkedIn: registration.checked_in,
+      checkedInAt: registration.checked_in_at,
       acknowledged: registration.acknowledged,
+      acknowledgementExpired: registration.acknowledgement_expired,
     };
   }
 
   async markAttendedFromScan(registrationId: string) {
-    const registration = await this.registrationRepo.findOne({
-      where: { id: registrationId },
-      relations: ['attendee', 'event'],
-    });
-    if (!registration) throw new NotFoundException('Registration not found');
-
-    registration.status = 'attended';
-    registration.checked_in = true;
-    registration.checked_in_at = new Date();
-    return this.registrationRepo.save(registration);
+    return this.setCheckin(registrationId, true);
   }
 
   async getCheckinStats(eventId: string) {
@@ -716,10 +714,16 @@ export class AdminService {
     return { checkedIn: total, unacknowledgedCheckedIn: unacknowledged };
   }
 
+  // Only what the door needs: no CNIC, phone or answers in a list anyone at check-in can load.
   async searchCheckin(eventId: string, query: string) {
     const qb = this.registrationRepo
       .createQueryBuilder('r')
-      .leftJoinAndSelect('r.attendee', 'a')
+      .leftJoin('r.attendee', 'a')
+      .select([
+        'r.id', 'r.event_id', 'r.status', 'r.domain', 'r.checked_in', 'r.checked_in_at',
+        'r.acknowledged', 'r.acknowledgement_expired',
+        'a.id', 'a.name', 'a.email', 'a.university_org', 'a.best_describes_you',
+      ])
       .where('r.event_id = :eventId', { eventId })
       .andWhere('r.deleted_at IS NULL');
 
@@ -730,11 +734,31 @@ export class AdminService {
     return qb.orderBy('a.name', 'ASC').getMany();
   }
 
-  async toggleCheckin(registrationId: string) {
-    const reg = await this.registrationRepo.findOne({ where: { id: registrationId } });
-    if (!reg) throw new Error('Registration not found');
-    reg.checked_in = !reg.checked_in;
-    reg.checked_in_at = reg.checked_in ? new Date() : null;
+  /**
+   * Sets check-in to the state the volunteer asked for rather than flipping it,
+   * so two devices acting on the same person can't undo each other (no state =
+   * toggle, for pages loaded before this changed). Only people with a place can
+   * be checked in. Undoing puts an attended registration back where it was:
+   * confirmed if they confirmed their spot, shortlisted otherwise.
+   */
+  async setCheckin(registrationId: string, checkedIn?: boolean) {
+    const reg = await this.registrationRepo.findOne({ where: { id: registrationId, deleted_at: IsNull() } });
+    if (!reg) throw new NotFoundException('Registration not found');
+    const want = checkedIn ?? !reg.checked_in;
+
+    if (want) {
+      if (!['shortlisted', 'confirmed', 'attended'].includes(reg.status)) {
+        throw new BadRequestException(`Cannot check in: registration is "${reg.status}"`);
+      }
+      if (reg.checked_in && reg.status === 'attended') return reg;
+      reg.status = 'attended';
+      reg.checked_in = true;
+      reg.checked_in_at = reg.checked_in_at ?? new Date();
+    } else {
+      if (reg.status === 'attended') reg.status = statusBeforeAttended(reg);
+      reg.checked_in = false;
+      reg.checked_in_at = null;
+    }
     return this.registrationRepo.save(reg);
   }
 

@@ -281,10 +281,15 @@ export class AdminController {
     return this.adminService.searchCheckin(eventId || legacyEventId, query);
   }
 
+  // Body { checked_in: true|false } sets the state. Without a body it toggles,
+  // for check-in pages that were already open when this changed.
   @Roles(...CHECKIN_ROLES)
   @Patch('checkin/:id/toggle')
-  toggleCheckin(@Param('id') id: string) {
-    return this.adminService.toggleCheckin(id);
+  setCheckin(@Param('id') id: string, @Body('checked_in') checkedIn?: boolean) {
+    if (checkedIn !== undefined && typeof checkedIn !== 'boolean') {
+      throw new BadRequestException('checked_in must be true or false');
+    }
+    return this.adminService.setCheckin(id, checkedIn);
   }
 
   // Soft delete — hides the participant everywhere and frees their seat.
