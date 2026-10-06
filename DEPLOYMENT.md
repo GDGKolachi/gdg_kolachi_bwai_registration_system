@@ -218,5 +218,14 @@ gcloud compute ssh gdg-bwai-vm --zone=us-central1-a --command="bash /tmp/script.
 ## Notes
 
 - **Disk space:** 10 GB is tight. Docker images (~500 MB) + OS + Postgres data leaves limited headroom. Monitor with `df -h` on the VM. Upgrade to 20 GB if needed.
-- **SSL/HTTPS:** To add HTTPS, SSH into the VM and run `certbot --nginx` (requires a domain name pointed at the VM IP).
+- **SSL/HTTPS:** nginx runs inside the frontend container and owns port 80, so certbot uses the webroot that
+  container serves at `/.well-known/acme-challenge/`. Once, on the VM (after a deploy that includes the
+  `/var/www/certbot` mount):
+
+  ```bash
+  sudo certbot certonly --webroot -w /var/www/certbot -d register.gdgkolachi.com     --deploy-hook "docker exec gdg_frontend nginx -s reload"
+  sudo certbot renew --dry-run
+  ```
+
+  certbot saves the webroot and hook, so its timer renews and reloads nginx from then on.
 - **Swagger docs:** Available at `http://YOUR_VM_IP/api/docs` after deployment.
