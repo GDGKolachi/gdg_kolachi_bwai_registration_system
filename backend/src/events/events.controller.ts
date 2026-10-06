@@ -2,7 +2,8 @@ import { Controller, Get, Param } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { EventsService } from './events.service';
 
-@Throttle({ default: { ttl: 60000, limit: 100 } })
+// Per visitor; generous because a whole campus can share one public address.
+@Throttle({ default: { ttl: 60000, limit: 300 } })
 @Controller('events')
 export class EventsController {
   constructor(private eventsService: EventsService) {}

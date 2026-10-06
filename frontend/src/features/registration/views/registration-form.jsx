@@ -18,7 +18,7 @@ export default function RegistrationForm() {
   const params = useParams();
   const eventId = params.eventId || params.workshopId;
   const navigate = useNavigate();
-  const { data: event, isLoading: eventLoading } = useEventById(eventId);
+  const { data: event, isLoading: eventLoading, error: eventError } = useEventById(eventId);
   const registerMutation = useRegister();
 
   const [formData, setFormData] = useState({
@@ -104,7 +104,7 @@ export default function RegistrationForm() {
   if (!event) {
     return (
       <div className="ui-card border-rose-200/80 bg-rose-50/50 px-5 py-4 text-sm font-medium text-rose-800">
-        Event not found.
+        {eventError?.response?.status === 429 ? 'Lots of people are opening this right now. Please wait a minute and refresh.' : 'Event not found.'}
       </div>
     );
   }

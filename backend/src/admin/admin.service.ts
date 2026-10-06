@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { Event } from '../entities/event.entity';
@@ -9,6 +9,11 @@ import { Admin } from '../entities/admin.entity';
 import { EmailService } from '../email/email.service';
 import { AdminRole, ADMIN_ROLES } from '../common/enums/admin-role.enum';
 import * as bcrypt from 'bcrypt';
+
+// Where an attended registration goes when its check-in is undone.
+export function statusBeforeAttended(reg: { acknowledged: boolean }): string {
+  return reg.acknowledged ? 'confirmed' : 'shortlisted';
+}
 
 @Injectable()
 export class AdminService {
@@ -326,23 +331,25 @@ export class AdminService {
 
     if (newStatus === 'shortlisted') {
       registration.acknowledged = false;
-      const qrData = JSON.stringify({
-        registrationId: registration.id,
-        name: registration.attendee.name,
-        email: registration.attendee.email,
-        phone: registration.attendee.phone,
-        cnic: registration.attendee.cnic,
-      });
+      // The ticket carries only the id; the scanner looks everything else up.
+      const qrData = JSON.stringify({ registrationId: registration.id });
       registration.qr_code_data = qrData;
-      await this.registrationRepo.save(registration);
 
-      await this.emailService.sendShortlistedEmail(
+      // Email first: if it doesn't go out, the status stays as it was so the
+      // organizer can simply shortlist again instead of being stuck.
+      const email = await this.emailService.sendShortlistedEmail(
         registration.attendee.email,
         registration.attendee.name,
         registration.event,
         registration.id,
         qrData,
       );
+      if (email.error) {
+        throw new ServiceUnavailableException(
+          `Not shortlisted: the email to ${registration.attendee.email} did not send (${email.error}). Try again.`,
+        );
+      }
+      await this.registrationRepo.save(registration);
     } else if (newStatus === 'attended') {
       registration.checked_in = true;
       registration.checked_in_at = new Date();
@@ -389,15 +396,10 @@ export class AdminService {
         continue;
       }
 
-      let qrData = registration.qr_code_data;
-      if (!qrData && !registration.event.is_online) {
-        qrData = JSON.stringify({
-          registrationId: registration.id,
-          name: registration.attendee.name,
-          email: registration.attendee.email,
-          phone: registration.attendee.phone,
-          cnic: registration.attendee.cnic,
-        });
+      // Rebuilt from the id rather than read from qr_code_data: tickets issued
+      // before this change embedded the attendee's contact details and CNIC.
+      const qrData = registration.event.is_online ? '' : JSON.stringify({ registrationId: registration.id });
+      if (qrData && registration.qr_code_data !== qrData) {
         registration.qr_code_data = qrData;
         await this.registrationRepo.save(registration);
       }
@@ -407,7 +409,7 @@ export class AdminService {
         name: registration.attendee.name,
         event: registration.event,
         registrationId: registration.id,
-        qrData: qrData || '',
+        qrData,
       });
     }
 
@@ -416,6 +418,7 @@ export class AdminService {
     }
 
     const result = await this.emailService.sendReminderBatch(eligible, customMessage);
+    for (const id of result.failedIds) failed.push({ id, error: 'Reminder email did not send' });
     return { sent: result.sent, failed };
   }
 
@@ -602,7 +605,7 @@ export class AdminService {
       throw new BadRequestException('At least one registration ID is required');
     }
 
-    const eligible: Array<{ email: string; name: string; event: { title: string } }> = [];
+    const eligible: Array<{ id: string; email: string; name: string; event: { title: string } }> = [];
     const failed: { id: string; error: string }[] = [];
     const statusUpdated: string[] = [];
 
@@ -628,6 +631,7 @@ export class AdminService {
       }
 
       eligible.push({
+        id,
         email: registration.attendee.email,
         name: registration.attendee.name,
         event: { title: registration.event.title },
@@ -639,6 +643,7 @@ export class AdminService {
     }
 
     const result = await this.emailService.sendRejectionBatch(eligible, customMessage);
+    for (const failedId of result.failedIds) failed.push({ id: failedId, error: 'Rejection email did not send' });
     return { sent: result.sent, statusUpdated: statusUpdated.length, failed };
   }
 
@@ -673,7 +678,7 @@ export class AdminService {
       relations: ['attendee', 'event', 'event.event_type'],
     });
 
-    if (!registration) throw new NotFoundException('Registration not found');
+    if (!registration || registration.deleted_at) throw new NotFoundException('This ticket is not valid (registration not found or deleted)');
 
     return {
       registrationId: registration.id,
@@ -689,21 +694,14 @@ export class AdminService {
       workshop: registration.event.title,
       status: registration.status,
       checkedIn: registration.checked_in,
+      checkedInAt: registration.checked_in_at,
       acknowledged: registration.acknowledged,
+      acknowledgementExpired: registration.acknowledgement_expired,
     };
   }
 
   async markAttendedFromScan(registrationId: string) {
-    const registration = await this.registrationRepo.findOne({
-      where: { id: registrationId },
-      relations: ['attendee', 'event'],
-    });
-    if (!registration) throw new NotFoundException('Registration not found');
-
-    registration.status = 'attended';
-    registration.checked_in = true;
-    registration.checked_in_at = new Date();
-    return this.registrationRepo.save(registration);
+    return this.setCheckin(registrationId, true, true);
   }
 
   async getCheckinStats(eventId: string) {
@@ -716,10 +714,16 @@ export class AdminService {
     return { checkedIn: total, unacknowledgedCheckedIn: unacknowledged };
   }
 
+  // Only what the door needs: no CNIC, phone or answers in a list anyone at check-in can load.
   async searchCheckin(eventId: string, query: string) {
     const qb = this.registrationRepo
       .createQueryBuilder('r')
-      .leftJoinAndSelect('r.attendee', 'a')
+      .leftJoin('r.attendee', 'a')
+      .select([
+        'r.id', 'r.event_id', 'r.status', 'r.domain', 'r.checked_in', 'r.checked_in_at',
+        'r.acknowledged', 'r.acknowledgement_expired',
+        'a.id', 'a.name', 'a.email', 'a.university_org', 'a.best_describes_you',
+      ])
       .where('r.event_id = :eventId', { eventId })
       .andWhere('r.deleted_at IS NULL');
 
@@ -730,12 +734,38 @@ export class AdminService {
     return qb.orderBy('a.name', 'ASC').getMany();
   }
 
-  async toggleCheckin(registrationId: string) {
+  /**
+   * Sets check-in to the state the volunteer asked for rather than flipping it,
+   * so two devices acting on the same person can't undo each other (no state =
+   * toggle, for pages loaded before this changed). Only people with a place can
+   * be checked in. Desk check-in leaves the status alone; a QR "attend" also
+   * marks it attended, and undoing that puts it back to confirmed if they
+   * confirmed their spot, shortlisted otherwise.
+   */
+  async setCheckin(registrationId: string, checkedIn?: boolean, markAttended = false) {
     const reg = await this.registrationRepo.findOne({ where: { id: registrationId } });
-    if (!reg) throw new Error('Registration not found');
-    reg.checked_in = !reg.checked_in;
-    reg.checked_in_at = reg.checked_in ? new Date() : null;
-    return this.registrationRepo.save(reg);
+    if (!reg) throw new NotFoundException('Registration not found');
+    if (reg.deleted_at) throw new BadRequestException('Cannot check in: registration was deleted');
+    const want = checkedIn ?? !reg.checked_in;
+
+    if (want) {
+      if (!['shortlisted', 'confirmed', 'attended'].includes(reg.status)) {
+        throw new BadRequestException(`Cannot check in: registration is "${reg.status}"`);
+      }
+      if (!reg.checked_in || (markAttended && reg.status !== 'attended')) {
+        if (markAttended) reg.status = 'attended';
+        reg.checked_in = true;
+        reg.checked_in_at = reg.checked_in_at ?? new Date();
+        await this.registrationRepo.save(reg);
+      }
+    } else {
+      if (reg.status === 'attended') reg.status = statusBeforeAttended(reg);
+      reg.checked_in = false;
+      reg.checked_in_at = null;
+      await this.registrationRepo.save(reg);
+    }
+    // Not the whole row: older tickets' qr_code_data still holds contact details.
+    return { id: reg.id, status: reg.status, checked_in: reg.checked_in, checked_in_at: reg.checked_in_at };
   }
 
   async getUsers(page = 1, limit = 20) {

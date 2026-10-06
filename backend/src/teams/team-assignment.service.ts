@@ -8,6 +8,7 @@ import { Registration } from '../entities/registration.entity';
 import { Event } from '../entities/event.entity';
 import { RoleCategory } from '../entities/role-category.entity';
 import { TEAM_ORIGIN } from '../common/constants/hackathon.constants';
+import { statusBeforeAttended } from '../admin/admin.service';
 
 export interface AssignmentResult {
   team: Team;
@@ -382,6 +383,7 @@ export class TeamAssignmentService {
     if (registration) {
       registration.checked_in = false;
       registration.checked_in_at = null;
+      if (registration.status === 'attended') registration.status = statusBeforeAttended(registration);
       await this.regRepo.save(registration);
     }
     return sealed ? { unassigned: false, reason: 'self_registered_team' } : { unassigned: true };

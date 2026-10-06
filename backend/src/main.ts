@@ -14,6 +14,12 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api');
 
+  // nginx is the one proxy in front and appends the client's address to
+  // X-Forwarded-For; trusting exactly that hop makes req.ip the visitor, so rate
+  // limits are per visitor instead of one bucket for everyone. Revisit if
+  // another proxy (e.g. Cloudflare) is ever put in front of nginx.
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
+
   // CORS Policy
   app.enableCors({
     origin: process.env.FRONTEND_URL || 'http://localhost:5173',

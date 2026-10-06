@@ -4,8 +4,9 @@ import toast from 'react-hot-toast';
 import api from '../../../../axios-instance';
 import { useAdminEvents } from '../../event-management/admin-event-repository';
 import { checkinApi } from '../../checkin/checkin-api';
-import { useToggleCheckin } from '../../checkin/checkin-repository';
+import { useSetCheckin } from '../../checkin/checkin-repository';
 import { useHackathonCheckin, useHackathonUnassign, useTeams } from '../../teams/teams-repository';
+import { apiErrorMessage } from '../../../../shared/utils/apiError';
 
 const PAGE_SIZE = 10;
 const ELIGIBLE_STATUSES = new Set(['shortlisted', 'confirmed', 'attended']);
@@ -37,7 +38,7 @@ export default function HackathonCheckinView() {
   const [bulkPending, setBulkPending] = useState(false);
   const html5QrRef = useRef(null);
 
-  const toggleMutation = useToggleCheckin();
+  const checkinMutation = useSetCheckin();
   const hackathonCheckin = useHackathonCheckin(selectedEvent);
   const hackathonUnassign = useHackathonUnassign(selectedEvent);
   const { data: teams, refetch: refetchTeams } = useTeams(selectedEvent);
@@ -76,8 +77,7 @@ export default function HackathonCheckinView() {
   // ── Single check-in ──────────────────────────────────────────────────────
   const handleHackathonCheckin = async (registration) => {
     try {
-      const isCheckedIn = registration.checked_in ?? registration.checkedIn;
-      if (!isCheckedIn) await toggleMutation.mutateAsync(registration.id);
+      await checkinMutation.mutateAsync({ id: registration.id, checkedIn: true });
       const result = await hackathonCheckin.mutateAsync(registration.id);
       setAllAttendees((prev) =>
         prev.map((r) =>
@@ -88,7 +88,7 @@ export default function HackathonCheckinView() {
       toast.success(`Assigned to Team ${result.team?.team_number ?? '—'}`);
       refetchTeams();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Assignment failed');
+      toast.error(apiErrorMessage(err, 'Assignment failed'));
     }
   };
 
@@ -106,8 +106,7 @@ export default function HackathonCheckinView() {
     let lastResult = null;
     for (const registration of toProcess) {
       try {
-        const isCheckedIn = registration.checked_in ?? registration.checkedIn;
-        if (!isCheckedIn) await toggleMutation.mutateAsync(registration.id);
+        await checkinMutation.mutateAsync({ id: registration.id, checkedIn: true });
         const result = await hackathonCheckin.mutateAsync(registration.id);
         setAllAttendees((prev) =>
           prev.map((r) =>
@@ -117,7 +116,7 @@ export default function HackathonCheckinView() {
         lastResult = { attendee: registration.attendee, team: result.team, isNewTeam: result.isNewTeam, roleBucket: result.roleBucket };
         successCount++;
       } catch (err) {
-        toast.error(`${registration.attendee?.name}: ${err.response?.data?.message || 'Assignment failed'}`);
+        toast.error(`${registration.attendee?.name}: ${apiErrorMessage(err, 'Assignment failed')}`);
       }
     }
     if (successCount > 0) {
@@ -147,7 +146,7 @@ export default function HackathonCheckinView() {
         if (lastAssignment?.attendee?.email === registration.attendee?.email) setLastAssignment(null);
         successCount++;
       } catch (err) {
-        toast.error(`${registration.attendee?.name}: ${err.response?.data?.message || 'Unassign failed'}`);
+        toast.error(`${registration.attendee?.name}: ${apiErrorMessage(err, 'Unassign failed')}`);
       }
     }
     if (successCount > 0) {
@@ -172,7 +171,7 @@ export default function HackathonCheckinView() {
       toast.success('Unassigned');
       refetchTeams();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Unassign failed');
+      toast.error(apiErrorMessage(err, 'Unassign failed'));
     }
   };
 
@@ -194,7 +193,7 @@ export default function HackathonCheckinView() {
       if (!ELIGIBLE_STATUSES.has(registration.status)) { toast.error(`Cannot check in — registration is "${registration.status}".`); return; }
       await handleHackathonCheckin(registration);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Invalid QR code');
+      toast.error(apiErrorMessage(err, 'Could not read this ticket'));
     } finally {
       setScanLookup(false);
     }

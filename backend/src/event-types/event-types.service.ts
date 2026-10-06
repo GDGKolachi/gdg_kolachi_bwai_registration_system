@@ -38,8 +38,10 @@ export class EventTypesService {
 
   async update(id: string, data: Partial<EventType>) {
     const found = await this.findOne(id);
-    if (data.slug && !SLUG_RE.test(data.slug)) {
-      throw new BadRequestException('slug must be lowercase alphanumeric with hyphens');
+    // The code branches on slugs ('hackathon', 'workshop', ...) and the seed finds
+    // built-in types by slug, so a renamed slug breaks forms and the next restart.
+    if (data.slug !== undefined && data.slug !== found.slug) {
+      throw new BadRequestException('The slug of an existing event type cannot be changed');
     }
     Object.assign(found, data);
     return this.repo.save(found);

@@ -2,6 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Resend } from 'resend';
 import * as QRCode from 'qrcode';
 
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+export type SendResult = { sent: boolean; error?: string };
+
 @Injectable()
 export class EmailService {
   private resend: Resend;
@@ -18,6 +23,18 @@ export class EmailService {
     this.logger.log('Resend email service initialized');
   }
 
+  private retryDelayMs = 1000;
+
+  // Resend answers 429 when sends arrive faster than the account's per-second
+  // limit; a bulk run waits and retries instead of dropping people.
+  private async sendWithRetry(msg: Parameters<Resend['emails']['send']>[0]) {
+    for (let attempt = 1; ; attempt++) {
+      const res = await this.resend.emails.send(msg);
+      if (res.error?.name !== 'rate_limit_exceeded' || attempt === 3) return res;
+      await new Promise((r) => setTimeout(r, this.retryDelayMs * attempt));
+    }
+  }
+
   private async generateQRCode(data: string): Promise<string> {
     return QRCode.toDataURL(data, { width: 200 });
   }
@@ -26,28 +43,49 @@ export class EmailService {
     return `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
         <div style="background: ${bgColor}; color: white; padding: 24px; text-align: center;">
-          <h1 style="margin: 0; font-size: 22px;">GDG Kolachi - Build with AI</h1>
+          <h1 style="margin: 0; font-size: 22px;">GDG Kolachi</h1>
           <p style="margin: 8px 0 0; font-size: 16px; opacity: 0.9;">${headerText}</p>
         </div>
         <div style="padding: 30px; background: #f9f9f9;">
           ${bodyHtml}
         </div>
         <div style="padding: 16px; background: #202124; color: #9AA0A6; text-align: center; font-size: 12px;">
-          <p style="margin: 0;">GDG Kolachi - Build with AI Workshop Series</p>
-          <p style="margin: 4px 0 0;">This is an automated message. Please do not reply.</p>
+          <p style="margin: 0;">GDG Kolachi</p>
+          <p style="margin: 4px 0 0;">Questions? Reply to this email.</p>
         </div>
       </div>
     `;
   }
 
-  private getDayName(dateStr: string): string {
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const date = new Date(dateStr);
-    return days[date.getUTCDay()];
+  // "Saturday, 10 October 2026", reading the Date in UTC.
+  private longDate(d: Date): string {
+    return `${DAYS[d.getUTCDay()]}, ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+  }
+
+  private clock(hours: number, minutes: number): string {
+    return `${hours % 12 || 12}:${String(minutes).padStart(2, '0')} ${hours < 12 ? 'AM' : 'PM'}`;
+  }
+
+  // Event dates are stored as "YYYY-MM-DD"; anything else is shown as typed.
+  formatEventDate(date: string): string {
+    return /^\d{4}-\d{2}-\d{2}$/.test(date ?? '')
+      ? this.longDate(new Date(`${date}T00:00:00Z`))
+      : this.escapeHtml(date);
+  }
+
+  // Event times are stored as "HH:MM" (24-hour); anything else is shown as typed.
+  formatEventTime(time: string): string {
+    const m = /^(\d{1,2}):(\d{2})/.exec(time ?? '');
+    return m && Number(m[1]) < 24 ? this.clock(Number(m[1]), Number(m[2])) : this.escapeHtml(time);
+  }
+
+  // ponytail: Pakistan has been a fixed UTC+5 with no DST since 2009; use Intl's Asia/Karachi if that ever changes.
+  formatPkt(d: Date): string {
+    const karachi = new Date(d.getTime() + 5 * 60 * 60 * 1000);
+    return `${this.longDate(karachi)}, ${this.clock(karachi.getUTCHours(), karachi.getUTCMinutes())} PKT`;
   }
 
   private eventDetailsBlock(event: { title: string; date: string; time: string; venue: string; is_online?: boolean }): string {
-    const dayName = this.getDayName(event.date);
     const isOnline = !!event.is_online;
     const venueLabel = isOnline ? '💻 Venue' : '📍 Venue';
     const venueHtml = isOnline
@@ -56,10 +94,9 @@ export class EmailService {
 
     return `
       <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4285F4;">
-        <h3 style="margin: 0 0 12px; color: #202124;">${event.title}</h3>
-        <p style="margin: 4px 0;"><strong>📅 Day:</strong> ${dayName}, AM</p>
-        <p style="margin: 4px 0;"><strong>📅 Date:</strong> ${event.date}</p>
-        <p style="margin: 4px 0;"><strong>🕐 Time:</strong> ${event.time}</p>
+        <h3 style="margin: 0 0 12px; color: #202124;">${this.escapeHtml(event.title)}</h3>
+        <p style="margin: 4px 0;"><strong>📅 Date:</strong> ${this.formatEventDate(event.date)}</p>
+        <p style="margin: 4px 0;"><strong>🕐 Time:</strong> ${this.formatEventTime(event.time)}</p>
         <p style="margin: 4px 0;"><strong>${venueLabel}:</strong> ${venueHtml}</p>
       </div>
     `;
@@ -74,15 +111,15 @@ export class EmailService {
     return venue;
   }
 
-  // Sent when admin shortlists — QR ticket + acknowledge spot button
-  // Accepts a batch of recipients and sends all in one batch.send() call (max 100 per batch)
+  // Sent when admin shortlists — QR ticket + acknowledge spot button.
+  // `error` is set only when Resend refused the email; an unconfigured client (local dev) is not an error.
   async sendShortlistedEmail(
     email: string,
     name: string,
     event: { title: string; date: string; time: string; venue: string; special_instructions?: string; is_online?: boolean },
     registrationId: string,
     qrData: string,
-  ) {
+  ): Promise<SendResult> {
     const appUrl = (process.env.APP_URL || 'http://localhost:3000').replace(/\/api\/?$/, '').replace(/\/$/, '');
     const acknowledgeUrl = `${appUrl}/api/registrations/${registrationId}/acknowledge`;
 
@@ -123,8 +160,8 @@ export class EmailService {
     `;
 
     const html = this.emailWrapper('#34A853', "You've Been Shortlisted!", `
-      <h2 style="color: #202124;">Congratulations ${name}! 🎉</h2>
-      <p>You have been <span style="background: #D4EDDA; color: #155724; padding: 2px 8px; border-radius: 4px; font-weight: bold;">Shortlisted</span> for <strong>${event.title}</strong>!</p>
+      <h2 style="color: #202124;">Congratulations ${this.escapeHtml(name)}! 🎉</h2>
+      <p>You have been <span style="background: #D4EDDA; color: #155724; padding: 2px 8px; border-radius: 4px; font-weight: bold;">Shortlisted</span> for <strong>${this.escapeHtml(event.title)}</strong>!</p>
       ${this.eventDetailsBlock(event)}
       ${ticketBlock}
       <div style="text-align: center; margin: 24px 0;">
@@ -142,7 +179,7 @@ export class EmailService {
       ${importantBlock}
     `);
 
-    if (!this.resend) { this.logger.warn('Resend not configured, skipping email'); return; }
+    if (!this.resend) { this.logger.warn('Resend not configured, skipping email'); return { sent: false }; }
 
     const attachments = isOnline ? [] : [
       {
@@ -153,19 +190,24 @@ export class EmailService {
       },
     ];
 
-    const { data, error } = await this.resend.emails.send({
-      from: this.from,
-      to: [email],
-      subject: `🎉 You're Shortlisted! - GDG Kolachi's ${event.title}`,
-      html,
-      attachments,
-    });
-
-    if (error) {
-      this.logger.error(`Failed to send shortlisted email to ${email}`, error);
-      return;
+    try {
+      const { data, error } = await this.sendWithRetry({
+        from: this.from,
+        to: [email],
+        subject: `🎉 You're Shortlisted! - GDG Kolachi's ${event.title}`,
+        html,
+        attachments,
+      });
+      if (error) {
+        this.logger.error(`Failed to send shortlisted email to ${email}`, error);
+        return { sent: false, error: error.message || 'Email provider rejected the message' };
+      }
+      this.logger.log(`Shortlisted email sent to ${email}, id: ${data.id}`);
+      return { sent: true };
+    } catch (err) {
+      this.logger.error(`Shortlisted email exception for ${email}`, err);
+      return { sent: false, error: err instanceof Error ? err.message : 'Email could not be sent' };
     }
-    this.logger.log(`Shortlisted email sent to ${email}, id: ${data.id}`);
   }
 
   // Reminder email — re-sends entry pass (QR) + event instructions + an admin-written note
@@ -182,13 +224,14 @@ export class EmailService {
   ) {
     if (!this.resend) {
       this.logger.warn('Resend not configured, skipping reminder batch');
-      return { sent: 0 };
+      return { sent: 0, failedIds: [] as string[] };
     }
 
     const appUrl = (process.env.APP_URL || 'http://localhost:3000').replace(/\/api\/?$/, '').replace(/\/$/, '');
     const safeMessage = (customMessage || '').trim();
     const batchSize = 100;
     let sentCount = 0;
+    const failedIds: string[] = [];
 
     for (let i = 0; i < recipients.length; i += batchSize) {
       const chunk = recipients.slice(i, i + batchSize);
@@ -237,8 +280,8 @@ export class EmailService {
           ` : '';
 
           const html = this.emailWrapper('#F4B400', 'Reminder: Your spot is confirmed', `
-            <h2 style="color: #202124; margin: 0 0 10px;">Hi ${r.name} 👋</h2>
-            <p style="margin: 0;">This is a friendly reminder that you're shortlisted for <strong>${r.event.title}</strong>. We're sharing your entry pass and important info one more time so it's easy to find.</p>
+            <h2 style="color: #202124; margin: 0 0 10px;">Hi ${this.escapeHtml(r.name)} 👋</h2>
+            <p style="margin: 0;">This is a friendly reminder that you're shortlisted for <strong>${this.escapeHtml(r.event.title)}</strong>. We're sharing your entry pass and important info one more time so it's easy to find.</p>
             ${this.eventDetailsBlock(r.event)}
             ${customBlock}
             ${instructionsBlock}
@@ -257,31 +300,36 @@ export class EmailService {
           ];
 
           return {
-            from: this.from,
-            to: [r.email],
-            subject: `🔔 Reminder: ${r.event.title} — your entry pass`,
-            html,
-            attachments,
+            registrationId: r.registrationId,
+            msg: {
+              from: this.from,
+              to: [r.email],
+              subject: `🔔 Reminder: ${r.event.title} — your entry pass`,
+              html,
+              attachments,
+            },
           };
         }),
       );
 
-      for (const msg of messages) {
+      for (const { registrationId, msg } of messages) {
         try {
-          const { data, error } = await this.resend.emails.send(msg);
+          const { data, error } = await this.sendWithRetry(msg);
           if (error) {
             this.logger.error(`Reminder email failed for ${msg.to[0]}`, error);
+            failedIds.push(registrationId);
           } else {
             sentCount++;
             this.logger.log(`Reminder email sent to ${msg.to[0]}, id: ${data.id}`);
           }
         } catch (err) {
           this.logger.error(`Reminder email exception for ${msg.to[0]}`, err);
+          failedIds.push(registrationId);
         }
       }
     }
 
-    return { sent: sentCount };
+    return { sent: sentCount, failedIds };
   }
 
   /**
@@ -335,7 +383,7 @@ export class EmailService {
       `);
 
       try {
-        const { data, error } = await this.resend.emails.send({
+        const { data, error } = await this.sendWithRetry({
           from: this.from,
           to: [r.email],
           subject: `Join the ${r.event.title} WhatsApp group`,
@@ -357,44 +405,13 @@ export class EmailService {
     return { sent: sentCount, failedEmails };
   }
 
-  private escapeHtml(s: string): string {
-    return s
+  private escapeHtml(s: string | null | undefined): string {
+    return String(s ?? '')
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
-  }
-
-  async sendRejectionEmail(
-    email: string,
-    name: string,
-    event: { title: string },
-  ) {
-    const html = this.emailWrapper('#EA4335', 'Application Update', `
-      <h2 style="color: #202124;">Hi ${name},</h2>
-      <p>Thank you for your interest in <strong>${event.title}</strong>.</p>
-      <p>After careful review, we regret to inform you that your application was <span style="background: #FECDD3; color: #9B1C1C; padding: 2px 8px; border-radius: 4px; font-weight: bold;">not selected</span> this time.</p>
-      <div style="background: white; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #EA4335;">
-        <p style="margin: 0; color: #5F6368;">We received a large number of applications and had limited spots available. This does not reflect on your abilities — we encourage you to apply for future GDG Kolachi events!</p>
-      </div>
-      <p style="color: #5F6368;">Stay connected with us for upcoming opportunities. We'd love to see you at a future event! 🚀</p>
-    `);
-
-    if (!this.resend) { this.logger.warn('Resend not configured, skipping rejection email'); return; }
-
-    const { data, error } = await this.resend.emails.send({
-      from: this.from,
-      to: [email],
-      subject: `Application Update — ${event.title}`,
-      html,
-    });
-
-    if (error) {
-      this.logger.error(`Failed to send rejection email to ${email}`, error);
-      return;
-    }
-    this.logger.log(`Rejection email sent to ${email}, id: ${data.id}`);
   }
 
   /**
@@ -404,10 +421,10 @@ export class EmailService {
    * exists is always stated even when nobody writes anything.
    */
   async sendRejectionBatch(
-    recipients: Array<{ email: string; name: string; event: { title: string } }>,
+    recipients: Array<{ id: string; email: string; name: string; event: { title: string } }>,
     customMessage = '',
   ) {
-    if (!this.resend) { this.logger.warn('Resend not configured, skipping rejection batch'); return { sent: 0 }; }
+    if (!this.resend) { this.logger.warn('Resend not configured, skipping rejection batch'); return { sent: 0, failedIds: [] as string[] }; }
 
     const safeMessage = (customMessage || '').trim();
     const customBlock = safeMessage ? `
@@ -419,14 +436,15 @@ export class EmailService {
 
     const batchSize = 100;
     let sentCount = 0;
+    const failedIds: string[] = [];
 
     for (let i = 0; i < recipients.length; i += batchSize) {
       const chunk = recipients.slice(i, i + batchSize);
 
       const messages = chunk.map((r) => {
         const html = this.emailWrapper('#EA4335', 'Application Update', `
-          <h2 style="color: #202124;">Hi ${r.name},</h2>
-          <p>Thank you for your interest in <strong>${r.event.title}</strong>.</p>
+          <h2 style="color: #202124;">Hi ${this.escapeHtml(r.name)},</h2>
+          <p>Thank you for your interest in <strong>${this.escapeHtml(r.event.title)}</strong>.</p>
           <p>After careful review, we regret to inform you that your application was <span style="background: #FECDD3; color: #9B1C1C; padding: 2px 8px; border-radius: 4px; font-weight: bold;">not selected</span> this time.</p>
           <div style="background: white; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #EA4335;">
             <p style="margin: 0; color: #5F6368;">We received a large number of applications and had limited spots available. This does not reflect on your abilities — we encourage you to apply for future GDG Kolachi events!</p>
@@ -443,113 +461,22 @@ export class EmailService {
         };
       });
 
-      const { data, error } = await this.resend.batch.send(messages);
-      if (error) {
-        this.logger.error(`Rejection batch send failed for chunk ${i}–${i + chunk.length}`, error);
-      } else {
-        sentCount += chunk.length;
-        this.logger.log(`Rejection batch sent ${chunk.length} emails, ids: ${data.data.map(d => d.id).join(', ')}`);
-      }
-    }
-
-    return { sent: sentCount };
-  }
-
-  // Batch send — used when bulk shortlisting up to 100 registrations at once
-  async sendShortlistedBatch(
-    recipients: Array<{
-      email: string;
-      name: string;
-      event: { title: string; date: string; time: string; venue: string; special_instructions?: string; is_online?: boolean };
-      registrationId: string;
-      qrData: string;
-    }>,
-  ) {
-    const batchSize = 100;
-    for (let i = 0; i < recipients.length; i += batchSize) {
-      const chunk = recipients.slice(i, i + batchSize);
-
-      const appUrl = (process.env.APP_URL || 'http://localhost:3000').replace(/\/api\/?$/, '').replace(/\/$/, '');
-      const messages = await Promise.all(
-        chunk.map(async (r) => {
-          const acknowledgeUrl = `${appUrl}/api/registrations/${r.registrationId}/acknowledge`;
-          const isOnline = !!r.event.is_online;
-
-          let qrBase64 = '';
-          if (!isOnline) {
-            const qrDataUrl = await this.generateQRCode(r.qrData);
-            qrBase64 = qrDataUrl.replace('data:image/png;base64,', '');
-          }
-
-          const ticketBlock = isOnline ? '' : `
-            <div style="text-align: center; margin: 20px 0; border: 2px dashed #34A853; padding: 20px; border-radius: 8px;">
-              <h3 style="margin: 0 0 8px;">🎫 Your Event Ticket</h3>
-              <img src="cid:qrcode" alt="QR Code" style="width: 200px; height: 200px;" />
-              <p style="font-size: 12px; color: #9AA0A6;">Registration ID: ${r.registrationId}</p>
-            </div>
-          `;
-
-          const importantBlock = isOnline ? `
-            <div style="background: #E8F5E9; padding: 16px; border-radius: 8px; margin: 20px 0;">
-              <p style="margin: 0; color: #2E7D32;"><strong>💻 This is an online event</strong></p>
-              <ul style="margin: 8px 0 0; color: #2E7D32; padding-left: 20px;">
-                <li>Join using the link in the event details above</li>
-                <li>Be ready a few minutes before the scheduled time</li>
-              </ul>
-            </div>
-          ` : '';
-
-          const html = this.emailWrapper('#34A853', "You've Been Shortlisted!", `
-            <h2 style="color: #202124;">Congratulations ${r.name}! 🎉</h2>
-            <p>You have been <span style="background: #D4EDDA; color: #155724; padding: 2px 8px; border-radius: 4px; font-weight: bold;">Shortlisted</span> for <strong>${r.event.title}</strong>!</p>
-            ${this.eventDetailsBlock(r.event)}
-            ${ticketBlock}
-            <div style="text-align: center; margin: 20px 0;">
-              <p style="color: #5F6368; margin: 0 0 10px;">Please confirm that you will attend:</p>
-              <a href="${acknowledgeUrl}" style="background: #34A853; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">✓ Confirm my spot</a>
-            </div>
-            ${r.event.special_instructions ? `
-            <div style="background: #E8F0FE; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4285F4;">
-              <p style="margin: 0; color: #1A73E8;"><strong>📋 Special Instructions:</strong></p>
-              <div style="margin: 8px 0 0; color: #202124; white-space: pre-line;">${r.event.special_instructions}</div>
-            </div>
-            ` : ''}
-            ${importantBlock}
-          `);
-
-          const attachments = isOnline ? [] : [
-            {
-              filename: 'ticket-qrcode.png',
-              content: Buffer.from(qrBase64, 'base64'),
-              contentType: 'image/png',
-              contentId: 'qrcode',
-            },
-          ];
-
-          return {
-            from: this.from,
-            to: [r.email],
-            subject: `🎉 You're Shortlisted! - GDG Kolachi's ${r.event.title}`,
-            html,
-            attachments,
-          };
-        }),
-      );
-
-      if (!this.resend) { this.logger.warn('Resend not configured, skipping batch'); return; }
-      for (const msg of messages) {
-        try {
-          const { data, error } = await this.resend.emails.send(msg);
-          if (error) {
-            this.logger.error(`Shortlisted email failed for ${msg.to[0]}`, error);
-          } else {
-            this.logger.log(`Shortlisted email sent to ${msg.to[0]}, id: ${data.id}`);
-          }
-        } catch (err) {
-          this.logger.error(`Shortlisted email exception for ${msg.to[0]}`, err);
+      try {
+        const { data, error } = await this.resend.batch.send(messages);
+        if (error) {
+          this.logger.error(`Rejection batch send failed for chunk ${i}–${i + chunk.length}`, error);
+          failedIds.push(...chunk.map(r => r.id));
+        } else {
+          sentCount += chunk.length;
+          this.logger.log(`Rejection batch sent ${chunk.length} emails, ids: ${data.data.map(d => d.id).join(', ')}`);
         }
+      } catch (err) {
+        this.logger.error(`Rejection batch exception for chunk ${i}–${i + chunk.length}`, err);
+        failedIds.push(...chunk.map(r => r.id));
       }
     }
+
+    return { sent: sentCount, failedIds };
   }
 
   /**
@@ -580,7 +507,7 @@ export class EmailService {
       eventTitle, deadline, submitUrl, deposit,
     } = params;
 
-    const deadlineText = deadline.toUTCString().replace('GMT', 'UTC');
+    const deadlineText = this.formatPkt(deadline);
 
     const html = this.emailWrapper('#F9AB00', 'Confirm Your Team\u2019s Spot', `
       <h2 style="color: #202124;">Hi ${this.escapeHtml(captainName)},</h2>
@@ -647,8 +574,8 @@ export class EmailService {
       <div style="background: #E6F4EA; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #34A853;">
         <p style="margin: 0; color: #1E8E3E;"><strong>What happens next</strong></p>
         <ol style="margin: 8px 0 0; color: #202124; padding-left: 20px;">
-          <li>Send ${deposit.display} to the number above.</li>
-          <li>Submit the transaction ID using the button below.</li>
+          <li>Send ${deposit.display} to the account above.</li>
+          <li>Submit the transaction ID using the button above.</li>
           <li>We verify it against our records \u2014 and once verified, your team is
               <strong>shortlisted</strong> and everyone receives their entry pass by email.</li>
         </ol>
@@ -667,7 +594,7 @@ export class EmailService {
     // captain stays the addressee who is expected to act.
     const cc = memberEmails.filter(e => e && e.toLowerCase() !== captainEmail.toLowerCase());
 
-    const { data, error } = await this.resend.emails.send({
+    const { data, error } = await this.sendWithRetry({
       from: this.from,
       to: [captainEmail],
       cc: cc.length > 0 ? cc : undefined,
@@ -741,7 +668,7 @@ export class EmailService {
       </div>
     ` : '';
 
-    const html = this.emailWrapper('#4285F4', `A message about ${teamLabel}`, `
+    const html = this.emailWrapper('#4285F4', `A message about ${this.escapeHtml(teamLabel)}`, `
       <h2 style="color: #202124; margin: 0 0 10px;">Hi ${this.escapeHtml(captainName)} and team 👋</h2>
       <p style="margin: 0;">This is about your team <strong>${this.escapeHtml(teamLabel)}</strong> at
       <strong>${this.escapeHtml(eventTitle)}</strong>.</p>
@@ -756,7 +683,7 @@ export class EmailService {
 
     const cc = memberEmails.filter(e => e && e.toLowerCase() !== captainEmail.toLowerCase());
 
-    const { data, error } = await this.resend.emails.send({
+    const { data, error } = await this.sendWithRetry({
       from: this.from,
       to: [captainEmail],
       cc: cc.length > 0 ? cc : undefined,
@@ -801,7 +728,7 @@ export class EmailService {
 
     for (const r of recipients) {
       const deadlineText = r.deadline
-        ? (r.deadline instanceof Date ? r.deadline : new Date(r.deadline)).toUTCString().replace('GMT', 'UTC')
+        ? this.formatPkt(r.deadline instanceof Date ? r.deadline : new Date(r.deadline))
         : null;
 
       const customBlock = safeMessage ? `
@@ -825,13 +752,12 @@ export class EmailService {
         </div>
         ${customBlock}
         <p style="color: #5F6368;">Seats are limited and we hold them only for people we can confirm, which is why the
-        window is firm. If you believe this is a mistake, reply to the team that shortlisted you as soon as possible.</p>
-        <p style="color: #5F6368;">We would genuinely like to see you at a future GDG Kolachi event — you stay on our
-        list and will hear about the next one. 🚀</p>
+        window is firm. If you believe this is a mistake, reply to this email as soon as possible.</p>
+        <p style="color: #5F6368;">We would genuinely like to see you at a future GDG Kolachi event. 🚀</p>
       `);
 
       try {
-        const { data, error } = await this.resend.emails.send({
+        const { data, error } = await this.sendWithRetry({
           from: this.from,
           to: [r.email],
           subject: `Your spot for ${r.event.title} has been released`,

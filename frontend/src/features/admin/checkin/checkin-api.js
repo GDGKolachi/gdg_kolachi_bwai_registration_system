@@ -7,6 +7,6 @@ export const checkinApi = {
       .then((res) => res.data),
   getAll: (eventId) =>
     api.get(`/admin/checkin/search?event_id=${eventId}&q=`).then((res) => res.data),
-  toggleCheckin: (registrationId) =>
-    api.patch(`/admin/checkin/${registrationId}/toggle`).then((res) => res.data),
+  setCheckin: ({ id, checkedIn }) =>
+    api.patch(`/admin/checkin/${id}/toggle`, { checked_in: checkedIn }).then((res) => res.data),
 };

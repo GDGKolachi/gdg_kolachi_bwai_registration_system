@@ -10,12 +10,40 @@ import { TeamAssignmentService } from './team-assignment.service';
 import { AdminService } from '../admin/admin.service';
 import { EmailService } from '../email/email.service';
 import { TEAM_DEPOSIT, paymentState, canSubmitPayment, hoursRemaining } from './team-payment';
+import { AdminRole } from '../common/enums/admin-role.enum';
 
 /** "#195 · GYB Coders", or "#195" when the team was never named. */
 function teamLabel(team: { team_number?: number | null; name?: string | null }): string {
   return [team.team_number != null ? `#${team.team_number}` : null, team.name]
     .filter(Boolean)
     .join(' · ') || 'your team';
+}
+
+// What a volunteer's team list carries per member: enough to show and place
+// people at check-in, nothing sensitive (no CNIC, phone or answers). Organizers
+// keep full rows; their team view filters and opens records on those fields.
+function memberSummary(m: TeamMember) {
+  const r = m.registration;
+  return {
+    ...m,
+    registration: r && {
+      id: r.id,
+      event_id: r.event_id,
+      status: r.status,
+      domain: r.domain,
+      checked_in: r.checked_in,
+      checked_in_at: r.checked_in_at,
+      acknowledged: r.acknowledged,
+      deleted_at: r.deleted_at,
+      attendee: r.attendee && {
+        id: r.attendee.id,
+        name: r.attendee.name,
+        email: r.attendee.email,
+        university_org: r.attendee.university_org,
+        best_describes_you: r.attendee.best_describes_you,
+      },
+    },
+  };
 }
 
 @Injectable()
@@ -36,7 +64,7 @@ export class TeamsService {
     private emailService: EmailService,
   ) {}
 
-  async listForEvent(eventId: string) {
+  async listForEvent(eventId: string, viewerRole?: string) {
     const config = await this.assignment.getOrCreateConfig(eventId);
     const teams = await this.teamRepo.find({
       where: { event_id: eventId },
@@ -54,6 +82,7 @@ export class TeamsService {
       }
       return {
         ...team,
+        members: viewerRole === AdminRole.VOLUNTEER ? members.map(memberSummary) : members,
         member_count: members.length,
         status_counts: statusCounts,
         below_minimum: members.length < config.min_team_size,

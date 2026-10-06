@@ -55,9 +55,11 @@ export class SeedService implements OnModuleInit {
 
   async onModuleInit() {
     const adminCount = await this.adminRepo.count();
-    if (adminCount === 0) {
+    const password = process.env.ADMIN_PASSWORD;
+    if (adminCount === 0 && !password) {
+      this.logger.error('No admins exist and ADMIN_PASSWORD is not set; set it and restart to create the first Super Admin.');
+    } else if (adminCount === 0 && password) {
       const email = process.env.ADMIN_EMAIL || 'admin@gdgkolachi.com';
-      const password = process.env.ADMIN_PASSWORD || 'admin123';
       const hash = await bcrypt.hash(password, 10);
       await this.adminRepo.save({
         email,
@@ -68,11 +70,16 @@ export class SeedService implements OnModuleInit {
       this.logger.log(`Admin seeded: ${email}`);
     }
 
+    // Matched by slug or name, and never fatal: a seed error must not stop the API from booting.
     for (const t of EVENT_TYPES) {
-      const existing = await this.eventTypeRepo.findOne({ where: { slug: t.slug } });
-      if (!existing) {
-        await this.eventTypeRepo.save(this.eventTypeRepo.create(t));
-        this.logger.log(`Event type seeded: ${t.slug}`);
+      try {
+        const existing = await this.eventTypeRepo.findOne({ where: [{ slug: t.slug }, { name: t.name }] });
+        if (!existing) {
+          await this.eventTypeRepo.save(this.eventTypeRepo.create(t));
+          this.logger.log(`Event type seeded: ${t.slug}`);
+        }
+      } catch (err) {
+        this.logger.error(`Could not seed event type ${t.slug}`, err);
       }
     }
 

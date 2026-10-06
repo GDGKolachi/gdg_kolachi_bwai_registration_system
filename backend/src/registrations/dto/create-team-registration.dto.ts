@@ -9,12 +9,14 @@ import {
   IsBoolean,
   ValidateNested,
   Matches,
+  MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class TeamDetailsDto {
   @IsString()
   @IsNotEmpty()
+  @MaxLength(80)
   name: string;
 
   // Validated in service against HACKATHON_DOMAINS — the whole team shares it.
@@ -36,6 +38,7 @@ class TeamDetailsDto {
 
 class TeamMemberDto {
   @IsString()
+  @MaxLength(120)
   name: string;
 
   @IsEmail()
@@ -47,6 +50,7 @@ class TeamMemberDto {
   phone: string;
 
   @IsString()
+  @MaxLength(150)
   university_org: string;
 
   @IsOptional()

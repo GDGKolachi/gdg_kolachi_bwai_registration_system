@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import api from '../../../../axios-instance';
+import { apiErrorMessage } from '../../../../shared/utils/apiError';
 
 const STATUS_COLORS = {
   attended: 'bg-emerald-500',
@@ -81,12 +82,13 @@ export default function MobileCheckinView() {
     setShowAckWarning(false);
     try {
       const res = await api.post('/admin/qr-scan', { qr_data: qrData });
-      setScanResult(res.data);
+      // A ticket that is already "attended" has been used before; flag it so it can't pass as a fresh check-in.
+      setScanResult({ ...res.data, alreadyIn: res.data.status === 'attended' });
       if (res.data.event_id) {
         fetchStats(res.data.event_id);
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Invalid QR code');
+      toast.error(apiErrorMessage(err, 'Could not read this ticket'));
       setScanResult(null);
     } finally {
       setLoading(false);
@@ -119,7 +121,7 @@ export default function MobileCheckinView() {
             is_new_team: assignment?.isNewTeam,
           });
         } catch (err) {
-          toast.error(err.response?.data?.message || 'Checked in but team assignment failed');
+          toast.error(apiErrorMessage(err, 'Checked in but team assignment failed'));
           setScanResult({ ...scanResult, status: 'attended', checkedIn: true });
         }
       } else {
@@ -128,7 +130,7 @@ export default function MobileCheckinView() {
       }
       if (scanResult.event_id) fetchStats(scanResult.event_id);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Check-in failed');
+      toast.error(apiErrorMessage(err, 'Check-in failed'));
     }
   };
 
@@ -248,6 +250,7 @@ export default function MobileCheckinView() {
                 </div>
                 <p className="mb-1 text-sm text-amber-200/80">
                   This person has <strong>not confirmed</strong> their attendance.
+                  {scanResult.acknowledgementExpired && ' Their confirmation window closed, so their seat may have gone to someone else. Ask an organizer.'}
                 </p>
                 {checkinStats && checkinStats.unacknowledgedCheckedIn > 0 && (
                   <p className="mb-3 text-xs text-amber-300/60">
@@ -273,8 +276,21 @@ export default function MobileCheckinView() {
               </div>
             )}
 
+            {/* Ticket used before */}
+            {scanResult.alreadyIn && (
+              <div className="mt-4 rounded-xl bg-rose-900/60 p-4 text-center ring-2 ring-rose-500">
+                <p className="text-lg font-extrabold text-rose-300">ALREADY CHECKED IN</p>
+                <p className="text-sm text-rose-200/80">
+                  {scanResult.checkedInAt
+                    ? `at ${new Date(scanResult.checkedInAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+                    : 'earlier'}
+                  {' '}— this ticket has been used. Check their ID.
+                </p>
+              </div>
+            )}
+
             {/* Attended result */}
-            {scanResult.status === 'attended' && (
+            {scanResult.status === 'attended' && !scanResult.alreadyIn && (
               <div className="mt-4 rounded-xl bg-emerald-900/50 p-4 text-center ring-1 ring-emerald-500/30">
                 <span className="text-lg">✓</span>
                 <p className="font-bold text-emerald-400">

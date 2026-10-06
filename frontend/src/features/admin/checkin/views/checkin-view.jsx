@@ -3,11 +3,14 @@ import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useAdminEvents } from '../../event-management/admin-event-repository';
 import { checkinApi } from '../checkin-api';
-import { useToggleCheckin } from '../checkin-repository';
+import { useSetCheckin } from '../checkin-repository';
+import { apiErrorMessage } from '../../../../shared/utils/apiError';
+
+const HAS_PLACE = new Set(['shortlisted', 'confirmed', 'attended']);
 
 export default function CheckinView() {
   const { data: events } = useAdminEvents();
-  const toggleMutation = useToggleCheckin();
+  const checkinMutation = useSetCheckin();
 
   const [selectedEvent, setSelectedEvent] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -38,17 +41,20 @@ export default function CheckinView() {
     loadAttendees(selectedEvent);
   }, [selectedEvent, loadAttendees]);
 
-  const handleToggle = async (registrationId) => {
+  const handleToggle = async (registration) => {
+    const checkedIn = !(registration.checked_in ?? registration.checkedIn);
     try {
-      const updated = await toggleMutation.mutateAsync(registrationId);
+      const updated = await checkinMutation.mutateAsync({ id: registration.id, checkedIn });
       setAllAttendees((prev) =>
         prev.map((r) =>
-          r.id === registrationId ? { ...r, checked_in: updated.checked_in, checkedIn: updated.checked_in } : r,
+          r.id === registration.id
+            ? { ...r, checked_in: updated.checked_in, checkedIn: updated.checked_in, status: updated.status }
+            : r,
         ),
       );
       toast.success(updated.checked_in ? 'Checked in!' : 'Check-in removed');
-    } catch {
-      toast.error('Failed to update check-in');
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Failed to update check-in'));
     }
   };
 
@@ -144,6 +150,8 @@ export default function CheckinView() {
             <tbody>
               {results.map((r) => {
                 const isCheckedIn = r.checked_in ?? r.checkedIn;
+                const hasPlace = HAS_PLACE.has(r.status);
+                const busy = checkinMutation.isPending && checkinMutation.variables?.id === r.id;
                 return (
                   <tr key={r.id}>
                     <td className="font-semibold text-slate-900">{r.attendee?.name}</td>
@@ -161,19 +169,25 @@ export default function CheckinView() {
                       >
                         {isCheckedIn ? 'Checked in' : 'Not checked in'}
                       </span>
+                      <div className="mt-1 text-xs capitalize text-slate-500">{r.status}</div>
                     </td>
                     <td>
-                      <button
-                        type="button"
-                        className={
-                          isCheckedIn
-                            ? 'ui-btn-secondary !px-3 !py-1.5 text-xs'
-                            : 'rounded-xl bg-gdg-green px-4 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-green-600'
-                        }
-                        onClick={() => handleToggle(r.id)}
-                      >
-                        {isCheckedIn ? 'Undo' : 'Check in'}
-                      </button>
+                      {!isCheckedIn && !hasPlace ? (
+                        <span className="text-xs font-semibold text-rose-700">No place ({r.status})</span>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          className={
+                            isCheckedIn
+                              ? 'ui-btn-secondary !px-3 !py-1.5 text-xs'
+                              : 'rounded-xl bg-gdg-green px-4 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-green-600 disabled:opacity-60'
+                          }
+                          onClick={() => handleToggle(r)}
+                        >
+                          {isCheckedIn ? 'Undo' : 'Check in'}
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );

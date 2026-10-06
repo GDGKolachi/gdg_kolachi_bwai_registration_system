@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import api from '../../../../axios-instance';
+import { apiErrorMessage } from '../../../../shared/utils/apiError';
 
 export default function QrScanView() {
   const [scanResult, setScanResult] = useState(null);
@@ -72,10 +73,11 @@ export default function QrScanView() {
     setShowAckWarning(false);
     try {
       const res = await api.post('/admin/qr-scan', { qr_data: qrData });
-      setScanResult(res.data);
+      // A ticket that is already "attended" has been used before; flag it so it can't pass as a fresh check-in.
+      setScanResult({ ...res.data, alreadyIn: res.data.status === 'attended' });
       if (res.data.event_id) fetchStats(res.data.event_id);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Invalid QR code');
+      toast.error(apiErrorMessage(err, 'Could not read this ticket'));
       setScanResult(null);
     } finally {
       setLoading(false);
@@ -110,7 +112,7 @@ export default function QrScanView() {
             is_new_team: assignment?.isNewTeam,
           });
         } catch (err) {
-          toast.error(err.response?.data?.message || 'Checked in, but team assignment failed');
+          toast.error(apiErrorMessage(err, 'Checked in, but team assignment failed'));
           setScanResult({ ...scanResult, status: 'attended', checkedIn: true });
         }
       } else {
@@ -118,7 +120,7 @@ export default function QrScanView() {
         setScanResult({ ...scanResult, status: 'attended', checkedIn: true });
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to mark as attended');
+      toast.error(apiErrorMessage(err, 'Failed to mark as attended'));
     }
   };
 
@@ -235,6 +237,7 @@ export default function QrScanView() {
                   </div>
                   <p className="mb-1 text-sm text-amber-900">
                     This person has <strong>not confirmed</strong> their attendance.
+                    {scanResult.acknowledgementExpired && ' Their confirmation window closed, so their seat may have gone to someone else. Ask an organizer.'}
                   </p>
                   {checkinStats && checkinStats.unacknowledgedCheckedIn > 0 && (
                     <p className="mb-3 text-xs text-amber-700/80">
@@ -252,7 +255,17 @@ export default function QrScanView() {
                 </div>
               )}
 
-              {scanResult.status === 'attended' && (
+              {scanResult.alreadyIn && (
+                <div className="mt-6 rounded-xl bg-rose-50 px-4 py-4 text-center text-sm font-semibold text-rose-900 ring-2 ring-rose-300">
+                  Already checked in
+                  {scanResult.checkedInAt
+                    ? ` at ${new Date(scanResult.checkedInAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+                    : ''}
+                  : this ticket has been used. Check their ID.
+                </div>
+              )}
+
+              {scanResult.status === 'attended' && !scanResult.alreadyIn && (
                 <div className="mt-6 rounded-xl bg-emerald-50 px-4 py-4 text-center text-sm font-semibold text-emerald-900 ring-1 ring-emerald-200/70">
                   {scanResult.team_number != null ? (
                     <>
@@ -261,7 +274,7 @@ export default function QrScanView() {
                       {scanResult.team_domain ? <> · Domain: <strong>{scanResult.team_domain}</strong></> : null}
                     </>
                   ) : (
-                    'Already checked in'
+                    'Checked in'
                   )}
                 </div>
               )}

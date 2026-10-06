@@ -1,7 +1,8 @@
-import { IsString, IsEmail, IsOptional, IsUUID, IsIn, IsArray, Matches } from 'class-validator';
+import { IsString, IsEmail, IsOptional, IsUUID, IsIn, IsArray, Matches, MaxLength } from 'class-validator';
 
 export class CreateRegistrationDto {
   @IsString()
+  @MaxLength(120)
   name: string;
 
   @IsEmail()
@@ -13,6 +14,7 @@ export class CreateRegistrationDto {
   phone: string;
 
   @IsString()
+  @MaxLength(150)
   university_org: string;
 
   @IsOptional()

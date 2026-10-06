@@ -1,10 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { checkinApi } from './checkin-api';
 
-export function useToggleCheckin() {
+export function useSetCheckin() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: checkinApi.toggleCheckin,
+    mutationFn: checkinApi.setCheckin,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-stats'] });
     },

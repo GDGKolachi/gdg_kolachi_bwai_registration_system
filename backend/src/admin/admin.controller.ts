@@ -9,7 +9,11 @@ import { EventsService } from '../events/events.service';
 import { RegistrationsService } from '../registrations/registrations.service';
 import { ExceptionsService } from '../exceptions/exceptions.service';
 import { CreateEventDto } from '../events/dto/create-event.dto';
+import { SkipThrottle } from '@nestjs/throttler';
 
+// Signed-in staff only; not rate limited, since every volunteer phone at the
+// door shares the venue's one public address.
+@SkipThrottle()
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
 // Default for every route here: Super Admin + Organizer. Routes a Volunteer
@@ -29,6 +33,8 @@ export class AdminController {
   }
 
   // Event CRUD
+  // Check-in screens need the event list too; it holds no personal data.
+  @Roles(...CHECKIN_ROLES)
   @Get('events')
   getEvents(@Query('page') page?: string, @Query('limit') limit?: string) {
     if (page || limit) {
@@ -281,10 +287,15 @@ export class AdminController {
     return this.adminService.searchCheckin(eventId || legacyEventId, query);
   }
 
+  // Body { checked_in: true|false } sets the state. Without a body it toggles,
+  // for check-in pages that were already open when this changed.
   @Roles(...CHECKIN_ROLES)
   @Patch('checkin/:id/toggle')
-  toggleCheckin(@Param('id') id: string) {
-    return this.adminService.toggleCheckin(id);
+  setCheckin(@Param('id') id: string, @Body('checked_in') checkedIn?: boolean) {
+    if (checkedIn !== undefined && typeof checkedIn !== 'boolean') {
+      throw new BadRequestException('checked_in must be true or false');
+    }
+    return this.adminService.setCheckin(id, checkedIn);
   }
 
   // Soft delete — hides the participant everywhere and frees their seat.

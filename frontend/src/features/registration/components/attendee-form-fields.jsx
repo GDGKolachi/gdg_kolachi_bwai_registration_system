@@ -1,7 +1,10 @@
 import { rolesForEventType } from '../registration-constants';
 
+// Phones autofill as +92 300 1234567 or 0092...; turn the country code into the leading 0.
 function formatPhone(value) {
-  const digits = value.replace(/\D/g, '');
+  let digits = value.replace(/\D/g, '');
+  if (digits.startsWith('0092')) digits = '0' + digits.slice(4);
+  else if (digits.startsWith('92') && digits.length > 10) digits = '0' + digits.slice(2);
   if (digits.length <= 4) return digits;
   return digits.slice(0, 4) + '-' + digits.slice(4, 11);
 }
@@ -78,8 +81,10 @@ export default function AttendeeFormFields({
           name="phone"
           value={formData.phone || ''}
           onChange={handleChange}
+          type="tel"
+          inputMode="tel"
           placeholder="03XX-XXXXXXX"
-          maxLength={12}
+          maxLength={16}
           className={`${inputCls} ${errors?.phone ? 'border-rose-300 focus:border-gdg-red focus:ring-gdg-red/15' : ''}`}
         />
         <p className="mt-1.5 text-xs text-slate-500">Pakistani mobile number, e.g. 0312-3456789</p>
@@ -138,6 +143,7 @@ export default function AttendeeFormFields({
           name="cnic"
           value={formData.cnic || ''}
           onChange={handleChange}
+          inputMode="numeric"
           placeholder="XXXXX-XXXXXXX-X"
           maxLength={15}
           className={`${inputCls} ${errors?.cnic ? 'border-rose-300 focus:border-gdg-red focus:ring-gdg-red/15' : ''}`}

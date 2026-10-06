@@ -1,19 +1,30 @@
 import { Controller, Get, Post, Patch, Param, Body, UseGuards, Req } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { CHECKIN_ROLES, ORGANIZER_ROLES } from '../common/enums/admin-role.enum';
 import { TeamsService } from './teams.service';
 import { TeamAssignmentService } from './team-assignment.service';
+import { SkipThrottle } from '@nestjs/throttler';
 
+// Organizer-only by default, like AdminController; the routes the hackathon
+// check-in screen needs opt back in with @Roles(...CHECKIN_ROLES).
+// Signed-in staff only; not rate limited, since every volunteer phone at the
+// door shares the venue's one public address.
+@SkipThrottle()
 @Controller('admin')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(...ORGANIZER_ROLES)
 export class TeamsController {
   constructor(
     private teamsService: TeamsService,
     private assignment: TeamAssignmentService,
   ) {}
 
+  @Roles(...CHECKIN_ROLES)
   @Get('events/:eventId/teams')
-  list(@Param('eventId') eventId: string) {
-    return this.teamsService.listForEvent(eventId);
+  list(@Param('eventId') eventId: string, @Req() req: any) {
+    return this.teamsService.listForEvent(eventId, req.user?.role);
   }
 
   @Get('events/:eventId/team-formation-config')
@@ -113,12 +124,14 @@ export class TeamsController {
 
   // Hackathon check-in: marks the registration checked in AND runs the
   // team-assignment engine, returning the assigned team.
+  @Roles(...CHECKIN_ROLES)
   @Post('hackathon-checkin/:registrationId')
   async hackathonCheckin(@Param('registrationId') registrationId: string, @Req() req: any) {
     return this.assignment.assignAtCheckin(registrationId, req.user.id);
   }
 
   // Removes the registration's team membership and un-checks them in.
+  @Roles(...CHECKIN_ROLES)
   @Post('hackathon-checkin/:registrationId/unassign')
   async hackathonUnassign(@Param('registrationId') registrationId: string) {
     return this.assignment.unassignMember(registrationId);
