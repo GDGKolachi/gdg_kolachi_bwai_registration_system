@@ -26,6 +26,7 @@ function serviceWith(resend: unknown): EmailService {
   process.env.RESEND_API_KEY = prev;
   (svc as any).resend = resend;
   (svc as any).logger = { log: () => {}, warn: () => {}, error: () => {} };
+  (svc as any).retryDelayMs = 0;
   return svc;
 }
 
@@ -136,6 +137,29 @@ describe('shortlist email', () => {
     const resend = fakeResend(() => 'You have reached your daily email sending quota');
     const result = await serviceWith(resend).sendShortlistedEmail('a@example.com', 'A', talk, 'reg-1', 'q');
     expect(result).toEqual({ sent: false, error: 'You have reached your daily email sending quota' });
+  });
+
+  it('waits and retries when the provider says it is sending too fast', async () => {
+    const resend = fakeResend();
+    resend.emails.send.mockResolvedValueOnce({ data: null, error: { name: 'rate_limit_exceeded', message: 'Too many requests' } } as any);
+    const result = await serviceWith(resend).sendShortlistedEmail('a@example.com', 'A', talk, 'reg-1', 'q');
+    expect(result).toEqual({ sent: true });
+    expect(resend.emails.send).toHaveBeenCalledTimes(2);
+  });
+
+  it('gives up after three rate-limited attempts and says why', async () => {
+    const resend = fakeResend();
+    resend.emails.send.mockResolvedValue({ data: null, error: { name: 'rate_limit_exceeded', message: 'Too many requests' } } as any);
+    const result = await serviceWith(resend).sendShortlistedEmail('a@example.com', 'A', talk, 'reg-1', 'q');
+    expect(result).toEqual({ sent: false, error: 'Too many requests' });
+    expect(resend.emails.send).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not retry a daily quota error', async () => {
+    const resend = fakeResend();
+    resend.emails.send.mockResolvedValue({ data: null, error: { name: 'daily_quota_exceeded', message: 'Daily quota reached' } } as any);
+    await serviceWith(resend).sendShortlistedEmail('a@example.com', 'A', talk, 'reg-1', 'q');
+    expect(resend.emails.send).toHaveBeenCalledTimes(1);
   });
 
   it('reports a network failure instead of throwing', async () => {

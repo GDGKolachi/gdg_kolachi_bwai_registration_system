@@ -23,6 +23,18 @@ export class EmailService {
     this.logger.log('Resend email service initialized');
   }
 
+  private retryDelayMs = 1000;
+
+  // Resend answers 429 when sends arrive faster than the account's per-second
+  // limit; a bulk run waits and retries instead of dropping people.
+  private async sendWithRetry(msg: Parameters<Resend['emails']['send']>[0]) {
+    for (let attempt = 1; ; attempt++) {
+      const res = await this.resend.emails.send(msg);
+      if (res.error?.name !== 'rate_limit_exceeded' || attempt === 3) return res;
+      await new Promise((r) => setTimeout(r, this.retryDelayMs * attempt));
+    }
+  }
+
   private async generateQRCode(data: string): Promise<string> {
     return QRCode.toDataURL(data, { width: 200 });
   }
@@ -179,7 +191,7 @@ export class EmailService {
     ];
 
     try {
-      const { data, error } = await this.resend.emails.send({
+      const { data, error } = await this.sendWithRetry({
         from: this.from,
         to: [email],
         subject: `🎉 You're Shortlisted! - GDG Kolachi's ${event.title}`,
@@ -302,7 +314,7 @@ export class EmailService {
 
       for (const { registrationId, msg } of messages) {
         try {
-          const { data, error } = await this.resend.emails.send(msg);
+          const { data, error } = await this.sendWithRetry(msg);
           if (error) {
             this.logger.error(`Reminder email failed for ${msg.to[0]}`, error);
             failedIds.push(registrationId);
@@ -371,7 +383,7 @@ export class EmailService {
       `);
 
       try {
-        const { data, error } = await this.resend.emails.send({
+        const { data, error } = await this.sendWithRetry({
           from: this.from,
           to: [r.email],
           subject: `Join the ${r.event.title} WhatsApp group`,
@@ -582,7 +594,7 @@ export class EmailService {
     // captain stays the addressee who is expected to act.
     const cc = memberEmails.filter(e => e && e.toLowerCase() !== captainEmail.toLowerCase());
 
-    const { data, error } = await this.resend.emails.send({
+    const { data, error } = await this.sendWithRetry({
       from: this.from,
       to: [captainEmail],
       cc: cc.length > 0 ? cc : undefined,
@@ -671,7 +683,7 @@ export class EmailService {
 
     const cc = memberEmails.filter(e => e && e.toLowerCase() !== captainEmail.toLowerCase());
 
-    const { data, error } = await this.resend.emails.send({
+    const { data, error } = await this.sendWithRetry({
       from: this.from,
       to: [captainEmail],
       cc: cc.length > 0 ? cc : undefined,
@@ -745,7 +757,7 @@ export class EmailService {
       `);
 
       try {
-        const { data, error } = await this.resend.emails.send({
+        const { data, error } = await this.sendWithRetry({
           from: this.from,
           to: [r.email],
           subject: `Your spot for ${r.event.title} has been released`,
