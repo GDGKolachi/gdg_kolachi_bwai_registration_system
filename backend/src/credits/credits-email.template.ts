@@ -9,9 +9,10 @@ export interface CreditsEmailInput {
   videoUrl: string | null;
   /** `<origin>/credits/<token>` — the one-button confirm page. */
   confirmUrl: string;
-  /** `<origin>/images/credits-video-thumb.png` */
-  thumbnailUrl: string;
 }
+
+/** Content-ID of the inline thumbnail attachment (`<img src="cid:...">`). */
+export const CREDITS_THUMB_CID = 'credits-video-thumb';
 
 export const CREDITS_STEPS = [
   'Open the link in an Incognito / private window.',
@@ -50,7 +51,7 @@ export function renderCreditsEmail(input: CreditsEmailInput): {
     ? `
       <div style="text-align: center; margin: 24px 0;">
         <a href="${escapeHtml(input.videoUrl)}" style="text-decoration: none;">
-          <img src="${escapeHtml(input.thumbnailUrl)}" alt="Watch the 2-minute walkthrough" width="480" style="width: 100%; max-width: 480px; height: auto; border-radius: 8px; border: 1px solid #e0e0e0; display: block; margin: 0 auto;" />
+          <img src="cid:${CREDITS_THUMB_CID}" alt="Watch the 2-minute walkthrough" width="480" style="display:block;border:0;max-width:100%;margin:0 auto;" />
         </a>
         <p style="margin: 8px 0 0; font-size: 14px;">
           <a href="${escapeHtml(input.videoUrl)}" style="color: #1A73E8;">Watch the 2-minute walkthrough</a>

@@ -90,8 +90,8 @@ Subject: `Claim your Google Cloud credits – <event title>`. HTML plus a plain-
 interpolated value is HTML-escaped. Same from-address and visual style as the existing emails.
 
 1. Greeting and one line: thanks for joining, claiming takes about five minutes.
-2. Video thumbnail (`<APP_URL>/images/credits-video-thumb.png` with a play icon) linking to the
-   tracked video URL, captioned "Watch the 2-minute walkthrough". Omitted when the event has no video.
+2. Video thumbnail (an inline CID attachment, `cid:credits-video-thumb`, with a play icon; the PNG ships
+   with the backend) linking to the tracked video URL, captioned "Watch the 2-minute walkthrough". Omitted when the event has no video.
 3. **Claim your credits** button → tracked claim URL.
 4. Quick steps: open the link in an Incognito/private window · sign in with a personal
    @gmail.com account · click **Claim Credit** · create a Google Developer Program profile if
@@ -133,6 +133,12 @@ The registrations list gains credits status and redemption fields plus a `credit
 ## Implementation notes
 
 Details settled while building the backend (`backend/src/credits/`):
+
+- **Thumbnail is embedded, not linked.** Remote images are blocked by many clients (Outlook desktop) and
+  unreachable from local testing. The PNG lives in `backend/src/credits/assets/`, `nest-cli.json` copies it
+  into `dist/credits/assets/`, and the sender attaches it (filename `credits-video-thumb.png`, contentId
+  `credits-video-thumb`) only when the event has a video URL, the same way the shortlist email embeds its
+  QR code. It is read once and cached; if the file is missing the sender logs a warning and sends without it.
 
 - **Scan response.** `PATCH admin/qr-scan/:id/attend` keeps its fields and adds `credits: { status }`, where
   status is the email status (`pending`, `sent`, ...), `not_queued` (credits off, no claim URL, deleted,

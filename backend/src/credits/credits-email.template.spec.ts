@@ -10,7 +10,6 @@ const base = {
   claimUrl: 'https://x.test/api/public/credits/tok/claim',
   videoUrl: 'https://x.test/api/public/credits/tok/video',
   confirmUrl: 'https://x.test/credits/tok',
-  thumbnailUrl: 'https://x.test/images/credits-video-thumb.png',
 };
 
 describe('renderCreditsEmail', () => {
@@ -29,9 +28,12 @@ describe('renderCreditsEmail', () => {
   });
 
   it('includes the video block only when a video URL is set', () => {
-    expect(renderCreditsEmail(base).html).toContain(base.thumbnailUrl);
+    const withVideo = renderCreditsEmail(base).html;
+    expect(withVideo).toContain('src="cid:credits-video-thumb"');
+    expect(withVideo).not.toContain('/images/');
     const without = renderCreditsEmail({ ...base, videoUrl: null });
-    expect(without.html).not.toContain(base.thumbnailUrl);
+    expect(without.html).not.toContain('<img');
+    expect(without.html).not.toContain('cid:');
     expect(without.html).not.toContain('walkthrough');
     expect(without.text).not.toContain('walkthrough');
   });

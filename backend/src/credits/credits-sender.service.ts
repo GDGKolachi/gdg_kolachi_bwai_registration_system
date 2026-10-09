@@ -8,9 +8,19 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import * as fs from 'fs';
+import * as path from 'path';
 import { CREDITS_MAILER } from './credits.mailer';
-import type { CreditsMailer, CreditsSendResult } from './credits.mailer';
-import { renderCreditsEmail, firstNameOf } from './credits-email.template';
+import type {
+  CreditsEmailMessage,
+  CreditsMailer,
+  CreditsSendResult,
+} from './credits.mailer';
+import {
+  renderCreditsEmail,
+  firstNameOf,
+  CREDITS_THUMB_CID,
+} from './credits-email.template';
 import {
   MAX_EMAIL_ATTEMPTS,
   backoffMs,
@@ -41,6 +51,35 @@ export class CreditsSender implements OnModuleInit, OnModuleDestroy {
     @InjectDataSource() private readonly db: DataSource,
     @Inject(CREDITS_MAILER) private readonly mailer: CreditsMailer,
   ) {}
+
+  private thumbnail: Buffer | null | undefined;
+
+  /** Loaded once (lazily). Missing file: warn and send without the image. */
+  private thumbnailAttachments(): Pick<CreditsEmailMessage, 'attachments'> {
+    if (this.thumbnail === undefined) {
+      try {
+        this.thumbnail = fs.readFileSync(
+          path.join(__dirname, 'assets', 'credits-video-thumb.png'),
+        );
+      } catch (err) {
+        this.thumbnail = null;
+        this.logger.warn(
+          `Credits video thumbnail missing, emails go out without it: ${(err as Error).message}`,
+        );
+      }
+    }
+    return this.thumbnail
+      ? {
+          attachments: [
+            {
+              filename: 'credits-video-thumb.png',
+              content: this.thumbnail,
+              contentId: CREDITS_THUMB_CID,
+            },
+          ],
+        }
+      : {};
+  }
 
   onModuleInit() {
     if (process.env.CREDITS_WORKER_ENABLED === 'false') {
@@ -182,7 +221,6 @@ export class CreditsSender implements OnModuleInit, OnModuleDestroy {
         ? `${origin}/api/public/credits/${row.token}/video`
         : null,
       confirmUrl: `${origin}/credits/${row.token}`,
-      thumbnailUrl: `${origin}/images/credits-video-thumb.png`,
     });
     await this.waitForSendSlot(spacingMs);
     return this.mailer.send(
@@ -191,6 +229,7 @@ export class CreditsSender implements OnModuleInit, OnModuleDestroy {
         subject: message.subject,
         html: message.html,
         text: message.text,
+        ...(row.credits_video_url ? this.thumbnailAttachments() : {}),
       },
       { idempotencyKey: `credits-${claim.id}-${claim.email_generation}` },
     );

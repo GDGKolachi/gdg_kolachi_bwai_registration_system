@@ -411,7 +411,8 @@ describe('Google Cloud credits (e2e)', () => {
       );
       expect(sent.message.html).toContain(`${ORIGIN}/credits/${row.token}`);
       expect(sent.message.html).not.toContain(CLAIM_URL); // links go through our tracker
-      expect(sent.message.html).not.toContain('credits-video-thumb.png'); // no video configured
+      expect(sent.message.html).not.toContain('credits-video-thumb'); // no video configured
+      expect(sent.message.attachments ?? []).toHaveLength(0);
       expect(sent.message.text).toContain(`${ORIGIN}/credits/${row.token}`);
 
       const after = await rowFor(reg.id);
@@ -430,7 +431,18 @@ describe('Google Cloud credits (e2e)', () => {
       await drain();
       const row = await rowFor(reg.id);
       const html = mailer.sent[0].message.html;
-      expect(html).toContain(`${ORIGIN}/images/credits-video-thumb.png`);
+      expect(html).toContain('src="cid:credits-video-thumb"');
+      expect(html).not.toContain('/images/');
+      const attachments = mailer.sent[0].message.attachments ?? [];
+      expect(attachments).toHaveLength(1);
+      expect(attachments[0].contentId).toBe('credits-video-thumb');
+      expect(attachments[0].filename).toBe('credits-video-thumb.png');
+      expect(attachments[0].content.length).toBeGreaterThan(0);
+      expect(
+        attachments[0].content
+          .subarray(0, 4)
+          .equals(Buffer.from([0x89, 0x50, 0x4e, 0x47])),
+      ).toBe(true);
       expect(html).toContain(`${ORIGIN}/api/public/credits/${row.token}/video`);
       expect(html).not.toContain(VIDEO_URL);
     });

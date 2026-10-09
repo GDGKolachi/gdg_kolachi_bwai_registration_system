@@ -11,6 +11,8 @@ export interface CreditsEmailMessage {
   subject: string;
   html: string;
   text: string;
+  /** Inline (CID) attachments, same shape email.service.ts uses for its QR code. */
+  attachments?: { filename: string; content: Buffer; contentId: string }[];
 }
 
 export type CreditsSendResult =
@@ -61,6 +63,9 @@ export class ResendCreditsMailer implements CreditsMailer {
             subject: message.subject,
             html: message.html,
             text: message.text,
+            ...(message.attachments?.length
+              ? { attachments: message.attachments }
+              : {}),
           },
           { idempotencyKey: options.idempotencyKey },
         ),
