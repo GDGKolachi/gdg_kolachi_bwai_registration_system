@@ -4,10 +4,14 @@ import toast from 'react-hot-toast';
 import { useAdminEvents } from '../../event-management/admin-event-repository';
 import { checkinApi } from '../checkin-api';
 import { useToggleCheckin } from '../checkin-repository';
+import { useSendCredits } from '../../credits/credits-repository';
+import { scanStatusInfo, errorMessage } from '../../credits/credits-service';
 
 export default function CheckinView() {
   const { data: events } = useAdminEvents();
   const toggleMutation = useToggleCheckin();
+  const sendCredits = useSendCredits();
+  const [sendingId, setSendingId] = useState(null);
 
   const [selectedEvent, setSelectedEvent] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -49,6 +53,18 @@ export default function CheckinView() {
       toast.success(updated.checked_in ? 'Checked in!' : 'Check-in removed');
     } catch {
       toast.error('Failed to update check-in');
+    }
+  };
+
+  const handleSendCredits = async (registrationId) => {
+    setSendingId(registrationId);
+    try {
+      const view = await sendCredits.mutateAsync(registrationId);
+      toast.success(scanStatusInfo(view.email_status).label);
+    } catch (err) {
+      toast.error(errorMessage(err, 'Could not send the credits email'));
+    } finally {
+      setSendingId(null);
     }
   };
 
@@ -131,7 +147,7 @@ export default function CheckinView() {
 
       {selectedEvent && !isHackathon && !loading && results.length > 0 && (
         <div className="ui-table-wrap">
-          <table className="ui-table min-w-[36rem]">
+          <table className="ui-table min-w-[44rem]">
             <thead>
               <tr>
                 <th>Name</th>
@@ -162,7 +178,7 @@ export default function CheckinView() {
                         {isCheckedIn ? 'Checked in' : 'Not checked in'}
                       </span>
                     </td>
-                    <td>
+                    <td className="whitespace-nowrap">
                       <button
                         type="button"
                         className={
@@ -174,6 +190,16 @@ export default function CheckinView() {
                       >
                         {isCheckedIn ? 'Undo' : 'Check in'}
                       </button>
+                      {isCheckedIn && currentEvent?.credits_enabled && (
+                        <button
+                          type="button"
+                          className="ui-btn-secondary ml-2 !px-3 !py-1.5 text-xs"
+                          disabled={sendingId === r.id}
+                          onClick={() => handleSendCredits(r.id)}
+                        >
+                          {sendingId === r.id ? 'Sending…' : 'Send credits email'}
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );
