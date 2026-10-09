@@ -311,6 +311,17 @@ export class CreditsService {
     return { confirm_url, qr_data_url };
   }
 
+  /** The "Didn't get the email?" page for an event, with a QR for the projector. */
+  async resendQr(eventId: string) {
+    const [event] = await this.q(`SELECT id FROM events WHERE id = $1`, [
+      eventId,
+    ]);
+    if (!event) throw new NotFoundException('Event not found');
+    const url = `${siteOrigin()}/credits/resend?event=${eventId}`;
+    const qr_data_url = await QRCode.toDataURL(url, { width: 480, margin: 2 });
+    return { url, qr_data_url };
+  }
+
   async getForRegistration(registrationId: string): Promise<CreditsView> {
     await this.loadRegistration(registrationId);
     return toView(await this.getRow(registrationId));

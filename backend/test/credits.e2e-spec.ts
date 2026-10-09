@@ -1185,6 +1185,25 @@ describe('Google Cloud credits (e2e)', () => {
       });
     });
 
+    it('serves the projector resend link and QR to check-in roles, 404s an unknown event', async () => {
+      const eventId = await seedEvent();
+      await request(app.getHttpServer())
+        .get(`/api/admin/credits/events/${eventId}/resend-qr`)
+        .expect(401);
+      const res = await request(app.getHttpServer())
+        .get(`/api/admin/credits/events/${eventId}/resend-qr`)
+        .set(auth(volunteerToken))
+        .expect(200);
+      expect(res.body.url).toBe(`${ORIGIN}/credits/resend?event=${eventId}`);
+      expect(res.body.qr_data_url).toMatch(/^data:image\/png;base64,/);
+      await request(app.getHttpServer())
+        .get(
+          '/api/admin/credits/events/00000000-0000-4000-8000-000000000000/resend-qr',
+        )
+        .set(auth(volunteerToken))
+        .expect(404);
+    });
+
     it('lets a volunteer confirm, only an organizer undo, and applies role checks', async () => {
       const eventId = await seedEvent();
       const reg = await seedReg(eventId, { checkedIn: true });

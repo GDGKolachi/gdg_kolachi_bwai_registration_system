@@ -42,6 +42,11 @@ export class CreditsAdminController {
     return this.credits.followUp(eventId, filter);
   }
 
+  @Get('events/:eventId/resend-qr')
+  resendQr(@Param('eventId', ParseUUIDPipe) eventId: string) {
+    return this.credits.resendQr(eventId);
+  }
+
   @Get('registrations/:id')
   get(@Param('id', ParseUUIDPipe) id: string) {
     return this.credits.getForRegistration(id);
