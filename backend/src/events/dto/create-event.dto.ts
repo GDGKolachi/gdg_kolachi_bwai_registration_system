@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsArray, IsBoolean, IsUUID, ValidateNested, Min } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsArray, IsBoolean, IsUUID, IsUrl, ValidateIf, ValidateNested, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class SpeakerDto {
@@ -78,4 +78,17 @@ export class CreateEventDto {
   @IsOptional()
   @IsBoolean()
   acknowledgement_locked?: boolean;
+
+  // Google Cloud credits email. https only; null or '' clears the value.
+  @IsOptional()
+  @IsBoolean()
+  credits_enabled?: boolean;
+
+  @ValidateIf((_o, v) => v !== undefined && v !== null && v !== '')
+  @IsUrl({ protocols: ['https'], require_protocol: true })
+  credits_claim_url?: string | null;
+
+  @ValidateIf((_o, v) => v !== undefined && v !== null && v !== '')
+  @IsUrl({ protocols: ['https'], require_protocol: true })
+  credits_video_url?: string | null;
 }

@@ -4,6 +4,7 @@ import { IsNull, Not, Repository } from 'typeorm';
 import { Event } from '../entities/event.entity';
 import { Registration } from '../entities/registration.entity';
 import { TeamFormationConfig } from '../entities/team-formation-config.entity';
+import { normalizeCreditsFields } from '../credits/credits.util';
 
 @Injectable()
 export class EventsService {
@@ -59,6 +60,7 @@ export class EventsService {
   }
 
   async create(data: Partial<Event>) {
+    normalizeCreditsFields(data);
     const event = this.eventRepo.create(data);
     return this.eventRepo.save(event);
   }
@@ -74,6 +76,7 @@ export class EventsService {
         );
       }
     }
+    normalizeCreditsFields(data);
     await this.eventRepo.update(id, data);
     return this.findOne(id);
   }

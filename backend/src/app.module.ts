@@ -22,6 +22,7 @@ import { RoleCategory } from './entities/role-category.entity';
 import { TeamFormationConfig } from './entities/team-formation-config.entity';
 import { Team } from './entities/team.entity';
 import { TeamMember } from './entities/team-member.entity';
+import { CreditRedemption } from './entities/credit-redemption.entity';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { TeamMember } from './entities/team-member.entity';
         TeamFormationConfig,
         Team,
         TeamMember,
+        CreditRedemption,
       ],
       migrations: [__dirname + '/migrations/*{.ts,.js}'],
       migrationsRun: true,
