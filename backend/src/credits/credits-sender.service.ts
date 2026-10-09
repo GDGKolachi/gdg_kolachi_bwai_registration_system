@@ -1,10 +1,22 @@
-import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument -- raw SQL rows and untyped request bodies */
+import {
+  Inject,
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { CREDITS_MAILER } from './credits.mailer';
 import type { CreditsMailer, CreditsSendResult } from './credits.mailer';
 import { renderCreditsEmail, firstNameOf } from './credits-email.template';
-import { MAX_EMAIL_ATTEMPTS, backoffMs, emailsPerSecond, siteOrigin } from './credits.util';
+import {
+  MAX_EMAIL_ATTEMPTS,
+  backoffMs,
+  emailsPerSecond,
+  siteOrigin,
+} from './credits.util';
 
 const TICK_INTERVAL_MS = 1000;
 /** A row stuck in `sending` this long was claimed by a process that died. */
@@ -32,11 +44,15 @@ export class CreditsSender implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit() {
     if (process.env.CREDITS_WORKER_ENABLED === 'false') {
-      this.logger.log('Credits email worker disabled (CREDITS_WORKER_ENABLED=false)');
+      this.logger.log(
+        'Credits email worker disabled (CREDITS_WORKER_ENABLED=false)',
+      );
       return;
     }
     this.timer = setInterval(() => {
-      this.tick().catch((err) => this.logger.error(`Credits sender tick failed: ${err?.message ?? err}`));
+      this.tick().catch((err) =>
+        this.logger.error(`Credits sender tick failed: ${err?.message ?? err}`),
+      );
     }, TICK_INTERVAL_MS);
     this.timer.unref?.();
   }
@@ -48,7 +64,10 @@ export class CreditsSender implements OnModuleInit, OnModuleDestroy {
 
   private async rows(sql: string, params: any[] = []): Promise<any[]> {
     const result = await this.db.query(sql, params);
-    return Array.isArray(result) && result.length === 2 && Array.isArray(result[0]) && typeof result[1] === 'number'
+    return Array.isArray(result) &&
+      result.length === 2 &&
+      Array.isArray(result[0]) &&
+      typeof result[1] === 'number'
       ? result[0]
       : result;
   }
@@ -94,17 +113,28 @@ export class CreditsSender implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private async process(claim: { id: string; email_attempts: number; email_generation: number }) {
+  private async process(claim: {
+    id: string;
+    email_attempts: number;
+    email_generation: number;
+  }) {
     let result: CreditsSendResult;
     try {
       result = await this.attempt(claim);
     } catch (err) {
-      result = { ok: false, retryable: true, error: `unexpected: ${(err as Error).message}` };
+      result = {
+        ok: false,
+        retryable: true,
+        error: `unexpected: ${(err as Error).message}`,
+      };
     }
     await this.record(claim, result);
   }
 
-  private async attempt(claim: { id: string; email_generation: number }): Promise<CreditsSendResult> {
+  private async attempt(claim: {
+    id: string;
+    email_generation: number;
+  }): Promise<CreditsSendResult> {
     const [row] = await this.rows(
       `SELECT cr.token, r.deleted_at, a.name, a.email, e.title, e.credits_claim_url, e.credits_video_url
          FROM credit_redemptions cr
@@ -114,21 +144,39 @@ export class CreditsSender implements OnModuleInit, OnModuleDestroy {
         WHERE cr.id = $1`,
       [claim.id],
     );
-    if (!row) return { ok: false, retryable: false, error: 'Registration no longer exists' };
-    if (row.deleted_at) return { ok: false, retryable: false, error: 'Registration was deleted' };
-    if (!row.credits_claim_url) return { ok: false, retryable: false, error: 'Event has no credits claim URL' };
+    if (!row)
+      return {
+        ok: false,
+        retryable: false,
+        error: 'Registration no longer exists',
+      };
+    if (row.deleted_at)
+      return { ok: false, retryable: false, error: 'Registration was deleted' };
+    if (!row.credits_claim_url)
+      return {
+        ok: false,
+        retryable: false,
+        error: 'Event has no credits claim URL',
+      };
 
     const origin = siteOrigin();
     const message = renderCreditsEmail({
       firstName: firstNameOf(row.name),
       eventTitle: row.title,
       claimUrl: `${origin}/api/public/credits/${row.token}/claim`,
-      videoUrl: row.credits_video_url ? `${origin}/api/public/credits/${row.token}/video` : null,
+      videoUrl: row.credits_video_url
+        ? `${origin}/api/public/credits/${row.token}/video`
+        : null,
       confirmUrl: `${origin}/credits/${row.token}`,
       thumbnailUrl: `${origin}/images/credits-video-thumb.png`,
     });
     return this.mailer.send(
-      { to: row.email, subject: message.subject, html: message.html, text: message.text },
+      {
+        to: row.email,
+        subject: message.subject,
+        html: message.html,
+        text: message.text,
+      },
       { idempotencyKey: `credits-${claim.id}-${claim.email_generation}` },
     );
   }
@@ -147,7 +195,10 @@ export class CreditsSender implements OnModuleInit, OnModuleDestroy {
       );
       return;
     }
-    const delay = result.retryable && claim.email_attempts < MAX_EMAIL_ATTEMPTS ? backoffMs(claim.email_attempts) : null;
+    const delay =
+      result.retryable && claim.email_attempts < MAX_EMAIL_ATTEMPTS
+        ? backoffMs(claim.email_attempts)
+        : null;
     if (delay !== null) {
       await this.rows(
         `UPDATE credit_redemptions SET email_status = 'pending', email_last_error = $3,

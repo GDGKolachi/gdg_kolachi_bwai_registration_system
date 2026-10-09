@@ -1,4 +1,8 @@
-import { renderCreditsEmail, creditsSubject, firstNameOf } from './credits-email.template';
+import {
+  renderCreditsEmail,
+  creditsSubject,
+  firstNameOf,
+} from './credits-email.template';
 
 const base = {
   firstName: 'Ayesha',
@@ -44,7 +48,9 @@ describe('renderCreditsEmail', () => {
 
 describe('creditsSubject / firstNameOf', () => {
   it('builds the subject on one line', () => {
-    expect(creditsSubject('Build\nwith AI')).toBe('Claim your Google Cloud credits – Build with AI');
+    expect(creditsSubject('Build\nwith AI')).toBe(
+      'Claim your Google Cloud credits – Build with AI',
+    );
   });
 
   it('takes the first word of the name', () => {

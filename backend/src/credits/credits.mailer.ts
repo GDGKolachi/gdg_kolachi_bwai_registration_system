@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access -- raw SQL rows and untyped request bodies */
 import { Injectable, Logger } from '@nestjs/common';
 import { Resend } from 'resend';
 
@@ -16,7 +17,10 @@ export type CreditsSendResult =
   | { ok: false; retryable: boolean; error: string };
 
 export interface CreditsMailer {
-  send(message: CreditsEmailMessage, options: { idempotencyKey: string }): Promise<CreditsSendResult>;
+  send(
+    message: CreditsEmailMessage,
+    options: { idempotencyKey: string },
+  ): Promise<CreditsSendResult>;
 }
 
 const FROM = 'GDG Kolachi <hello@gdgkolachi.com>';
@@ -38,7 +42,11 @@ export class ResendCreditsMailer implements CreditsMailer {
     // key is a visible failure rather than a silent skip.
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
-      return { ok: false, retryable: false, error: 'RESEND_API_KEY is not set' };
+      return {
+        ok: false,
+        retryable: false,
+        error: 'RESEND_API_KEY is not set',
+      };
     }
     try {
       const resend = new Resend(apiKey);
@@ -58,13 +66,22 @@ export class ResendCreditsMailer implements CreditsMailer {
         // Rate limits (429), concurrent idempotent request (409), 5xx and
         // transport errors (no status) retry; other 4xx (validation, bad key,
         // bad address) will never succeed as written.
-        const retryable = status == null || status === 429 || status === 409 || status >= 500;
-        return { ok: false, retryable, error: `${name ?? 'error'}: ${error.message}` };
+        const retryable =
+          status == null || status === 429 || status === 409 || status >= 500;
+        return {
+          ok: false,
+          retryable,
+          error: `${name ?? 'error'}: ${error.message}`,
+        };
       }
       return { ok: true, id: data?.id };
     } catch (err) {
       this.logger.warn(`Resend threw: ${(err as Error).message}`);
-      return { ok: false, retryable: true, error: `network: ${(err as Error).message}` };
+      return {
+        ok: false,
+        retryable: true,
+        error: `network: ${(err as Error).message}`,
+      };
     }
   }
 }

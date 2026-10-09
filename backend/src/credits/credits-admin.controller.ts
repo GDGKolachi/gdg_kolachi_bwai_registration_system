@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument -- raw SQL rows and untyped request bodies */
 import {
   Body,
   Controller,
@@ -14,7 +15,10 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { CHECKIN_ROLES, ORGANIZER_ROLES } from '../common/enums/admin-role.enum';
+import {
+  CHECKIN_ROLES,
+  ORGANIZER_ROLES,
+} from '../common/enums/admin-role.enum';
 import { CreditsService } from './credits.service';
 import { SendBulkDto } from './dto';
 
@@ -31,7 +35,10 @@ export class CreditsAdminController {
   }
 
   @Get('events/:eventId/follow-up')
-  followUp(@Param('eventId', ParseUUIDPipe) eventId: string, @Query('filter') filter?: string) {
+  followUp(
+    @Param('eventId', ParseUUIDPipe) eventId: string,
+    @Query('filter') filter?: string,
+  ) {
     return this.credits.followUp(eventId, filter);
   }
 
@@ -67,6 +74,10 @@ export class CreditsAdminController {
   @Post('send-bulk')
   @HttpCode(200)
   sendBulk(@Body() dto: SendBulkDto, @Req() req: any) {
-    return this.credits.sendBulk(dto.event_id, dto.registration_ids, req.user.id);
+    return this.credits.sendBulk(
+      dto.event_id,
+      dto.registration_ids,
+      req.user.id,
+    );
   }
 }

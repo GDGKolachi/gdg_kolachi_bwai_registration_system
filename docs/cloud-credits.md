@@ -130,6 +130,35 @@ The registrations list gains credits status and redemption fields plus a `credit
 (`redeemed`, `not_redeemed`, `failed`), and the CSV export gains "Credits Email" and
 "Credits Redeemed At".
 
+## Implementation notes
+
+Details settled while building the backend (`backend/src/credits/`):
+
+- **Scan response.** `PATCH admin/qr-scan/:id/attend` keeps its fields and adds `credits: { status }`, where
+  status is the email status (`pending`, `sent`, ...), `not_queued` (credits off, no claim URL, deleted,
+  or not checked in) or `queue_error`. `POST admin/hackathon-checkin/:registrationId` accepts an optional
+  body `source: 'qr' | 'manual'`; only `'qr'` queues (source `hackathon_scan`). Omitted or `'manual'` sends
+  nothing, and `credits.status` just reports any existing row. The existing hackathon scanners call
+  `attend` first, so their row is created there with source `qr_scan`; the later call is a no-op.
+- **Registrations list.** Each row gets `credits: { email_status, redeemed_at, redeemed_via } | null`.
+  `credits=not_redeemed` includes registrations with no credits row.
+- **Admin sends** (`send`, `send-bulk`) require `credits_enabled` and a claim URL (400 otherwise) but not a
+  check-in. A resend bumps `email_generation` unless the row was `not_sent` (no email ever went out).
+  A row already `pending`/`sending` is left alone. Bulk without ids targets checked-in people with no row
+  or a `not_sent` row.
+- **Self-service resend** re-queues a `sent`/`failed`/`not_sent` row whose `email_queued_at` is older than
+  2 minutes, for a checked-in, non-deleted registration (email matched case-insensitively). It never
+  creates a row.
+- **Event settings.** The admin `PATCH events/:id` body is `Partial<CreateEventDto>`, which the global
+  ValidationPipe cannot validate, so the https check also runs in `EventsService.create/update`
+  (`normalizeCreditsFields`): `''`/`null` clear a URL. The public `GET events` / `GET events/:id` omit
+  `credits_claim_url` and `credits_video_url` (the claim link is universal); admins read them from
+  `admin/events`.
+- **Idempotency key.** The installed `resend` (v6) supports `emails.send(payload, { idempotencyKey })`; it is
+  used as `credits-<row id>-<email_generation>`.
+- **Mailer.** Behind the `CREDITS_MAILER` token (`CreditsMailer`), so tests replace it. Rate limits (429),
+  concurrent-idempotency (409), 5xx and network errors are retryable; other 4xx are permanent.
+
 ## Fallbacks
 
 The claim link is universal, so getting credits never depends on the email; only tracking

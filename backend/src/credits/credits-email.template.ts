@@ -36,7 +36,11 @@ export function firstNameOf(fullName: string): string {
  * wrapper in email.service.ts (copied, not imported — that file is untouched).
  * Every interpolated value is HTML-escaped.
  */
-export function renderCreditsEmail(input: CreditsEmailInput): { subject: string; html: string; text: string } {
+export function renderCreditsEmail(input: CreditsEmailInput): {
+  subject: string;
+  html: string;
+  text: string;
+} {
   const name = escapeHtml(input.firstName);
   const title = escapeHtml(input.eventTitle);
   const claimUrl = escapeHtml(input.claimUrl);
@@ -54,7 +58,9 @@ export function renderCreditsEmail(input: CreditsEmailInput): { subject: string;
       </div>`
     : '';
 
-  const stepsHtml = CREDITS_STEPS.map((s) => `<li style="margin: 4px 0;">${escapeHtml(s)}</li>`).join('');
+  const stepsHtml = CREDITS_STEPS.map(
+    (s) => `<li style="margin: 4px 0;">${escapeHtml(s)}</li>`,
+  ).join('');
 
   const body = `
       <h2 style="color: #202124;">Hi ${name},</h2>
@@ -116,5 +122,9 @@ export function renderCreditsEmail(input: CreditsEmailInput): { subject: string;
     '-- GDG Kolachi',
   );
 
-  return { subject: creditsSubject(input.eventTitle), html, text: textLines.join('\n') };
+  return {
+    subject: creditsSubject(input.eventTitle),
+    html,
+    text: textLines.join('\n'),
+  };
 }

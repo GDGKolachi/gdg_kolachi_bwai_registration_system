@@ -10,7 +10,11 @@ import { CreditsAdminController } from './credits-admin.controller';
 @Module({
   imports: [TypeOrmModule.forFeature([CreditRedemption])],
   controllers: [CreditsPublicController, CreditsAdminController],
-  providers: [CreditsService, CreditsSender, { provide: CREDITS_MAILER, useClass: ResendCreditsMailer }],
+  providers: [
+    CreditsService,
+    CreditsSender,
+    { provide: CREDITS_MAILER, useClass: ResendCreditsMailer },
+  ],
   exports: [CreditsService],
 })
 export class CreditsModule {}

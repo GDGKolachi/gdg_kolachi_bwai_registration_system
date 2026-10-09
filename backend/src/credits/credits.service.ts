@@ -1,10 +1,20 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument -- raw SQL rows and supertest bodies are untyped */
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import * as QRCode from 'qrcode';
 import { generateToken, siteOrigin } from './credits.util';
 
-export type CreditSource = 'qr_scan' | 'hackathon_scan' | 'admin' | 'volunteer_qr';
+export type CreditSource =
+  | 'qr_scan'
+  | 'hackathon_scan'
+  | 'admin'
+  | 'volunteer_qr';
 
 /** Minimum gap between self-service resends for the same person. */
 export const RESEND_COOLDOWN_MINUTES = 2;
@@ -27,7 +37,7 @@ export interface CreditsView {
   redeemed_via: string | null;
 }
 
-function toView(row: any | null | undefined): CreditsView {
+function toView(row: any): CreditsView {
   if (!row) {
     return {
       exists: false,
@@ -62,7 +72,12 @@ function toView(row: any | null | undefined): CreditsView {
 
 /** TypeORM's postgres `query()` returns [rows, count] for UPDATE/DELETE ... RETURNING. */
 function rowsOf(result: any): any[] {
-  if (Array.isArray(result) && result.length === 2 && Array.isArray(result[0]) && typeof result[1] === 'number') {
+  if (
+    Array.isArray(result) &&
+    result.length === 2 &&
+    Array.isArray(result[0]) &&
+    typeof result[1] === 'number'
+  ) {
     return result[0];
   }
   return result;
@@ -98,7 +113,13 @@ export class CreditsService {
           WHERE r.id = $1`,
         [registrationId],
       );
-      if (!reg || reg.deleted_at || !reg.checked_in || !reg.credits_enabled || !reg.credits_claim_url) {
+      if (
+        !reg ||
+        reg.deleted_at ||
+        !reg.checked_in ||
+        !reg.credits_enabled ||
+        !reg.credits_claim_url
+      ) {
         return { status: await this.currentStatus(registrationId) };
       }
       await this.q(
@@ -106,11 +127,19 @@ export class CreditsService {
            (registration_id, event_id, token, source, created_by_admin_id, email_status, email_queued_at)
          VALUES ($1, $2, $3, $4, $5, 'pending', now())
          ON CONFLICT (registration_id) DO NOTHING`,
-        [registrationId, reg.event_id, generateToken(), source, adminId ?? null],
+        [
+          registrationId,
+          reg.event_id,
+          generateToken(),
+          source,
+          adminId ?? null,
+        ],
       );
       return { status: await this.currentStatus(registrationId) };
     } catch (err) {
-      this.logger.error(`Could not queue credits email for ${registrationId}: ${(err as Error).message}`);
+      this.logger.error(
+        `Could not queue credits email for ${registrationId}: ${(err as Error).message}`,
+      );
       return { status: 'queue_error' };
     }
   }
@@ -118,9 +147,10 @@ export class CreditsService {
   /** Email status of the registration's credits row, or `not_queued`. */
   async currentStatus(registrationId: string): Promise<string> {
     try {
-      const [row] = await this.q(`SELECT email_status FROM credit_redemptions WHERE registration_id = $1`, [
-        registrationId,
-      ]);
+      const [row] = await this.q(
+        `SELECT email_status FROM credit_redemptions WHERE registration_id = $1`,
+        [registrationId],
+      );
       return row?.email_status ?? 'not_queued';
     } catch {
       return 'not_queued';
@@ -139,7 +169,8 @@ export class CreditsService {
         WHERE r.id = $1`,
       [registrationId],
     );
-    if (!reg || reg.deleted_at) throw new NotFoundException('Registration not found');
+    if (!reg || reg.deleted_at)
+      throw new NotFoundException('Registration not found');
     return reg;
   }
 
@@ -159,7 +190,10 @@ export class CreditsService {
   }
 
   private async getRow(registrationId: string) {
-    const [row] = await this.q(`SELECT * FROM credit_redemptions WHERE registration_id = $1`, [registrationId]);
+    const [row] = await this.q(
+      `SELECT * FROM credit_redemptions WHERE registration_id = $1`,
+      [registrationId],
+    );
     return row ?? null;
   }
 
@@ -179,20 +213,39 @@ export class CreditsService {
   }
 
   /** First send or resend for one registration (desk button, failed-row Resend button). */
-  async send(registrationId: string, adminId: string | null, source: CreditSource = 'admin'): Promise<CreditsView> {
+  async send(
+    registrationId: string,
+    adminId: string | null,
+    source: CreditSource = 'admin',
+  ): Promise<CreditsView> {
     const reg = await this.loadRegistration(registrationId);
-    if (!reg.credits_enabled) throw new BadRequestException('Credits email is not enabled for this event.');
-    if (!reg.credits_claim_url) throw new BadRequestException('This event has no credits claim URL.');
+    if (!reg.credits_enabled)
+      throw new BadRequestException(
+        'Credits email is not enabled for this event.',
+      );
+    if (!reg.credits_claim_url)
+      throw new BadRequestException('This event has no credits claim URL.');
     await this.insertRow(reg, source, adminId, 'pending');
     await this.requeue(registrationId, false); // no-op for a row we just created or one already in flight
     return toView(await this.getRow(registrationId));
   }
 
-  async sendBulk(eventId: string, registrationIds: string[] | undefined, adminId: string | null) {
-    const [event] = await this.q(`SELECT id, credits_enabled, credits_claim_url FROM events WHERE id = $1`, [eventId]);
+  async sendBulk(
+    eventId: string,
+    registrationIds: string[] | undefined,
+    adminId: string | null,
+  ) {
+    const [event] = await this.q(
+      `SELECT id, credits_enabled, credits_claim_url FROM events WHERE id = $1`,
+      [eventId],
+    );
     if (!event) throw new NotFoundException('Event not found');
-    if (!event.credits_enabled) throw new BadRequestException('Credits email is not enabled for this event.');
-    if (!event.credits_claim_url) throw new BadRequestException('This event has no credits claim URL.');
+    if (!event.credits_enabled)
+      throw new BadRequestException(
+        'Credits email is not enabled for this event.',
+      );
+    if (!event.credits_claim_url)
+      throw new BadRequestException('This event has no credits claim URL.');
 
     let ids = registrationIds;
     if (!ids || ids.length === 0) {
@@ -207,18 +260,39 @@ export class CreditsService {
       ids = rows.map((r) => r.id);
     }
 
-    const results: Array<{ registration_id: string; ok: boolean; status?: string; error?: string }> = [];
+    const results: Array<{
+      registration_id: string;
+      ok: boolean;
+      status?: string;
+      error?: string;
+    }> = [];
     for (const id of ids) {
       try {
-        const [owner] = await this.q(`SELECT event_id FROM registrations WHERE id = $1`, [id]);
-        if (!owner || owner.event_id !== eventId) throw new NotFoundException('Registration not found in this event');
+        const [owner] = await this.q(
+          `SELECT event_id FROM registrations WHERE id = $1`,
+          [id],
+        );
+        if (!owner || owner.event_id !== eventId)
+          throw new NotFoundException('Registration not found in this event');
         const view = await this.send(id, adminId, 'admin');
-        results.push({ registration_id: id, ok: true, status: view.email_status });
+        results.push({
+          registration_id: id,
+          ok: true,
+          status: view.email_status,
+        });
       } catch (err) {
-        results.push({ registration_id: id, ok: false, error: (err as Error).message });
+        results.push({
+          registration_id: id,
+          ok: false,
+          error: (err as Error).message,
+        });
       }
     }
-    return { total: results.length, queued: results.filter((r) => r.ok).length, results };
+    return {
+      total: results.length,
+      queued: results.filter((r) => r.ok).length,
+      results,
+    };
   }
 
   /** Creates the row without emailing (for "Show credits QR") and returns the confirm link. */
@@ -227,7 +301,10 @@ export class CreditsService {
     await this.insertRow(reg, 'volunteer_qr', adminId, 'not_sent');
     const row = await this.getRow(registrationId);
     const confirm_url = `${siteOrigin()}/credits/${row.token}`;
-    const qr_data_url = await QRCode.toDataURL(confirm_url, { width: 320, margin: 2 });
+    const qr_data_url = await QRCode.toDataURL(confirm_url, {
+      width: 320,
+      margin: 2,
+    });
     return { confirm_url, qr_data_url };
   }
 
@@ -252,7 +329,8 @@ export class CreditsService {
   async unconfirm(registrationId: string): Promise<CreditsView> {
     await this.loadRegistration(registrationId);
     const row = await this.getRow(registrationId);
-    if (!row) throw new NotFoundException('No credits record for this registration');
+    if (!row)
+      throw new NotFoundException('No credits record for this registration');
     await this.q(
       `UPDATE credit_redemptions SET redeemed_at = NULL, redeemed_via = NULL,
               redeemed_by_admin_id = NULL, updated_at = now()
@@ -263,7 +341,9 @@ export class CreditsService {
   }
 
   async summary(eventId: string) {
-    const [event] = await this.q(`SELECT id FROM events WHERE id = $1`, [eventId]);
+    const [event] = await this.q(`SELECT id FROM events WHERE id = $1`, [
+      eventId,
+    ]);
     if (!event) throw new NotFoundException('Event not found');
     const [counts] = await this.q(
       `SELECT
@@ -330,7 +410,10 @@ export class CreditsService {
       email: r.email,
       checked_in_at: r.checked_in_at,
       minutes_since_check_in: r.checked_in_at
-        ? Math.max(0, Math.floor((now - new Date(r.checked_in_at).getTime()) / 60000))
+        ? Math.max(
+            0,
+            Math.floor((now - new Date(r.checked_in_at).getTime()) / 60000),
+          )
         : null,
       credits: {
         email_status: r.email_status ?? 'none',
@@ -347,7 +430,8 @@ export class CreditsService {
 
   private async findByToken(token: string) {
     // Tokens are 43 chars of base64url; reject anything else without hitting the DB.
-    if (!/^[A-Za-z0-9_-]{16,64}$/.test(token)) throw new NotFoundException('Not found');
+    if (!/^[A-Za-z0-9_-]{16,64}$/.test(token))
+      throw new NotFoundException('Not found');
     const [row] = await this.q(
       `SELECT cr.id, cr.token, cr.redeemed_at, a.name, e.title AS event_title,
               e.credits_claim_url, e.credits_video_url
@@ -396,10 +480,14 @@ export class CreditsService {
   /** Records the first click and returns where to send the attendee. */
   async trackClick(token: string, kind: 'claim' | 'video'): Promise<string> {
     const row = await this.findByToken(token);
-    const url = kind === 'claim' ? row.credits_claim_url : row.credits_video_url;
+    const url =
+      kind === 'claim' ? row.credits_claim_url : row.credits_video_url;
     if (!url) throw new NotFoundException('Not found');
     const col = kind === 'claim' ? 'claim_clicked_at' : 'video_clicked_at';
-    await this.q(`UPDATE credit_redemptions SET ${col} = COALESCE(${col}, now()) WHERE id = $1`, [row.id]);
+    await this.q(
+      `UPDATE credit_redemptions SET ${col} = COALESCE(${col}, now()) WHERE id = $1`,
+      [row.id],
+    );
     return url;
   }
 
@@ -408,7 +496,10 @@ export class CreditsService {
    * registration with this email, at most once per cooldown. The answer is the
    * same whatever happened so it reveals nothing about who is registered.
    */
-  async selfResend(email: string, eventId: string): Promise<{ message: string }> {
+  async selfResend(
+    email: string,
+    eventId: string,
+  ): Promise<{ message: string }> {
     try {
       const [row] = await this.q(
         `SELECT r.id, e.credits_enabled, e.credits_claim_url
@@ -424,7 +515,9 @@ export class CreditsService {
         await this.requeue(row.id, true);
       }
     } catch (err) {
-      this.logger.error(`Self-service credits resend failed: ${(err as Error).message}`);
+      this.logger.error(
+        `Self-service credits resend failed: ${(err as Error).message}`,
+      );
     }
     return { message: SELF_RESEND_MESSAGE };
   }

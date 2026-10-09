@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- raw SQL rows and untyped request bodies */
 import { randomBytes } from 'crypto';
 import { BadRequestException } from '@nestjs/common';
 import { isURL } from 'class-validator';
@@ -26,11 +27,15 @@ export function generateToken(): string {
  * Site origin derived from APP_URL exactly as email.service.ts does: a trailing
  * `/api` or `/` is stripped. Duplicated on purpose (email.service.ts is not touched).
  */
-export function siteOrigin(appUrl: string | undefined = process.env.APP_URL): string {
-  return (appUrl || 'http://localhost:3000').replace(/\/api\/?$/, '').replace(/\/$/, '');
+export function siteOrigin(
+  appUrl: string | undefined = process.env.APP_URL,
+): string {
+  return (appUrl || 'http://localhost:3000')
+    .replace(/\/api\/?$/, '')
+    .replace(/\/$/, '');
 }
 
-export function escapeHtml(value: unknown): string {
+export function escapeHtml(value: string | number | null | undefined): string {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -40,7 +45,9 @@ export function escapeHtml(value: unknown): string {
 }
 
 /** Sends per second, from CREDITS_EMAIL_PER_SECOND (default 4). */
-export function emailsPerSecond(raw: string | undefined = process.env.CREDITS_EMAIL_PER_SECOND): number {
+export function emailsPerSecond(
+  raw: string | undefined = process.env.CREDITS_EMAIL_PER_SECOND,
+): number {
   const n = Number(raw);
   return Number.isFinite(n) && n > 0 ? n : 4;
 }
@@ -55,7 +62,9 @@ const CREDITS_URL_FIELDS = ['credits_claim_url', 'credits_video_url'] as const;
  * ValidationPipe cannot validate (Partial erases the class metadata), so the
  * DTO decorators alone would not protect updates.
  */
-export function normalizeCreditsFields<T extends Record<string, any>>(data: T): T {
+export function normalizeCreditsFields<T extends Record<string, any>>(
+  data: T,
+): T {
   for (const field of CREDITS_URL_FIELDS) {
     if (!(field in data)) continue;
     const value = data[field];
@@ -72,7 +81,11 @@ export function normalizeCreditsFields<T extends Record<string, any>>(data: T): 
     }
     (data as any)[field] = value.trim();
   }
-  if ('credits_enabled' in data && data.credits_enabled !== undefined && typeof data.credits_enabled !== 'boolean') {
+  if (
+    'credits_enabled' in data &&
+    data.credits_enabled !== undefined &&
+    typeof data.credits_enabled !== 'boolean'
+  ) {
     throw new BadRequestException('credits_enabled must be a boolean');
   }
   return data;

@@ -16,8 +16,12 @@ export class CloudCreditsEmail1753900000000 implements MigrationInterface {
     await queryRunner.query(
       `ALTER TABLE "events" ADD COLUMN IF NOT EXISTS "credits_enabled" boolean NOT NULL DEFAULT false`,
     );
-    await queryRunner.query(`ALTER TABLE "events" ADD COLUMN IF NOT EXISTS "credits_claim_url" character varying`);
-    await queryRunner.query(`ALTER TABLE "events" ADD COLUMN IF NOT EXISTS "credits_video_url" character varying`);
+    await queryRunner.query(
+      `ALTER TABLE "events" ADD COLUMN IF NOT EXISTS "credits_claim_url" character varying`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "events" ADD COLUMN IF NOT EXISTS "credits_video_url" character varying`,
+    );
 
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "credit_redemptions" (
@@ -61,8 +65,14 @@ export class CloudCreditsEmail1753900000000 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP TABLE IF EXISTS "credit_redemptions"`);
-    for (const col of ['credits_video_url', 'credits_claim_url', 'credits_enabled']) {
-      await queryRunner.query(`ALTER TABLE "events" DROP COLUMN IF EXISTS "${col}"`);
+    for (const col of [
+      'credits_video_url',
+      'credits_claim_url',
+      'credits_enabled',
+    ]) {
+      await queryRunner.query(
+        `ALTER TABLE "events" DROP COLUMN IF EXISTS "${col}"`,
+      );
     }
   }
 }

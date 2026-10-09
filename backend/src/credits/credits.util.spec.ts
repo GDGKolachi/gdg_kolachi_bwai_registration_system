@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access -- raw SQL rows and untyped request bodies */
 import { BadRequestException } from '@nestjs/common';
 import {
   MAX_EMAIL_ATTEMPTS,
@@ -36,10 +37,18 @@ describe('generateToken', () => {
 
 describe('siteOrigin', () => {
   it('strips a trailing /api or slash', () => {
-    expect(siteOrigin('https://register.example.test/api')).toBe('https://register.example.test');
-    expect(siteOrigin('https://register.example.test/api/')).toBe('https://register.example.test');
-    expect(siteOrigin('https://register.example.test/')).toBe('https://register.example.test');
-    expect(siteOrigin('https://register.example.test')).toBe('https://register.example.test');
+    expect(siteOrigin('https://register.example.test/api')).toBe(
+      'https://register.example.test',
+    );
+    expect(siteOrigin('https://register.example.test/api/')).toBe(
+      'https://register.example.test',
+    );
+    expect(siteOrigin('https://register.example.test/')).toBe(
+      'https://register.example.test',
+    );
+    expect(siteOrigin('https://register.example.test')).toBe(
+      'https://register.example.test',
+    );
   });
 
   it('falls back to localhost when APP_URL is unset', () => {
@@ -71,16 +80,25 @@ describe('emailsPerSecond', () => {
 
 describe('normalizeCreditsFields', () => {
   it('clears empty values and accepts https', () => {
-    const data: any = { credits_claim_url: '  ', credits_video_url: 'https://youtu.be/abc' };
+    const data: any = {
+      credits_claim_url: '  ',
+      credits_video_url: 'https://youtu.be/abc',
+    };
     normalizeCreditsFields(data);
     expect(data.credits_claim_url).toBeNull();
     expect(data.credits_video_url).toBe('https://youtu.be/abc');
   });
 
   it('rejects non-https URLs', () => {
-    expect(() => normalizeCreditsFields({ credits_claim_url: 'http://example.com' })).toThrow(BadRequestException);
-    expect(() => normalizeCreditsFields({ credits_video_url: 'javascript:alert(1)' })).toThrow(BadRequestException);
-    expect(() => normalizeCreditsFields({ credits_claim_url: 42 })).toThrow(BadRequestException);
+    expect(() =>
+      normalizeCreditsFields({ credits_claim_url: 'http://example.com' }),
+    ).toThrow(BadRequestException);
+    expect(() =>
+      normalizeCreditsFields({ credits_video_url: 'javascript:alert(1)' }),
+    ).toThrow(BadRequestException);
+    expect(() => normalizeCreditsFields({ credits_claim_url: 42 })).toThrow(
+      BadRequestException,
+    );
   });
 
   it('leaves unrelated payloads alone', () => {

@@ -5,7 +5,9 @@ import { EventsService } from './events.service';
 // The claim link is universal (anyone holding it can claim), so the public
 // event endpoints must not hand it out; admins read it from /admin/events.
 function withoutCreditsSecrets<T extends Record<string, any>>(event: T) {
-  const { credits_claim_url, credits_video_url, ...rest } = event;
+  const rest: Record<string, any> = { ...event };
+  delete rest.credits_claim_url;
+  delete rest.credits_video_url;
   return rest;
 }
 

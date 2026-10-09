@@ -1,8 +1,21 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { Registration } from './registration.entity';
 import { Event } from './event.entity';
 
-export type CreditEmailStatus = 'not_sent' | 'pending' | 'sending' | 'sent' | 'failed';
+export type CreditEmailStatus =
+  | 'not_sent'
+  | 'pending'
+  | 'sending'
+  | 'sent'
+  | 'failed';
 
 /**
  * One row per registration: the credits email's send state plus the attendee's
