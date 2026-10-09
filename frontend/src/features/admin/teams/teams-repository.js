@@ -135,8 +135,15 @@ export function useSwapMembers(eventId) {
 export function useHackathonCheckin(eventId) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (registrationId) => teamsApi.hackathonCheckin(registrationId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['teams', eventId] }),
+    // Pass a bare registration id, or { registrationId, source } for a QR scan.
+    mutationFn: (arg) => {
+      const { registrationId, source } = typeof arg === 'object' ? arg : { registrationId: arg };
+      return teamsApi.hackathonCheckin(registrationId, source);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['teams', eventId] });
+      qc.invalidateQueries({ queryKey: ['credits'] });
+    },
   });
 }
 

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import api from '../../../../axios-instance';
+import CreditsScanLine from '../../credits/components/credits-scan-line';
 
 export default function QrScanView() {
   const [scanResult, setScanResult] = useState(null);
@@ -41,7 +42,7 @@ export default function QrScanView() {
         },
         () => {}
       );
-    } catch (err) {
+    } catch {
       toast.error('Camera access denied or not available');
       setScanning(false);
     }
@@ -95,7 +96,8 @@ export default function QrScanView() {
     }
     setShowAckWarning(false);
     try {
-      await api.patch(`/admin/qr-scan/${scanResult.registrationId}/attend`);
+      const { data: attended } = await api.patch(`/admin/qr-scan/${scanResult.registrationId}/attend`);
+      const credits = attended?.credits?.status ?? null;
       const isHackathon = scanResult.event_type_slug === 'hackathon';
       if (isHackathon) {
         try {
@@ -108,14 +110,15 @@ export default function QrScanView() {
             team_number: assignment?.team?.team_number,
             team_domain: assignment?.team?.primary_domain,
             is_new_team: assignment?.isNewTeam,
+            credits,
           });
         } catch (err) {
           toast.error(err.response?.data?.message || 'Checked in, but team assignment failed');
-          setScanResult({ ...scanResult, status: 'attended', checkedIn: true });
+          setScanResult({ ...scanResult, status: 'attended', checkedIn: true, credits });
         }
       } else {
         toast.success('Marked as attended!');
-        setScanResult({ ...scanResult, status: 'attended', checkedIn: true });
+        setScanResult({ ...scanResult, status: 'attended', checkedIn: true, credits });
       }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to mark as attended');
@@ -262,6 +265,9 @@ export default function QrScanView() {
                     </>
                   ) : (
                     'Already checked in'
+                  )}
+                  {scanResult.credits && (
+                    <CreditsScanLine status={scanResult.credits} registrationId={scanResult.registrationId} />
                   )}
                 </div>
               )}
