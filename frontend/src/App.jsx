@@ -20,6 +20,7 @@ import CheckinView from './features/admin/checkin/views/checkin-view';
 import HackathonCheckinView from './features/admin/hackathon-checkin/views/hackathon-checkin-view';
 import TeamsManagement from './features/admin/teams/views/teams-management';
 import QrScanView from './features/admin/qr-scan/views/qr-scan-view';
+import CreditsDashboard from './features/admin/credits/views/credits-dashboard';
 import UsersManagement from './features/admin/users/views/users-management';
 import MobileCheckinView from './features/admin/mobile-checkin/views/mobile-checkin-view';
 import { useCurrentUser } from './features/admin/auth/use-current-user';
@@ -91,6 +92,7 @@ function App() {
         <Route path="hackathon-checkin/:eventId" element={<AuthGate allow={CHECKIN_ROLES}><HackathonCheckinView /></AuthGate>} />
         <Route path="teams/:eventId" element={<AuthGate allow={MANAGEMENT_ROLES}><TeamsManagement /></AuthGate>} />
         <Route path="qr-scan" element={<AuthGate allow={CHECKIN_ROLES}><QrScanView /></AuthGate>} />
+        <Route path="credits" element={<AuthGate allow={CHECKIN_ROLES}><CreditsDashboard /></AuthGate>} />
         <Route path="users" element={<AuthGate allow={[ROLES.SUPER_ADMIN]}><UsersManagement /></AuthGate>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
