@@ -237,8 +237,8 @@ export default function CreditsDashboard() {
         <p>Who has the credits email, who has redeemed, and who needs a nudge. Refreshes every 15 seconds.</p>
       </div>
 
-      <div className="mb-6 flex flex-wrap items-end gap-3">
-        <div className="min-w-0 max-w-md flex-1">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="w-full min-w-0 sm:max-w-md sm:flex-1">
           <label className="ui-label" htmlFor="credits-event">Event</label>
           <select
             id="credits-event"
@@ -258,7 +258,7 @@ export default function CreditsDashboard() {
         {isOrganizer && eventId && (
           <button
             type="button"
-            className="ui-btn-primary"
+            className="ui-btn-primary w-full sm:w-auto"
             disabled={!event?.credits_enabled}
             title={event?.credits_enabled ? undefined : 'Turn on credits for this event first'}
             onClick={() => setAskBulk(true)}
