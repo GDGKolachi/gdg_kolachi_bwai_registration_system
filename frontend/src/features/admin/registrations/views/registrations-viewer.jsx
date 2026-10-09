@@ -8,6 +8,7 @@ import { MANAGEMENT_ROLES } from '../../auth/roles';
 import RegistrationDetailDrawer from '../components/registration-detail-drawer';
 import TeamsGrid from '../components/teams-grid';
 import { toTeamRow } from '../team-row';
+import { emailStatusInfo } from '../../credits/credits-service';
 import { useTeams, useRequestTeamPayment, useMessageTeams } from '../../teams/teams-repository';
 import {
   STATUS_COLORS,
@@ -43,6 +44,8 @@ const INITIAL_FILTERS = {
   university_org: '',
   checked_in: '',
   acknowledged: '',
+  // Google Cloud credits: '' | 'redeemed' | 'not_redeemed' | 'failed'
+  credits: '',
   date_from: '',
   date_to: '',
   // '' = live registrations only, 'true' = also show soft-deleted rows
@@ -269,7 +272,36 @@ const COLUMNS = [
     cellClass: 'whitespace-nowrap text-center text-gdg-gray',
     render: r => (r.checked_in ? '✓' : '—'),
   },
+  {
+    key: 'credits',
+    label: 'Credits',
+    headerTitle: 'Google Cloud credits email and redemption',
+    cellClass: 'whitespace-nowrap',
+    render: r => <CreditsCell credits={r.credits} />,
+  },
 ];
+
+function CreditsCell({ credits }) {
+  if (!credits) return <span className="text-gdg-gray">—</span>;
+  if (credits.redeemed_at) {
+    const byVolunteer = credits.redeemed_via === 'volunteer';
+    return (
+      <span
+        className="inline-flex rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-900 ring-1 ring-emerald-200/70"
+        title={byVolunteer ? 'Confirmed by a volunteer' : 'Confirmed by the attendee'}
+      >
+        Redeemed ✓{byVolunteer ? ' (vol.)' : ''}
+      </span>
+    );
+  }
+  const info = emailStatusInfo(credits.email_status);
+  if (credits.email_status === 'not_sent') return <span className="text-gdg-gray">—</span>;
+  return (
+    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${info.cls}`}>
+      {info.label}
+    </span>
+  );
+}
 
 const DEFAULT_HIDDEN_COLUMNS = COLUMNS.filter(c => c.defaultHidden).map(c => c.key);
 
@@ -561,6 +593,7 @@ export default function RegistrationsViewer() {
     checked_in:      appliedFilters.checked_in !== '' ? appliedFilters.checked_in === 'true' : undefined,
     acknowledged:
       appliedFilters.acknowledged !== '' ? appliedFilters.acknowledged === 'true' : undefined,
+    credits:         appliedFilters.credits   || undefined,
     date_from:       appliedFilters.date_from || undefined,
     date_to:         appliedFilters.date_to   || undefined,
     include_deleted: appliedFilters.include_deleted === 'true' ? true : undefined,
@@ -624,6 +657,17 @@ export default function RegistrationsViewer() {
             !anyMember(row, r => r.checked_in === (appliedFilters.checked_in === 'true'))) return false;
         if (appliedFilters.acknowledged !== '' &&
             !anyMember(row, r => r.acknowledged === (appliedFilters.acknowledged === 'true'))) return false;
+
+        if (appliedFilters.credits) {
+          const matches = (r) => {
+            const c = r.credits;
+            if (appliedFilters.credits === 'redeemed') return !!c?.redeemed_at;
+            if (appliedFilters.credits === 'not_redeemed') return !c?.redeemed_at;
+            if (appliedFilters.credits === 'failed') return c?.email_status === 'failed';
+            return true;
+          };
+          if (!anyMember(row, matches)) return false;
+        }
 
         if (appliedFilters.date_from && !(row.registeredAt && row.registeredAt >= appliedFilters.date_from)) return false;
         if (appliedFilters.date_to && !(row.registeredAt && row.registeredAt <= `${appliedFilters.date_to}T23:59:59.999Z`)) return false;
@@ -1316,6 +1360,15 @@ export default function RegistrationsViewer() {
                 <option value="">Any</option>
                 <option value="true">Yes</option>
                 <option value="false">No</option>
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Credits</label>
+              <select className={inputCls} value={draftFilters.credits} onChange={e => setDraftFilter('credits', e.target.value)}>
+                <option value="">All</option>
+                <option value="redeemed">Redeemed</option>
+                <option value="not_redeemed">Not redeemed</option>
+                <option value="failed">Email failed</option>
               </select>
             </div>
             <div>

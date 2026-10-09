@@ -17,6 +17,7 @@ export const adminRegistrationApi = {
     if (params.ambassador) query.set('ambassador', params.ambassador);
     if (params.checked_in !== undefined) query.set('checked_in', String(params.checked_in));
     if (params.acknowledged !== undefined) query.set('acknowledged', String(params.acknowledged));
+    if (params.credits) query.set('credits', params.credits);
     if (params.date_from) query.set('date_from', params.date_from);
     if (params.date_to) query.set('date_to', params.date_to);
     if (params.sort_by) query.set('sort_by', params.sort_by);
