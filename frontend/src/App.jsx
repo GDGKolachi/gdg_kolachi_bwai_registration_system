@@ -8,6 +8,8 @@ import RegistrationConfirmation from './features/registration/views/registration
 import ExceptionRequestForm from './features/exceptions/views/exception-request-form';
 import TeamLookup from './features/teams-public/views/team-lookup';
 import TeamDeposit from './features/teams-public/views/team-deposit';
+import CreditsResend from './features/credits-public/views/credits-resend';
+import CreditsConfirm from './features/credits-public/views/credits-confirm';
 import Login from './features/admin/auth/views/login';
 import DashboardHome from './features/admin/dashboard/views/dashboard-home';
 import EventCrud from './features/admin/event-management/views/event-crud';
@@ -68,6 +70,9 @@ function App() {
         <Route path="/exception-request/workshop/:workshopId" element={<ExceptionRequestForm />} />
         <Route path="/my-team" element={<TeamLookup />} />
         <Route path="/teams/:teamId/deposit" element={<TeamDeposit />} />
+        {/* `resend` is a literal segment; keep it before the :token route. */}
+        <Route path="/credits/resend" element={<CreditsResend />} />
+        <Route path="/credits/:token" element={<CreditsConfirm />} />
       </Route>
       <Route path="/admin/login" element={<Login />} />
       <Route
