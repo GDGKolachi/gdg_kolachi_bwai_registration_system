@@ -51,6 +51,18 @@ sudo apt-get install -y -qq google-cloud-cli
 echo "==> Installing git..."
 sudo apt-get install -y -qq git
 
+# ---- Journal size cap ----
+# The default journal is unbounded. On this VM it reached 788M — most of a disk
+# that only has 8.7G — and helped push a deploy into ENOSPC.
+echo "==> Capping systemd journal at 200M..."
+if grep -qE '^\s*#?\s*SystemMaxUse=' /etc/systemd/journald.conf; then
+  sudo sed -i 's/^\s*#\?\s*SystemMaxUse=.*/SystemMaxUse=200M/' /etc/systemd/journald.conf
+else
+  echo 'SystemMaxUse=200M' | sudo tee -a /etc/systemd/journald.conf > /dev/null
+fi
+sudo systemctl restart systemd-journald
+sudo journalctl --vacuum-size=200M
+
 # ---- App directory ----
 echo "==> Creating /opt/gdg-bwai app directory..."
 sudo mkdir -p /opt/gdg-bwai

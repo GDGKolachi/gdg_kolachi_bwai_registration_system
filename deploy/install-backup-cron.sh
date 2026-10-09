@@ -1,63 +1,62 @@
 #!/usr/bin/env bash
 # =============================================================================
 # install-backup-cron.sh
-# Installs the Postgres backup script and a daily cron job on the VM.
-# Run this once after deploying, while SSH'd into the VM.
+# Installs the nightly Postgres backup cron job on the VM.
 #
-# Usage:
+# Usage (while SSH'd into the VM):
 #   bash /opt/gdg-bwai/deploy/install-backup-cron.sh
+#
+# There is nothing to configure. postgres-backup.sh reads DB credentials from
+# /opt/gdg-bwai/.env and uploads with the VM's attached service account, so no
+# secrets are written anywhere the deploy can delete them. The previous version
+# of this script prompted for credentials and wrote /opt/gdg-bwai/.backup.env
+# plus a service-account key — both of which the next deploy wiped, silently
+# breaking every backup from then on.
+#
+# The job runs as root because /opt/gdg-bwai/.env is chmod 600 and root-owned.
 # =============================================================================
 set -euo pipefail
 
 BACKUP_SCRIPT="/opt/gdg-bwai/deploy/postgres-backup.sh"
-BACKUP_ENV="/opt/gdg-bwai/.backup.env"
-LOG_FILE="/var/log/gdg-postgres-backup.log"
+LOG_FILE="/var/log/gdg-backup.log"
 
-# ---- Ensure backup script is executable ----
-chmod +x "${BACKUP_SCRIPT}"
-
-# ---- Create log file ----
+sudo chmod +x "${BACKUP_SCRIPT}"
 sudo touch "${LOG_FILE}"
-sudo chown "$USER":"$USER" "${LOG_FILE}"
 
-# ---- Prompt for backup environment values ----
-echo ""
-echo "==> Configuring backup environment (saved to ${BACKUP_ENV})"
-read -r -p "DB_USER [postgres]: " input_db_user
-DB_USER="${input_db_user:-postgres}"
+# Daily at 02:00 server time, in root's crontab.
+#
+# `|| true` is load-bearing: grep exits 1 when it filters out every line, which
+# is exactly what happens on a re-run where the backup job is the only entry.
+# Under `set -o pipefail` that aborted this script mid-pipeline and left root
+# with an empty crontab — the backup silently stopped being scheduled at all.
+CRON_JOB="0 2 * * * /bin/bash ${BACKUP_SCRIPT} >> ${LOG_FILE} 2>&1"
+EXISTING=$(sudo crontab -l 2>/dev/null | grep -v "postgres-backup.sh" || true)
+printf '%s\n%s\n' "${EXISTING}" "${CRON_JOB}" | sed '/^$/d' | sudo crontab -
 
-read -r -s -p "DB_PASSWORD: " input_db_password
-echo ""
-DB_PASSWORD="${input_db_password}"
+echo "Cron entries now:"
+sudo crontab -l | sed 's/^/  /'
 
-read -r -p "DB_NAME [gdg_bwai]: " input_db_name
-DB_NAME="${input_db_name:-gdg_bwai}"
-
-read -r -p "GCS_BUCKET (e.g. gdg-bwai-postgres-backups): " GCS_BUCKET
-
-SA_KEY_PATH="/opt/gdg-bwai/backup-sa-key.json"
-
-cat > "${BACKUP_ENV}" <<EOF
-DB_USER=${DB_USER}
-DB_PASSWORD=${DB_PASSWORD}
-DB_NAME=${DB_NAME}
-GCS_BUCKET=${GCS_BUCKET}
-GOOGLE_APPLICATION_CREDENTIALS=${SA_KEY_PATH}
+# Keep the log from becoming another unbounded file on a small disk.
+sudo tee /etc/logrotate.d/gdg-backup > /dev/null <<'EOF'
+/var/log/gdg-backup.log {
+    weekly
+    rotate 4
+    compress
+    missingok
+    notifempty
+    copytruncate
+}
 EOF
-chmod 600 "${BACKUP_ENV}"
-echo "Backup env saved."
-
-# ---- Install cron job: daily at 02:00 AM ----
-CRON_JOB="0 2 * * * ${BACKUP_SCRIPT} >> ${LOG_FILE} 2>&1"
-
-# Avoid duplicates
-( crontab -l 2>/dev/null | grep -v "${BACKUP_SCRIPT}" ; echo "${CRON_JOB}" ) | crontab -
 
 echo ""
 echo "============================================================"
-echo "Cron job installed: daily backup at 02:00 AM server time"
-echo "Logs: ${LOG_FILE}"
+echo "Cron installed: daily backup at 02:00 server time"
+echo "Logs:    ${LOG_FILE} (rotated weekly, 4 kept)"
+echo "Bucket:  gs://gdg-bwai-postgres-backups/daily/ (30-day lifecycle)"
 echo ""
-echo "Test it manually:"
-echo "  bash ${BACKUP_SCRIPT}"
+echo "Run it now to confirm it works end to end:"
+echo "  sudo bash ${BACKUP_SCRIPT}"
+echo ""
+echo "Then check the object actually landed:"
+echo "  gcloud storage ls -l gs://gdg-bwai-postgres-backups/daily/ | tail -3"
 echo "============================================================"

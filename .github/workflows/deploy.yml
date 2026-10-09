@@ -96,6 +96,24 @@ jobs:
             --strict-host-key-checking=no \
             --quiet
 
+      # Every deploy rebuilds both images, and the layers they replace are never
+      # reclaimed on their own — that filled the VM disk and failed a deploy with
+      # ENOSPC during `npm ci`. Reclaiming before the build is what keeps the
+      # disk flat over time.
+      #
+      # NEVER add --volumes (or `compose down -v`) to any of this: the production
+      # database is the `postgres_data` Docker volume on this host, and those
+      # flags delete it.
+      - name: Reclaim disk space on VM
+        run: |
+          gcloud compute ssh ${VM_NAME} \
+            --zone=${ZONE} \
+            --project=${PROJECT_ID} \
+            --ssh-key-expire-after=120s \
+            --strict-host-key-checking=no \
+            --quiet \
+            --command="echo '--- disk before ---' && df -h / | tail -1 && sudo docker builder prune -af && sudo docker image prune -f && sudo docker container prune -f && echo '--- disk after ---' && df -h / | tail -1"
+
       - name: Deploy on VM
         run: |
           gcloud compute ssh ${VM_NAME} \
@@ -104,3 +122,16 @@ jobs:
             --ssh-key-expire-after=120s \
             --quiet \
             --command="sudo mkdir -p /opt/gdg-bwai && cd /opt/gdg-bwai && sudo find . -mindepth 1 -maxdepth 1 ! -name '.env' -exec rm -rf {} + && sudo tar xzf /tmp/app.tar.gz -C /opt/gdg-bwai && rm -f /tmp/app.tar.gz && sudo docker compose up --build -d --remove-orphans && echo 'Waiting for services...' && sleep 15 && sudo docker compose ps"
+
+      # Runs once the new containers are up, so the images they superseded are
+      # now unreferenced and safe to drop. Running containers protect the images
+      # actually in use, which is why -a is safe here.
+      - name: Drop superseded images
+        run: |
+          gcloud compute ssh ${VM_NAME} \
+            --zone=${ZONE} \
+            --project=${PROJECT_ID} \
+            --ssh-key-expire-after=120s \
+            --strict-host-key-checking=no \
+            --quiet \
+            --command="sudo docker image prune -af && df -h / | tail -1"
