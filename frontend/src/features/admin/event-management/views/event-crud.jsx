@@ -22,6 +22,9 @@ const emptyForm = {
   slots: [],
   acknowledgement_deadline: '',
   acknowledgement_locked: false,
+  credits_enabled: false,
+  credits_claim_url: '',
+  credits_video_url: '',
 };
 
 const badgeColors = {
@@ -124,6 +127,9 @@ export default function EventCrud() {
       slots: w.slots ?? [],
       acknowledgement_deadline: w.acknowledgement_deadline ? w.acknowledgement_deadline.slice(0, 16) : '',
       acknowledgement_locked: w.acknowledgement_locked ?? false,
+      credits_enabled: w.credits_enabled ?? false,
+      credits_claim_url: w.credits_claim_url ?? '',
+      credits_video_url: w.credits_video_url ?? '',
     });
     setErrors({});
     setShowModal(true);
@@ -146,6 +152,9 @@ export default function EventCrud() {
         slots: currentTypeSlug === 'community-lounge' ? form.slots : null,
         acknowledgement_deadline: form.acknowledgement_deadline || null,
         acknowledgement_locked: form.acknowledgement_locked,
+        credits_enabled: !!form.credits_enabled,
+        credits_claim_url: form.credits_claim_url?.trim() || null,
+        credits_video_url: form.credits_video_url?.trim() || null,
       };
       if (editingId) {
         await updateMutation.mutateAsync({ id: editingId, data: payload });
@@ -396,6 +405,34 @@ export default function EventCrud() {
                 </label>
                 <div className="mt-1 ml-6 text-xs text-slate-400">
                   Override: immediately block all spot confirmations regardless of the deadline above.
+                </div>
+              </div>
+              <div className="mb-5 rounded-xl border border-slate-200 bg-slate-50/30 p-4">
+                <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Google Cloud credits</div>
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input
+                    id="w-credits-enabled"
+                    type="checkbox"
+                    checked={form.credits_enabled}
+                    onChange={(e) => setForm((f) => ({ ...f, credits_enabled: e.target.checked }))}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-gdg-blue focus:ring-gdg-blue/30"
+                  />
+                  <span className="text-sm text-slate-700">Send credits email on QR check-in</span>
+                </label>
+                <div className="mt-1 ml-6 text-xs text-slate-400">
+                  The email goes out when someone&apos;s QR code is scanned at check-in. Desk check-in by name does not send it; use the &quot;Send credits email&quot; button there.
+                </div>
+                <div className="mt-4">
+                  <label className="ui-label-sentence" htmlFor="w-credits-claim">Claim link</label>
+                  <input id="w-credits-claim" type="text" inputMode="url" value={form.credits_claim_url} onChange={(e) => setForm((f) => ({ ...f, credits_claim_url: e.target.value }))} placeholder="https://..." className={inputCls} />
+                  <div className="mt-1 text-xs text-slate-400">One universal link for everyone at this event. Must start with https://.</div>
+                  {errors.credits_claim_url && <div className="mt-1 text-xs font-medium text-gdg-red">{errors.credits_claim_url}</div>}
+                </div>
+                <div className="mt-4">
+                  <label className="ui-label-sentence" htmlFor="w-credits-video">Walkthrough video link (optional)</label>
+                  <input id="w-credits-video" type="text" inputMode="url" value={form.credits_video_url} onChange={(e) => setForm((f) => ({ ...f, credits_video_url: e.target.value }))} placeholder="https://youtu.be/..." className={inputCls} />
+                  <div className="mt-1 text-xs text-slate-400">An unlisted YouTube link works well. Leave empty to leave the video out of the email.</div>
+                  {errors.credits_video_url && <div className="mt-1 text-xs font-medium text-gdg-red">{errors.credits_video_url}</div>}
                 </div>
               </div>
               <div className="mb-5">
