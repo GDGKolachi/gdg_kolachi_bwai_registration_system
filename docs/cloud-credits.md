@@ -138,8 +138,12 @@ Details settled while building the backend (`backend/src/credits/`):
   status is the email status (`pending`, `sent`, ...), `not_queued` (credits off, no claim URL, deleted,
   or not checked in) or `queue_error`. `POST admin/hackathon-checkin/:registrationId` accepts an optional
   body `source: 'qr' | 'manual'`; only `'qr'` queues (source `hackathon_scan`). Omitted or `'manual'` sends
-  nothing, and `credits.status` just reports any existing row. The existing hackathon scanners call
-  `attend` first, so their row is created there with source `qr_scan`; the later call is a no-op.
+  nothing, and `credits.status` just reports any existing row. The hackathon screen calls the desk
+  toggle (`PATCH admin/checkin/:id/toggle`) and then `hackathon-checkin`, for both scans and the manual
+  list button; it does not call `qr-scan/:id/attend`. So on this backend alone hackathon scans send
+  nothing until the frontend passes `source: 'qr'` on the scan path (planned for the frontend PR), and
+  manual or bulk hackathon check-ins correctly send nothing. A scan also upgrades a `not_sent` row
+  (created by "Show credits QR") to `pending`, keeping its token, source and generation.
 - **Registrations list.** Each row gets `credits: { email_status, redeemed_at, redeemed_via } | null`.
   `credits=not_redeemed` includes registrations with no credits row.
 - **Admin sends** (`send`, `send-bulk`) require `credits_enabled` and a claim URL (400 otherwise) but not a

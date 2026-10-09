@@ -126,7 +126,10 @@ export class CreditsService {
         `INSERT INTO credit_redemptions
            (registration_id, event_id, token, source, created_by_admin_id, email_status, email_queued_at)
          VALUES ($1, $2, $3, $4, $5, 'pending', now())
-         ON CONFLICT (registration_id) DO NOTHING`,
+         ON CONFLICT (registration_id) DO UPDATE SET
+           email_status = 'pending', email_queued_at = now(), email_attempts = 0,
+           email_next_attempt_at = NULL, updated_at = now()
+         WHERE credit_redemptions.email_status = 'not_sent'`,
         [
           registrationId,
           reg.event_id,

@@ -536,6 +536,32 @@ describe('Google Cloud credits (e2e)', () => {
       expect(mailer.calls).toHaveLength(0);
     });
 
+    it('a scan upgrades a not_sent row (credits QR shown first) to one email, and re-scans add nothing', async () => {
+      const eventId = await seedEvent();
+      const reg = await seedReg(eventId, { checkedIn: true });
+      await request(app.getHttpServer())
+        .get(`/api/admin/credits/registrations/${reg.id}/qr`)
+        .set(auth(volunteerToken))
+        .expect(200);
+      const before = await rowFor(reg.id);
+      expect(before.email_status).toBe('not_sent');
+      await drain();
+      expect(mailer.calls).toHaveLength(0);
+
+      const res = await scan(reg.id).expect(200);
+      expect(res.body.credits).toEqual({ status: 'pending' });
+      const after = await rowFor(reg.id);
+      expect(after.token).toBe(before.token);
+      expect(after.source).toBe('volunteer_qr');
+      expect(after.email_generation).toBe(1);
+      await drain();
+      expect(mailer.sent).toHaveLength(1);
+
+      await scan(reg.id).expect(200);
+      await drain();
+      expect(mailer.sent).toHaveLength(1);
+    });
+
     it('404s the scan for an unknown registration', async () => {
       await scan('00000000-0000-4000-8000-000000000000').expect(404);
     });

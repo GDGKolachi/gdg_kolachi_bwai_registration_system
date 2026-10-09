@@ -90,3 +90,29 @@ export function normalizeCreditsFields<T extends Record<string, any>>(
   }
   return data;
 }
+
+/** Upper bound for one Resend call; Node's fetch would otherwise wait ~300 s. */
+export const RESEND_TIMEOUT_MS = 15000;
+
+export class TimeoutError extends Error {
+  constructor(ms: number) {
+    super(`timeout after ${ms}ms`);
+  }
+}
+
+/** Resolves/rejects with `promise`, or rejects with TimeoutError after `ms`. */
+export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new TimeoutError(ms)), ms);
+    promise.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(timer);
+        reject(e);
+      },
+    );
+  });
+}

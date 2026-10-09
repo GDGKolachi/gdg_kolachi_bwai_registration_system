@@ -51,7 +51,7 @@ export class CloudCreditsEmail1753900000000 implements MigrationInterface {
         CONSTRAINT "UQ_credit_redemptions_token" UNIQUE ("token"),
         CONSTRAINT "FK_credit_redemptions_registration" FOREIGN KEY ("registration_id")
           REFERENCES "registrations"("id") ON DELETE CASCADE,
-        CONSTRAINT "FK_credit_redemptions_event" FOREIGN KEY ("event_id") REFERENCES "events"("id")
+        CONSTRAINT "FK_credit_redemptions_event" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE
       )
     `);
     await queryRunner.query(

@@ -8,6 +8,8 @@ import {
   generateToken,
   normalizeCreditsFields,
   siteOrigin,
+  withTimeout,
+  TimeoutError,
 } from './credits.util';
 
 describe('backoffMs', () => {
@@ -104,5 +106,20 @@ describe('normalizeCreditsFields', () => {
   it('leaves unrelated payloads alone', () => {
     const data: any = { title: 'x' };
     expect(normalizeCreditsFields(data)).toEqual({ title: 'x' });
+  });
+});
+
+describe('withTimeout', () => {
+  it('resolves and rejects through when the promise settles in time', async () => {
+    await expect(withTimeout(Promise.resolve(7), 50)).resolves.toBe(7);
+    await expect(
+      withTimeout(Promise.reject(new Error('x')), 50),
+    ).rejects.toThrow('x');
+  });
+
+  it('rejects with a TimeoutError after ms', async () => {
+    const never = new Promise<void>(() => undefined);
+    await expect(withTimeout(never, 20)).rejects.toThrow(TimeoutError);
+    await expect(withTimeout(never, 20)).rejects.toThrow('timeout after 20ms');
   });
 });

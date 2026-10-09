@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access -- raw SQL rows and untyped request bodies */
 import { Injectable, Logger } from '@nestjs/common';
 import { Resend } from 'resend';
+import { RESEND_TIMEOUT_MS, TimeoutError, withTimeout } from './credits.util';
 
 /** Injection token so tests can swap the real Resend mailer for a fake. */
 export const CREDITS_MAILER = 'CREDITS_MAILER';
@@ -50,15 +51,20 @@ export class ResendCreditsMailer implements CreditsMailer {
     }
     try {
       const resend = new Resend(apiKey);
-      const { data, error } = await resend.emails.send(
-        {
-          from: FROM,
-          to: message.to,
-          subject: message.subject,
-          html: message.html,
-          text: message.text,
-        },
-        { idempotencyKey: options.idempotencyKey },
+      // A timeout is retryable: if Resend did accept the timed-out request, the
+      // retry carries the same idempotency key and is a no-op on their side.
+      const { data, error } = await withTimeout(
+        resend.emails.send(
+          {
+            from: FROM,
+            to: message.to,
+            subject: message.subject,
+            html: message.html,
+            text: message.text,
+          },
+          { idempotencyKey: options.idempotencyKey },
+        ),
+        RESEND_TIMEOUT_MS,
       );
       if (error) {
         const status = (error as any).statusCode as number | null | undefined;
@@ -76,6 +82,9 @@ export class ResendCreditsMailer implements CreditsMailer {
       }
       return { ok: true, id: data?.id };
     } catch (err) {
+      if (err instanceof TimeoutError) {
+        return { ok: false, retryable: true, error: err.message };
+      }
       this.logger.warn(`Resend threw: ${(err as Error).message}`);
       return {
         ok: false,
