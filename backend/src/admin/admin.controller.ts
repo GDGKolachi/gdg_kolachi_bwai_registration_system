@@ -108,6 +108,7 @@ export class AdminController {
     @Query('include_deleted') includeDeleted?: string,
     @Query('checked_in') checkedIn?: string,
     @Query('acknowledged') acknowledged?: string,
+    @Query('credits') credits?: string,
     @Query('date_from') dateFrom?: string,
     @Query('date_to') dateTo?: string,
     @Query('sort_by') sortBy?: string,
@@ -132,6 +133,7 @@ export class AdminController {
       checked_in: checkedIn !== undefined && checkedIn !== '' ? checkedIn === 'true' : undefined,
       acknowledged:
         acknowledged !== undefined && acknowledged !== '' ? acknowledged === 'true' : undefined,
+      credits: credits || undefined,
       date_from: dateFrom || undefined,
       date_to: dateTo || undefined,
       sort_by: sortBy || undefined,
@@ -244,8 +246,8 @@ export class AdminController {
 
   @Roles(...CHECKIN_ROLES)
   @Patch('qr-scan/:id/attend')
-  markAttendedFromScan(@Param('id') id: string) {
-    return this.adminService.markAttendedFromScan(id);
+  markAttendedFromScan(@Param('id') id: string, @Req() req: any) {
+    return this.adminService.markAttendedFromScan(id, req.user?.id);
   }
 
   @Roles(...CHECKIN_ROLES)
