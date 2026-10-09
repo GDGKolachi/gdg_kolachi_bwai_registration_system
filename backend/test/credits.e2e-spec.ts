@@ -691,7 +691,7 @@ describe('Google Cloud credits (e2e)', () => {
 
     it('sends a burst of 80 scans exactly once each, under the rate cap', async () => {
       const eventId = await seedEvent();
-      const regs = [];
+      const regs: Array<{ id: string; email: string }> = [];
       for (let i = 0; i < 80; i++)
         regs.push(await seedReg(eventId, { status: 'shortlisted' }));
 
@@ -849,7 +849,7 @@ describe('Google Cloud credits (e2e)', () => {
       });
 
       // cooldown: the first email was sent seconds ago, so this does nothing
-      const bodies = [];
+      const bodies: unknown[] = [];
       for (const email of [
         'sent@example.test',
         'nobody@example.test',
