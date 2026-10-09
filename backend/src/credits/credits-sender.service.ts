@@ -102,10 +102,7 @@ export class CreditsSender implements OnModuleInit, OnModuleDestroy {
       );
 
       for (const claim of claimed) {
-        const wait = this.lastSendStartedAt + spacingMs - Date.now();
-        if (wait > 0) await sleep(wait);
-        this.lastSendStartedAt = Date.now();
-        await this.process(claim);
+        await this.process(claim, spacingMs);
       }
       return claimed.length;
     } finally {
@@ -113,14 +110,28 @@ export class CreditsSender implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private async process(claim: {
-    id: string;
-    email_attempts: number;
-    email_generation: number;
-  }) {
+  /**
+   * Waits until at least spacingMs after the previous provider call. Called
+   * right before mailer.send, so the cap holds for the actual API calls however
+   * long each row's lookup took.
+   */
+  private async waitForSendSlot(spacingMs: number) {
+    const wait = this.lastSendStartedAt + spacingMs - Date.now();
+    if (wait > 0) await sleep(wait);
+    this.lastSendStartedAt = Date.now();
+  }
+
+  private async process(
+    claim: {
+      id: string;
+      email_attempts: number;
+      email_generation: number;
+    },
+    spacingMs: number,
+  ) {
     let result: CreditsSendResult;
     try {
-      result = await this.attempt(claim);
+      result = await this.attempt(claim, spacingMs);
     } catch (err) {
       result = {
         ok: false,
@@ -131,10 +142,13 @@ export class CreditsSender implements OnModuleInit, OnModuleDestroy {
     await this.record(claim, result);
   }
 
-  private async attempt(claim: {
-    id: string;
-    email_generation: number;
-  }): Promise<CreditsSendResult> {
+  private async attempt(
+    claim: {
+      id: string;
+      email_generation: number;
+    },
+    spacingMs: number,
+  ): Promise<CreditsSendResult> {
     const [row] = await this.rows(
       `SELECT cr.token, r.deleted_at, a.name, a.email, e.title, e.credits_claim_url, e.credits_video_url
          FROM credit_redemptions cr
@@ -170,6 +184,7 @@ export class CreditsSender implements OnModuleInit, OnModuleDestroy {
       confirmUrl: `${origin}/credits/${row.token}`,
       thumbnailUrl: `${origin}/images/credits-video-thumb.png`,
     });
+    await this.waitForSendSlot(spacingMs);
     return this.mailer.send(
       {
         to: row.email,
