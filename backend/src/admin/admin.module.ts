@@ -11,6 +11,7 @@ import { EventsModule } from '../events/events.module';
 import { RegistrationsModule } from '../registrations/registrations.module';
 import { ExceptionsModule } from '../exceptions/exceptions.module';
 import { EmailModule } from '../email/email.module';
+import { CreditsModule } from '../credits/credits.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { EmailModule } from '../email/email.module';
     RegistrationsModule,
     ExceptionsModule,
     EmailModule,
+    CreditsModule,
   ],
   controllers: [AdminController],
   providers: [AdminService],

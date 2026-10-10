@@ -9,6 +9,7 @@ import {
 import { formatDateTime } from '../../../../shared/utils/formatDate';
 import { linkedinUrl, githubUrl, externalUrl, profileHandle } from '../../../../shared/utils/profileUrl';
 import { useTeam, useRequestTeamPayment, useConfirmTeamPayment, useRejectTeamPayment } from '../../teams/teams-repository';
+import CreditsSection from '../../credits/components/credits-section';
 import { PAYMENT_LABELS, PAYMENT_COLORS, paymentCountdown } from '../../teams/payment-state';
 
 function Icon({ path, className = 'h-4 w-4' }) {
@@ -840,7 +841,10 @@ export default function RegistrationDetailDrawer({
               teamLabelFallback={teamLabel}
             />
           ) : (
-            <RegistrationSections r={r} teamSection={teamSection} />
+            <>
+              <RegistrationSections r={r} teamSection={teamSection} />
+              <CreditsSection key={r.id} registrationId={r.id} name={a.name} />
+            </>
           )}
         </div>
 

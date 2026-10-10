@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import api from '../../../../axios-instance';
+import CreditsScanLine from '../../credits/components/credits-scan-line';
 
 const STATUS_COLORS = {
   attended: 'bg-emerald-500',
@@ -81,7 +82,8 @@ export default function MobileCheckinView() {
     setShowAckWarning(false);
     try {
       const res = await api.post('/admin/qr-scan', { qr_data: qrData });
-      setScanResult(res.data);
+      // The lookup's credits is { status }; the attend path stores the bare status string.
+      setScanResult({ ...res.data, credits: res.data.credits?.status ?? null });
       if (res.data.event_id) {
         fetchStats(res.data.event_id);
       }
@@ -101,7 +103,8 @@ export default function MobileCheckinView() {
     }
     setShowAckWarning(false);
     try {
-      await api.patch(`/admin/qr-scan/${scanResult.registrationId}/attend`);
+      const { data: attended } = await api.patch(`/admin/qr-scan/${scanResult.registrationId}/attend`);
+      const credits = attended?.credits?.status ?? null;
       const isHackathon = scanResult.event_type_slug === 'hackathon';
       if (isHackathon) {
         try {
@@ -117,14 +120,15 @@ export default function MobileCheckinView() {
             team_number: assignment?.team?.team_number,
             team_domain: assignment?.team?.primary_domain,
             is_new_team: assignment?.isNewTeam,
+            credits,
           });
         } catch (err) {
           toast.error(err.response?.data?.message || 'Checked in but team assignment failed');
-          setScanResult({ ...scanResult, status: 'attended', checkedIn: true });
+          setScanResult({ ...scanResult, status: 'attended', checkedIn: true, credits });
         }
       } else {
         toast.success('Checked in!');
-        setScanResult({ ...scanResult, status: 'attended', checkedIn: true });
+        setScanResult({ ...scanResult, status: 'attended', checkedIn: true, credits });
       }
       if (scanResult.event_id) fetchStats(scanResult.event_id);
     } catch (err) {
@@ -289,6 +293,9 @@ export default function MobileCheckinView() {
                 </p>
                 {scanResult.team_domain && (
                   <p className="text-xs text-emerald-300/60">{scanResult.team_domain}</p>
+                )}
+                {scanResult.credits && (
+                  <CreditsScanLine variant="dark" status={scanResult.credits} registrationId={scanResult.registrationId} />
                 )}
               </div>
             )}

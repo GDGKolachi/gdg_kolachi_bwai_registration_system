@@ -1,7 +1,19 @@
 import { Controller, Get, Post, Patch, Param, Body, UseGuards, Req } from '@nestjs/common';
+import { IsIn, IsOptional } from 'class-validator';
+import { CreditsService } from '../credits/credits.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TeamsService } from './teams.service';
 import { TeamAssignmentService } from './team-assignment.service';
+
+class HackathonCheckinDto {
+  /**
+   * 'qr' when the check-in follows a QR scan (queues the credits email);
+   * 'manual' or omitted from a list button, which must NOT send it.
+   */
+  @IsOptional()
+  @IsIn(['qr', 'manual'])
+  source?: 'qr' | 'manual';
+}
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard)
@@ -9,6 +21,7 @@ export class TeamsController {
   constructor(
     private teamsService: TeamsService,
     private assignment: TeamAssignmentService,
+    private credits: CreditsService,
   ) {}
 
   @Get('events/:eventId/teams')
@@ -114,8 +127,25 @@ export class TeamsController {
   // Hackathon check-in: marks the registration checked in AND runs the
   // team-assignment engine, returning the assigned team.
   @Post('hackathon-checkin/:registrationId')
-  async hackathonCheckin(@Param('registrationId') registrationId: string, @Req() req: any) {
-    return this.assignment.assignAtCheckin(registrationId, req.user.id);
+  async hackathonCheckin(
+    @Param('registrationId') registrationId: string,
+    @Body() body: HackathonCheckinDto,
+    @Req() req: any,
+  ) {
+    const result = await this.assignment.assignAtCheckin(
+      registrationId,
+      req.user.id,
+    );
+    // Only a scan sends the credits email; the manual list button shares this endpoint.
+    const credits =
+      body?.source === 'qr'
+        ? await this.credits.queueOnCheckin(
+            registrationId,
+            'hackathon_scan',
+            req.user.id,
+          )
+        : { status: await this.credits.currentStatus(registrationId) };
+    return { ...result, credits };
   }
 
   // Removes the registration's team membership and un-checks them in.

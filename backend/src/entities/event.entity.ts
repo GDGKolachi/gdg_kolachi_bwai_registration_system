@@ -60,6 +60,16 @@ export class Event {
   @Column({ type: 'boolean', default: false })
   acknowledgement_locked: boolean;
 
+  /** Google Cloud credits email (docs/cloud-credits.md). Nothing is sent unless enabled. */
+  @Column({ type: 'boolean', default: false })
+  credits_enabled: boolean;
+
+  @Column({ type: 'varchar', nullable: true })
+  credits_claim_url: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  credits_video_url: string | null;
+
   @CreateDateColumn()
   created_at: Date;
 

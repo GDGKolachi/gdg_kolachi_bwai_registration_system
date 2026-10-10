@@ -12,6 +12,7 @@ import { AdminModule } from './admin/admin.module';
 import { EmailModule } from './email/email.module';
 import { SeedModule } from './seed/seed.module';
 import { TeamsModule } from './teams/teams.module';
+import { CreditsModule } from './credits/credits.module';
 import { Admin } from './entities/admin.entity';
 import { Event } from './entities/event.entity';
 import { EventType } from './entities/event-type.entity';
@@ -22,6 +23,7 @@ import { RoleCategory } from './entities/role-category.entity';
 import { TeamFormationConfig } from './entities/team-formation-config.entity';
 import { Team } from './entities/team.entity';
 import { TeamMember } from './entities/team-member.entity';
+import { CreditRedemption } from './entities/credit-redemption.entity';
 
 @Module({
   imports: [
@@ -48,6 +50,7 @@ import { TeamMember } from './entities/team-member.entity';
         TeamFormationConfig,
         Team,
         TeamMember,
+        CreditRedemption,
       ],
       migrations: [__dirname + '/migrations/*{.ts,.js}'],
       migrationsRun: true,
@@ -63,6 +66,7 @@ import { TeamMember } from './entities/team-member.entity';
     EmailModule,
     SeedModule,
     TeamsModule,
+    CreditsModule,
   ],
   providers: [
     {

@@ -7,6 +7,8 @@ import { ExceptionRequest } from '../entities/exception-request.entity';
 import { Attendee } from '../entities/attendee.entity';
 import { Admin } from '../entities/admin.entity';
 import { EmailService } from '../email/email.service';
+import { CreditRedemption } from '../entities/credit-redemption.entity';
+import { CreditsService } from '../credits/credits.service';
 import { AdminRole, ADMIN_ROLES } from '../common/enums/admin-role.enum';
 import * as bcrypt from 'bcrypt';
 
@@ -24,6 +26,7 @@ export class AdminService {
     @InjectRepository(Admin)
     private adminRepo: Repository<Admin>,
     private emailService: EmailService,
+    private creditsService: CreditsService,
   ) {}
 
   /**
@@ -125,6 +128,7 @@ export class AdminService {
       include_deleted?: boolean;
       checked_in?: boolean;
       acknowledged?: boolean;
+      credits?: string;
       date_from?: string;
       date_to?: string;
       sort_by?: string;
@@ -195,6 +199,20 @@ export class AdminService {
 
     if (filters.checked_in !== undefined) qb.andWhere('r.checked_in = :checkedIn', { checkedIn: filters.checked_in });
     if (filters.acknowledged !== undefined) qb.andWhere('r.acknowledged = :acknowledged', { acknowledged: filters.acknowledged });
+    // Credits email / redemption filter (docs/cloud-credits.md). 'not_redeemed'
+    // includes registrations that have no credits row at all.
+    if (
+      filters.credits === 'redeemed' ||
+      filters.credits === 'not_redeemed' ||
+      filters.credits === 'failed'
+    ) {
+      qb.leftJoin(CreditRedemption, 'cr', 'cr.registration_id = r.id');
+      if (filters.credits === 'redeemed')
+        qb.andWhere('cr.redeemed_at IS NOT NULL');
+      else if (filters.credits === 'not_redeemed')
+        qb.andWhere('cr.redeemed_at IS NULL');
+      else qb.andWhere("cr.email_status = 'failed'");
+    }
     if (filters.date_from) qb.andWhere('r.registered_at >= :dateFrom', { dateFrom: filters.date_from });
     if (filters.date_to) qb.andWhere('r.registered_at <= :dateTo', { dateTo: `${filters.date_to}T23:59:59.999` });
 
@@ -214,14 +232,52 @@ export class AdminService {
     // inverse relation to TeamMember, so this is joined by hand rather than
     // adding a circular entity relation just for the admin viewer column.
     const teamByRegistration = await this.getTeamsForRegistrations(data.map((r) => r.id));
+    const creditsByRegistration = await this.getCreditsForRegistrations(
+      data.map((r) => r.id),
+    );
 
     return {
-      data: data.map((r) => ({ ...r, team: teamByRegistration.get(r.id) ?? null })),
+      data: data.map((r) => ({
+        ...r,
+        team: teamByRegistration.get(r.id) ?? null,
+        credits: creditsByRegistration.get(r.id) ?? null,
+      })),
       total,
       page,
       limit,
       totalPages: Math.ceil(total / limit),
     };
+  }
+
+  /** Credits email status and redemption for one page of registrations (null when no row). */
+  private async getCreditsForRegistrations(registrationIds: string[]) {
+    const byRegistration = new Map<
+      string,
+      {
+        email_status: string;
+        redeemed_at: Date | null;
+        redeemed_via: string | null;
+      }
+    >();
+    if (registrationIds.length === 0) return byRegistration;
+    const rows: Array<{
+      registration_id: string;
+      email_status: string;
+      redeemed_at: Date | null;
+      redeemed_via: string | null;
+    }> = await this.registrationRepo.manager.query(
+      `SELECT registration_id, email_status, redeemed_at, redeemed_via
+         FROM credit_redemptions WHERE registration_id = ANY($1::uuid[])`,
+      [registrationIds],
+    );
+    for (const row of rows) {
+      byRegistration.set(row.registration_id, {
+        email_status: row.email_status,
+        redeemed_at: row.redeemed_at,
+        redeemed_via: row.redeemed_via,
+      });
+    }
+    return byRegistration;
   }
 
   private async getTeamsForRegistrations(registrationIds: string[]) {
@@ -690,10 +746,15 @@ export class AdminService {
       status: registration.status,
       checkedIn: registration.checked_in,
       acknowledged: registration.acknowledged,
+      // Lets the scanner show whether the credits email went out when someone
+      // already checked in is scanned again. Never throws.
+      credits: {
+        status: await this.creditsService.currentStatus(registration.id),
+      },
     };
   }
 
-  async markAttendedFromScan(registrationId: string) {
+  async markAttendedFromScan(registrationId: string, adminId?: string) {
     const registration = await this.registrationRepo.findOne({
       where: { id: registrationId },
       relations: ['attendee', 'event'],
@@ -702,8 +763,25 @@ export class AdminService {
 
     registration.status = 'attended';
     registration.checked_in = true;
-    registration.checked_in_at = new Date();
-    return this.registrationRepo.save(registration);
+    // Keep the first check-in time on a re-scan; it feeds the credits follow-up's
+    // "minutes since check-in". Un-checking at the desk clears it, so a later
+    // re-check-in gets a fresh time.
+    registration.checked_in_at = registration.checked_in_at ?? new Date();
+    const saved = await this.registrationRepo.save(registration);
+
+    // Queue the credits email after the check-in is saved. queueOnCheckin never
+    // throws, but a failure here must not undo or fail the check-in either way.
+    let credits: { status: string };
+    try {
+      credits = await this.creditsService.queueOnCheckin(
+        saved.id,
+        'qr_scan',
+        adminId,
+      );
+    } catch {
+      credits = { status: 'queue_error' };
+    }
+    return { ...saved, credits };
   }
 
   async getCheckinStats(eventId: string) {

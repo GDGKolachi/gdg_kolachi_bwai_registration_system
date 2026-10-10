@@ -13,6 +13,7 @@ import { PublicTeamsController, PublicTeamPaymentController } from './public-tea
 import { TeamAssignmentService } from './team-assignment.service';
 import { AdminModule } from '../admin/admin.module';
 import { EmailModule } from '../email/email.module';
+import { CreditsModule } from '../credits/credits.module';
 
 @Module({
   imports: [
@@ -29,6 +30,8 @@ import { EmailModule } from '../email/email.module';
     AdminModule,
     // Deposit requests email the captain.
     EmailModule,
+    // Hackathon scans queue the credits email.
+    CreditsModule,
   ],
   controllers: [TeamsController, PublicTeamsController, PublicTeamPaymentController],
   providers: [TeamsService, TeamAssignmentService],

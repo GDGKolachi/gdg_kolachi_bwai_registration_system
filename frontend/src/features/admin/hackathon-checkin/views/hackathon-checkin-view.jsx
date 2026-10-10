@@ -5,6 +5,7 @@ import api from '../../../../axios-instance';
 import { useAdminEvents } from '../../event-management/admin-event-repository';
 import { checkinApi } from '../../checkin/checkin-api';
 import { useToggleCheckin } from '../../checkin/checkin-repository';
+import CreditsScanLine from '../../credits/components/credits-scan-line';
 import { useHackathonCheckin, useHackathonUnassign, useTeams } from '../../teams/teams-repository';
 
 const PAGE_SIZE = 10;
@@ -74,17 +75,25 @@ export default function HackathonCheckinView() {
   useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [selectedEvent, nameQuery, teamFilter]);
 
   // ── Single check-in ──────────────────────────────────────────────────────
-  const handleHackathonCheckin = async (registration) => {
+  const handleHackathonCheckin = async (registration, source) => {
     try {
       const isCheckedIn = registration.checked_in ?? registration.checkedIn;
       if (!isCheckedIn) await toggleMutation.mutateAsync(registration.id);
-      const result = await hackathonCheckin.mutateAsync(registration.id);
+      const result = await hackathonCheckin.mutateAsync(source ? { registrationId: registration.id, source } : registration.id);
       setAllAttendees((prev) =>
         prev.map((r) =>
           r.id === registration.id ? { ...r, checked_in: true, checkedIn: true, status: 'attended' } : r,
         ),
       );
-      setLastAssignment({ attendee: registration.attendee, team: result.team, isNewTeam: result.isNewTeam, roleBucket: result.roleBucket });
+      setLastAssignment({
+        attendee: registration.attendee,
+        registrationId: registration.id,
+        team: result.team,
+        isNewTeam: result.isNewTeam,
+        roleBucket: result.roleBucket,
+        credits: result.credits?.status ?? null,
+        viaScan: source === 'qr',
+      });
       toast.success(`Assigned to Team ${result.team?.team_number ?? '—'}`);
       refetchTeams();
     } catch (err) {
@@ -192,7 +201,7 @@ export default function HackathonCheckinView() {
       const registration = allAttendees.find((r) => r.id === res.data.registrationId);
       if (!registration) { toast.error('This attendee is not registered for the selected hackathon'); return; }
       if (!ELIGIBLE_STATUSES.has(registration.status)) { toast.error(`Cannot check in — registration is "${registration.status}".`); return; }
-      await handleHackathonCheckin(registration);
+      await handleHackathonCheckin(registration, 'qr');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Invalid QR code');
     } finally {
@@ -367,6 +376,14 @@ export default function HackathonCheckinView() {
             {lastAssignment.team?.primary_domain && <> · Domain: <strong>{lastAssignment.team.primary_domain}</strong></>}
             {lastAssignment.team?.members && <> · Members: <strong>{lastAssignment.team.members.length}</strong></>}
           </div>
+          {lastAssignment.credits && (lastAssignment.viaScan || lastAssignment.credits !== 'not_queued') && (
+            <CreditsScanLine
+              key={`${lastAssignment.registrationId}-${lastAssignment.credits}`}
+              align="start"
+              status={lastAssignment.credits}
+              registrationId={lastAssignment.registrationId}
+            />
+          )}
         </div>
       )}
 

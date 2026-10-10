@@ -36,8 +36,10 @@ export const teamsApi = {
     api.patch(`/admin/teams/${teamId}/members/${registrationId}/move`, {}).then(res => res.data),
   swapMembers: (registrationIdA, registrationIdB) =>
     api.patch('/admin/teams/swap-members', { registrationIdA, registrationIdB }).then(res => res.data),
-  hackathonCheckin: (registrationId) =>
-    api.post(`/admin/hackathon-checkin/${registrationId}`, {}).then(res => res.data),
+  // `source: 'qr'` marks a scanner check-in (the only kind that queues the credits
+  // email); manual and bulk check-ins send no source.
+  hackathonCheckin: (registrationId, source) =>
+    api.post(`/admin/hackathon-checkin/${registrationId}`, source ? { source } : {}).then(res => res.data),
   hackathonUnassign: (registrationId) =>
     api.post(`/admin/hackathon-checkin/${registrationId}/unassign`, {}).then(res => res.data),
 };

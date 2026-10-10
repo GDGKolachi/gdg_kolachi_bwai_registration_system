@@ -18,6 +18,7 @@ const navItems = [
   { path: '/admin/hackathon-checkin', label: 'Hackathon Check-in', allow: CHECKIN_ROLES },
   { path: '/admin/qr-scan', label: 'QR Scan', allow: CHECKIN_ROLES },
   { path: '/admin/mobile-checkin', label: 'Mobile Check-in', allow: CHECKIN_ROLES },
+  { path: '/admin/credits', label: 'Cloud Credits', allow: CHECKIN_ROLES },
   { path: '/admin/users', label: 'Users', allow: [ROLES.SUPER_ADMIN] },
 ];
 
