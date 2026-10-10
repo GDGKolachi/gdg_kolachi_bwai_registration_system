@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import { useAdminEvents, useCreateEvent, useUpdateEvent, useDeleteEvent } from '../admin-event-repository';
 import { validateEventForm } from '../admin-event-service';
 import { useActiveEventTypes } from '../../event-types/event-types-repository';
+import { DEFAULT_CREDITS_CLAIM_URL, DEFAULT_CREDITS_VIDEO_URL } from './credits-defaults';
 
 const emptyForm = {
   event_type_id: '',
@@ -23,8 +24,8 @@ const emptyForm = {
   acknowledgement_deadline: '',
   acknowledgement_locked: false,
   credits_enabled: false,
-  credits_claim_url: '',
-  credits_video_url: '',
+  credits_claim_url: DEFAULT_CREDITS_CLAIM_URL,
+  credits_video_url: DEFAULT_CREDITS_VIDEO_URL,
 };
 
 const badgeColors = {

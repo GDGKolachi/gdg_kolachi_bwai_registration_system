@@ -57,6 +57,14 @@ test.describe('Admin: Google Cloud credits', () => {
     await expect(page.getByRole('button', { name: /mark as attended/i })).toHaveCount(0);
   });
 
+  test('the new-event form comes with the credits links prefilled and the email switched off', async ({ page }) => {
+    await page.goto('/admin/events');
+    await page.getByRole('button', { name: '+ New event' }).click();
+    await expect(page.getByLabel('Claim link')).toHaveValue('https://g.dev/ai/build');
+    await expect(page.getByLabel('Walkthrough video link (optional)')).toHaveValue('https://youtu.be/gZXGvq6NDJk');
+    await expect(page.locator('#w-credits-enabled')).not.toBeChecked();
+  });
+
   test('drawer shows the credits section, QR modal, and volunteer mark-redeemed feeds the grid filter', async ({ page, request }) => {
     const token = await adminLoginToken(request);
     const event = await createCreditsEvent(request, token);

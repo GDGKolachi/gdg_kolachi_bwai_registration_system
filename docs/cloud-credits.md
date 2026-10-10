@@ -173,6 +173,9 @@ Details settled while building the backend (`backend/src/credits/`):
   attended" keeps the first time (it feeds "minutes since check-in" in the Follow-up list). The desk toggle clears
   it on un-check, so a later re-check-in gets a new time. Open PR #57 makes the same change; whichever merges
   second resolves a trivial conflict.
+- **Create-form defaults.** The admin "new event" form prefills the claim link (`https://g.dev/ai/build`) and the
+  walkthrough video (`https://youtu.be/gZXGvq6NDJk`) from `frontend/src/features/admin/event-management/views/credits-defaults.js`.
+  "Send credits email" stays off, and editing an existing event shows only what that event has stored.
 - **Idempotency key.** The installed `resend` (v6) supports `emails.send(payload, { idempotencyKey })`; it is
   used as `credits-<row id>-<email_generation>`.
 - **Mailer.** Behind the `CREDITS_MAILER` token (`CreditsMailer`), so tests replace it. Rate limits (429),
