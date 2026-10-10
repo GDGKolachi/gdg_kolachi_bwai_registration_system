@@ -577,6 +577,61 @@ describe('Google Cloud credits (e2e)', () => {
     it('404s the scan for an unknown registration', async () => {
       await scan('00000000-0000-4000-8000-000000000000').expect(404);
     });
+
+    const lookup = (id: string) =>
+      request(app.getHttpServer())
+        .post('/api/admin/qr-scan')
+        .set(auth(volunteerToken))
+        .send({ qr_data: JSON.stringify({ registrationId: id }) });
+    const checkedInAt = async (id: string): Promise<Date> =>
+      (
+        await db.query(
+          `SELECT checked_in_at FROM registrations WHERE id = $1`,
+          [id],
+        )
+      )[0].checked_in_at;
+
+    it('lookup reports the credits status: not_queued before check-in, the real status after', async () => {
+      const eventId = await seedEvent();
+      const reg = await seedReg(eventId);
+
+      const before = await lookup(reg.id).expect(201);
+      expect(before.body.credits).toEqual({ status: 'not_queued' });
+      expect(before.body.checkedIn).toBe(false);
+      expect(before.body.name).toBeDefined(); // existing fields are kept
+
+      await scan(reg.id).expect(200);
+      expect((await lookup(reg.id).expect(201)).body.credits).toEqual({
+        status: 'pending',
+      });
+      await drain();
+      const after = await lookup(reg.id).expect(201);
+      expect(after.body.credits).toEqual({ status: 'sent' });
+      expect(after.body.checkedIn).toBe(true);
+    });
+
+    it('a second attend keeps the original check-in time; un-check then re-scan gets a new one', async () => {
+      const eventId = await seedEvent();
+      const reg = await seedReg(eventId);
+      await scan(reg.id).expect(200);
+      const first = await checkedInAt(reg.id);
+      expect(first).toBeInstanceOf(Date);
+
+      await new Promise((r) => setTimeout(r, 25));
+      await scan(reg.id).expect(200);
+      expect((await checkedInAt(reg.id)).getTime()).toBe(first.getTime());
+
+      await request(app.getHttpServer())
+        .patch(`/api/admin/checkin/${reg.id}/toggle`)
+        .set(auth(volunteerToken))
+        .expect(200);
+      expect(await checkedInAt(reg.id)).toBeNull();
+      await new Promise((r) => setTimeout(r, 25));
+      await scan(reg.id).expect(200);
+      expect((await checkedInAt(reg.id)).getTime()).toBeGreaterThan(
+        first.getTime(),
+      );
+    });
   });
 
   // ------------------------------------------------------------ sender behaviour

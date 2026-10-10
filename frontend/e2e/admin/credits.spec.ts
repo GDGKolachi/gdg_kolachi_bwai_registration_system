@@ -39,6 +39,24 @@ test.describe('Admin: Google Cloud credits', () => {
     await expect(line).toContainText('Credits email failed', { timeout: 30_000 });
   });
 
+  test('looking up an already-checked-in person shows their credits line', async ({ page, request }) => {
+    const token = await adminLoginToken(request);
+    const event = await createCreditsEvent(request, token);
+    const person = await registerConfirmedAttendee(request, token, event.id);
+    const res = await request.patch(`${apiOrigin()}/api/admin/qr-scan/${person.id}/attend`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(res.ok()).toBeTruthy();
+
+    // A fresh scan of someone already checked in: no attend click, but the credits status is there.
+    await scanByPaste(page, person.id);
+    await expect(page.getByText('Already checked in')).toBeVisible();
+    const line = page.getByTestId('credits-line');
+    await expect(line).toBeVisible();
+    await expect(line).toContainText(/Credits email (queued|failed)/);
+    await expect(page.getByRole('button', { name: /mark as attended/i })).toHaveCount(0);
+  });
+
   test('drawer shows the credits section, QR modal, and volunteer mark-redeemed feeds the grid filter', async ({ page, request }) => {
     const token = await adminLoginToken(request);
     const event = await createCreditsEvent(request, token);
