@@ -734,6 +734,11 @@ export class AdminService {
       status: registration.status,
       checkedIn: registration.checked_in,
       acknowledged: registration.acknowledged,
+      // Lets the scanner show whether the credits email went out when someone
+      // already checked in is scanned again. Never throws.
+      credits: {
+        status: await this.creditsService.currentStatus(registration.id),
+      },
     };
   }
 
@@ -746,7 +751,10 @@ export class AdminService {
 
     registration.status = 'attended';
     registration.checked_in = true;
-    registration.checked_in_at = new Date();
+    // Keep the first check-in time on a re-scan; it feeds the credits follow-up's
+    // "minutes since check-in". Un-checking at the desk clears it, so a later
+    // re-check-in gets a fresh time.
+    registration.checked_in_at = registration.checked_in_at ?? new Date();
     const saved = await this.registrationRepo.save(registration);
 
     // Queue the credits email after the check-in is saved. queueOnCheckin never

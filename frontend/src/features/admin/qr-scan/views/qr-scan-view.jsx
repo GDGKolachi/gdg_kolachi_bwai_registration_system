@@ -73,7 +73,8 @@ export default function QrScanView() {
     setShowAckWarning(false);
     try {
       const res = await api.post('/admin/qr-scan', { qr_data: qrData });
-      setScanResult(res.data);
+      // The lookup's credits is { status }; the attend path stores the bare status string.
+      setScanResult({ ...res.data, credits: res.data.credits?.status ?? null });
       if (res.data.event_id) fetchStats(res.data.event_id);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Invalid QR code');
