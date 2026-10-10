@@ -201,10 +201,16 @@ export class AdminService {
     if (filters.acknowledged !== undefined) qb.andWhere('r.acknowledged = :acknowledged', { acknowledged: filters.acknowledged });
     // Credits email / redemption filter (docs/cloud-credits.md). 'not_redeemed'
     // includes registrations that have no credits row at all.
-    if (filters.credits === 'redeemed' || filters.credits === 'not_redeemed' || filters.credits === 'failed') {
+    if (
+      filters.credits === 'redeemed' ||
+      filters.credits === 'not_redeemed' ||
+      filters.credits === 'failed'
+    ) {
       qb.leftJoin(CreditRedemption, 'cr', 'cr.registration_id = r.id');
-      if (filters.credits === 'redeemed') qb.andWhere('cr.redeemed_at IS NOT NULL');
-      else if (filters.credits === 'not_redeemed') qb.andWhere('cr.redeemed_at IS NULL');
+      if (filters.credits === 'redeemed')
+        qb.andWhere('cr.redeemed_at IS NOT NULL');
+      else if (filters.credits === 'not_redeemed')
+        qb.andWhere('cr.redeemed_at IS NULL');
       else qb.andWhere("cr.email_status = 'failed'");
     }
     if (filters.date_from) qb.andWhere('r.registered_at >= :dateFrom', { dateFrom: filters.date_from });
@@ -226,7 +232,9 @@ export class AdminService {
     // inverse relation to TeamMember, so this is joined by hand rather than
     // adding a circular entity relation just for the admin viewer column.
     const teamByRegistration = await this.getTeamsForRegistrations(data.map((r) => r.id));
-    const creditsByRegistration = await this.getCreditsForRegistrations(data.map((r) => r.id));
+    const creditsByRegistration = await this.getCreditsForRegistrations(
+      data.map((r) => r.id),
+    );
 
     return {
       data: data.map((r) => ({
@@ -245,7 +253,11 @@ export class AdminService {
   private async getCreditsForRegistrations(registrationIds: string[]) {
     const byRegistration = new Map<
       string,
-      { email_status: string; redeemed_at: Date | null; redeemed_via: string | null }
+      {
+        email_status: string;
+        redeemed_at: Date | null;
+        redeemed_via: string | null;
+      }
     >();
     if (registrationIds.length === 0) return byRegistration;
     const rows: Array<{
@@ -761,7 +773,11 @@ export class AdminService {
     // throws, but a failure here must not undo or fail the check-in either way.
     let credits: { status: string };
     try {
-      credits = await this.creditsService.queueOnCheckin(saved.id, 'qr_scan', adminId);
+      credits = await this.creditsService.queueOnCheckin(
+        saved.id,
+        'qr_scan',
+        adminId,
+      );
     } catch {
       credits = { status: 'queue_error' };
     }

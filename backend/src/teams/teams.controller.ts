@@ -132,11 +132,18 @@ export class TeamsController {
     @Body() body: HackathonCheckinDto,
     @Req() req: any,
   ) {
-    const result = await this.assignment.assignAtCheckin(registrationId, req.user.id);
+    const result = await this.assignment.assignAtCheckin(
+      registrationId,
+      req.user.id,
+    );
     // Only a scan sends the credits email; the manual list button shares this endpoint.
     const credits =
       body?.source === 'qr'
-        ? await this.credits.queueOnCheckin(registrationId, 'hackathon_scan', req.user.id)
+        ? await this.credits.queueOnCheckin(
+            registrationId,
+            'hackathon_scan',
+            req.user.id,
+          )
         : { status: await this.credits.currentStatus(registrationId) };
     return { ...result, credits };
   }

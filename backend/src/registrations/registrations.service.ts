@@ -555,11 +555,14 @@ export class RegistrationsService {
     }
     const header =
       'ID,Name,Email,Phone,Organization,GitHub,LinkedIn,CNIC,Gender,Best Describes You,Domain,Track,Slot,Role Bucket,Mode,Is Captain,Years Experience,Prior Hackathons,Skills,AI Experience,Portfolio,Best Project,Ambassador,Motivation,Status,Acknowledged,Checked In,Registered At,Credits Email,Credits Redeemed At\n';
-    const creditRows: Array<{ registration_id: string; email_status: string; redeemed_at: Date | null }> =
-      await this.registrationRepo.manager.query(
-        `SELECT registration_id, email_status, redeemed_at FROM credit_redemptions WHERE event_id = $1`,
-        [eventId],
-      );
+    const creditRows: Array<{
+      registration_id: string;
+      email_status: string;
+      redeemed_at: Date | null;
+    }> = await this.registrationRepo.manager.query(
+      `SELECT registration_id, email_status, redeemed_at FROM credit_redemptions WHERE event_id = $1`,
+      [eventId],
+    );
     const creditsByReg = new Map(creditRows.map((c) => [c.registration_id, c]));
     const rows = registrations
       .map((r) => {
@@ -570,7 +573,10 @@ export class RegistrationsService {
         const skills = (r.skills || []).join('; ');
         const credit = creditsByReg.get(r.id);
         const creditsRedeemedAt = credit?.redeemed_at
-          ? new Date(credit.redeemed_at).toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, ' UTC')
+          ? new Date(credit.redeemed_at)
+              .toISOString()
+              .replace('T', ' ')
+              .replace(/\.\d{3}Z$/, ' UTC')
           : '';
         return `"${r.id}","${a?.name}","${a?.email}","${a?.phone}","${a?.university_org}","${a?.github || ''}","${a?.linkedin || ''}","${a?.cnic}","${a?.gender || ''}","${a?.best_describes_you || ''}","${r.domain || ''}","${r.track || ''}","${r.slot || ''}","${r.role_bucket || ''}","${r.registration_mode || ''}","${r.is_captain}","${r.years_experience || ''}","${r.prior_hackathons || ''}","${skills.replace(/"/g, '""')}","${r.ai_experience || ''}","${(r.portfolio_url || '').replace(/"/g, '""')}","${(r.best_project || '').replace(/"/g, '""')}","${(r.ambassador || '').replace(/"/g, '""')}","${(r.motivation || '').replace(/"/g, '""')}","${r.status}","${r.acknowledged}","${r.checked_in}","${registeredAt}","${credit?.email_status || ''}","${creditsRedeemedAt}"`;
       })
