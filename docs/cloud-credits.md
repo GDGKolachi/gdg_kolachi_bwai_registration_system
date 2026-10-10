@@ -1,5 +1,7 @@
 # Google Cloud credits email
 
+Running an event? Read the one-page [event-day guide](cloud-credits-event-day.md).
+
 At an event, the first thing attendees do is claim the Google Cloud credits that come with
 attending. Today an organizer presents slides and walks each person through it. This module
 moves that into the check-in flow: the moment an attendee's QR is scanned, they get an email
@@ -164,6 +166,13 @@ Details settled while building the backend (`backend/src/credits/`):
   (`normalizeCreditsFields`): `''`/`null` clear a URL. The public `GET events` / `GET events/:id` omit
   `credits_claim_url` and `credits_video_url` (the claim link is universal); admins read them from
   `admin/events`.
+- **Re-scan shows the credits status.** `POST admin/qr-scan` (the lookup) also returns `credits: { status }`
+  (`CreditsService.currentStatus`, `not_queued` when there is no row), so the scanner can show the credits line
+  under "Already checked in" when someone checked in earlier is scanned again.
+- **Check-in time is kept.** `markAttendedFromScan` uses `checked_in_at ?? new Date()`, so a second "Mark as
+  attended" keeps the first time (it feeds "minutes since check-in" in the Follow-up list). The desk toggle clears
+  it on un-check, so a later re-check-in gets a new time. Open PR #57 makes the same change; whichever merges
+  second resolves a trivial conflict.
 - **Idempotency key.** The installed `resend` (v6) supports `emails.send(payload, { idempotencyKey })`; it is
   used as `credits-<row id>-<email_generation>`.
 - **Mailer.** Behind the `CREDITS_MAILER` token (`CreditsMailer`), so tests replace it. Rate limits (429),
