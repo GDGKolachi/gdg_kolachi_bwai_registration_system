@@ -22,10 +22,12 @@ export class CreateRegistrationDto {
   @IsString()
   linkedin: string;
 
+  // Online events don't ask for it; the service requires it for in-person ones.
+  @IsOptional()
   @Matches(/^\d{5}-?\d{7}-?\d{1}$/, {
     message: 'CNIC must be 13 digits in format XXXXX-XXXXXXX-X',
   })
-  cnic: string;
+  cnic?: string;
 
   @IsString()
   @IsIn(['Male', 'Female', 'Non-Binary', 'Prefer not to say'], {

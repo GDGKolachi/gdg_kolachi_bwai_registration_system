@@ -20,6 +20,8 @@ export default function AttendeeFormFields({
   eventTypeSlug,
   idPrefix = '',
   showAmbassador = true,
+  // CNIC is only checked at the venue, so online events leave it out.
+  showCnic = true,
 }) {
   // Hackathons ask for skills + a primary skill instead of the role dropdown.
   const isHackathon = eventTypeSlug === 'hackathon';
@@ -129,22 +131,24 @@ export default function AttendeeFormFields({
           className={inputCls}
         />
       </div>
-      <div className="mb-5">
-        <label className="ui-label-sentence" htmlFor={`${idPrefix}cnic`}>
-          CNIC / national ID *
-        </label>
-        <input
-          id={`${idPrefix}cnic`}
-          name="cnic"
-          value={formData.cnic || ''}
-          onChange={handleChange}
-          placeholder="XXXXX-XXXXXXX-X"
-          maxLength={15}
-          className={`${inputCls} ${errors?.cnic ? 'border-rose-300 focus:border-gdg-red focus:ring-gdg-red/15' : ''}`}
-        />
-        <p className="mt-1.5 text-xs text-slate-500">13 digits, e.g. 42101-1234567-1</p>
-        {errors?.cnic && <div className="mt-1 text-xs font-medium text-gdg-red">{errors.cnic}</div>}
-      </div>
+      {showCnic && (
+        <div className="mb-5">
+          <label className="ui-label-sentence" htmlFor={`${idPrefix}cnic`}>
+            CNIC / national ID *
+          </label>
+          <input
+            id={`${idPrefix}cnic`}
+            name="cnic"
+            value={formData.cnic || ''}
+            onChange={handleChange}
+            placeholder="XXXXX-XXXXXXX-X"
+            maxLength={15}
+            className={`${inputCls} ${errors?.cnic ? 'border-rose-300 focus:border-gdg-red focus:ring-gdg-red/15' : ''}`}
+          />
+          <p className="mt-1.5 text-xs text-slate-500">13 digits, e.g. 42101-1234567-1</p>
+          {errors?.cnic && <div className="mt-1 text-xs font-medium text-gdg-red">{errors.cnic}</div>}
+        </div>
+      )}
       <div className={`grid grid-cols-1 gap-4 ${isHackathon ? '' : 'sm:grid-cols-2'}`}>
         <div className={`mb-5 ${isHackathon ? '' : 'sm:mb-0'}`}>
           <label className="ui-label-sentence" htmlFor={`${idPrefix}gender`}>

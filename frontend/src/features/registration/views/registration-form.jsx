@@ -188,6 +188,7 @@ export default function RegistrationForm() {
               onChange={setFormData}
               errors={errors}
               eventTypeSlug={eventTypeSlug}
+              showCnic={!event.isOnline}
             />
             <div onBlur={handleEmailBlur} />
 

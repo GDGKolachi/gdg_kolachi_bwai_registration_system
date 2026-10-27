@@ -210,7 +210,8 @@ WHERE et.slug = :type_slug;  -- 'workshop' | 'talks' | 'community-lounge' | 'hac
 
 | Field | Workshop | Talks | Community Lounge | Hackathon |
 |---|---|---|---|---|
-| name, email, phone, university/org, linkedin, github, cnic, gender | ✓ | ✓ | ✓ | ✓ |
+| name, email, phone, university/org, linkedin, github, gender | ✓ | ✓ | ✓ | ✓ |
+| cnic — in-person events only (hidden when `is_online`) | ✓ | ✓ | ✓ | ✓ |
 | "What best describes you?" — single-select | 6-item list | 6-item list | 6-item list | 15-item list |
 | Domain — **single-select** (11 options) | — | — | — | ✓ |
 | Track — single-select from `events.tracks` | — | — | ✓ | — |

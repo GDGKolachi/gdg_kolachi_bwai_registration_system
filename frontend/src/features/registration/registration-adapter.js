@@ -23,10 +23,11 @@ export function prepareRegistrationPayload(formData) {
     university_org: formData.universityOrg,
     github: formData.github || undefined,
     linkedin: formData.linkedin,
-    cnic: formData.cnic,
     gender: formData.gender,
     event_id: formData.eventId,
   };
+  // Online events hide the CNIC field, so there is nothing to send.
+  if (formData.cnic?.trim()) payload.cnic = formData.cnic;
   // Hackathons omit the role question entirely — the backend uses primary_skill there.
   if (formData.bestDescribesYou) payload.best_describes_you = formData.bestDescribesYou;
   if (formData.motivation) payload.motivation = formData.motivation;

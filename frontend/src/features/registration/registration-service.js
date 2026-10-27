@@ -75,10 +75,13 @@ export function validateRegistrationForm(data, eventTypeSlug, event) {
   }
   if (!data.universityOrg?.trim()) errors.universityOrg = 'Organization is required';
   if (!data.linkedin?.trim()) errors.linkedin = 'LinkedIn profile is required';
-  if (!data.cnic?.trim()) errors.cnic = 'CNIC/National ID is required';
-  else {
-    const cnicDigits = data.cnic.replace(/[\s-]/g, '');
-    if (!CNIC_REGEX.test(cnicDigits)) errors.cnic = 'CNIC must be exactly 13 digits (e.g. XXXXX-XXXXXXX-X)';
+  // Online events don't ask for a CNIC — it is only checked at the venue.
+  if (!event?.isOnline) {
+    if (!data.cnic?.trim()) errors.cnic = 'CNIC/National ID is required';
+    else {
+      const cnicDigits = data.cnic.replace(/[\s-]/g, '');
+      if (!CNIC_REGEX.test(cnicDigits)) errors.cnic = 'CNIC must be exactly 13 digits (e.g. XXXXX-XXXXXXX-X)';
+    }
   }
   if (!data.gender) errors.gender = 'Gender is required';
 

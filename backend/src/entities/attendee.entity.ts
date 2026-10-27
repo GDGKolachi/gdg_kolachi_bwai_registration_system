@@ -25,7 +25,8 @@ export class Attendee {
   @Column({ nullable: true })
   linkedin: string;
 
-  @Column()
+  // Null for attendees who have only registered for online events.
+  @Column({ nullable: true })
   cnic: string;
 
   @Column({ nullable: true })
