@@ -105,6 +105,11 @@ export class RegistrationsService {
       );
     }
 
+    // CNIC is checked at the venue, so only in-person events collect it.
+    if (!event.is_online && !dto.cnic) {
+      throw new BadRequestException('CNIC is required for in-person events.');
+    }
+
     // Type-specific field validation
     let roleBucket: string | null = null;
     let profile = dto.best_describes_you;
@@ -152,8 +157,10 @@ export class RegistrationsService {
       });
       attendee = await this.attendeeRepo.save(attendee);
     } else {
-      // Keep the latest role choice on the attendee.
+      // Keep the latest role choice on the attendee, and pick up a CNIC if
+      // they only had online registrations before.
       attendee.best_describes_you = profile;
+      if (!attendee.cnic && dto.cnic) attendee.cnic = dto.cnic;
       attendee = await this.attendeeRepo.save(attendee);
     }
 
@@ -305,6 +312,7 @@ export class RegistrationsService {
           );
         } else {
           attendee.best_describes_you = profile;
+          if (!attendee.cnic) attendee.cnic = m.cnic;
           attendee = await manager.save(attendee);
         }
 
@@ -578,7 +586,7 @@ export class RegistrationsService {
               .replace('T', ' ')
               .replace(/\.\d{3}Z$/, ' UTC')
           : '';
-        return `"${r.id}","${a?.name}","${a?.email}","${a?.phone}","${a?.university_org}","${a?.github || ''}","${a?.linkedin || ''}","${a?.cnic}","${a?.gender || ''}","${a?.best_describes_you || ''}","${r.domain || ''}","${r.track || ''}","${r.slot || ''}","${r.role_bucket || ''}","${r.registration_mode || ''}","${r.is_captain}","${r.years_experience || ''}","${r.prior_hackathons || ''}","${skills.replace(/"/g, '""')}","${r.ai_experience || ''}","${(r.portfolio_url || '').replace(/"/g, '""')}","${(r.best_project || '').replace(/"/g, '""')}","${(r.ambassador || '').replace(/"/g, '""')}","${(r.motivation || '').replace(/"/g, '""')}","${r.status}","${r.acknowledged}","${r.checked_in}","${registeredAt}","${credit?.email_status || ''}","${creditsRedeemedAt}"`;
+        return `"${r.id}","${a?.name}","${a?.email}","${a?.phone}","${a?.university_org}","${a?.github || ''}","${a?.linkedin || ''}","${a?.cnic || ''}","${a?.gender || ''}","${a?.best_describes_you || ''}","${r.domain || ''}","${r.track || ''}","${r.slot || ''}","${r.role_bucket || ''}","${r.registration_mode || ''}","${r.is_captain}","${r.years_experience || ''}","${r.prior_hackathons || ''}","${skills.replace(/"/g, '""')}","${r.ai_experience || ''}","${(r.portfolio_url || '').replace(/"/g, '""')}","${(r.best_project || '').replace(/"/g, '""')}","${(r.ambassador || '').replace(/"/g, '""')}","${(r.motivation || '').replace(/"/g, '""')}","${r.status}","${r.acknowledged}","${r.checked_in}","${registeredAt}","${credit?.email_status || ''}","${creditsRedeemedAt}"`;
       })
       .join('\n');
     return header + rows;
