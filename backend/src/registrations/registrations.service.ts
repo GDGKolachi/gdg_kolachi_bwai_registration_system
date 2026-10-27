@@ -214,7 +214,7 @@ export class RegistrationsService {
         // Re-read so the DB-side column defaults (min/max team size) are populated.
         cfg = await manager.findOneOrFail(TeamFormationConfig, { where: { id: created.id } });
       }
-      if (!cfg.allow_self_registered_teams) {
+      if (!event.allow_team_registration) {
         throw new BadRequestException('Team registration is not enabled for this event');
       }
 

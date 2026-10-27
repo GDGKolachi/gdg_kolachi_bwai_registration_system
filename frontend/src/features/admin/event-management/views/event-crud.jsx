@@ -19,6 +19,7 @@ const emptyForm = {
   status: 'upcoming',
   allow_exceptions: true,
   is_online: false,
+  allow_team_registration: false,
   tracks: [],
   slots: [],
   acknowledgement_deadline: '',
@@ -124,6 +125,7 @@ export default function EventCrud() {
       status: w.status,
       allow_exceptions: w.allow_exceptions ?? true,
       is_online: w.is_online ?? false,
+      allow_team_registration: w.allow_team_registration ?? false,
       tracks: w.tracks ?? [],
       slots: w.slots ?? [],
       acknowledgement_deadline: w.acknowledgement_deadline ? w.acknowledgement_deadline.slice(0, 16) : '',
@@ -149,6 +151,7 @@ export default function EventCrud() {
         map_location: form.map_location || null,
         special_instructions: form.special_instructions || null,
         speakers: form.speakers.filter((s) => s.name?.trim()),
+        allow_team_registration: currentTypeSlug === 'hackathon' && !!form.allow_team_registration,
         tracks: currentTypeSlug === 'community-lounge' ? form.tracks : null,
         slots: currentTypeSlug === 'community-lounge' ? form.slots : null,
         acknowledgement_deadline: form.acknowledgement_deadline || null,
@@ -314,6 +317,15 @@ export default function EventCrud() {
                 </label>
                 <div className="mt-1 ml-6 text-xs text-slate-400">When checked, shortlisting emails will skip the QR ticket and show a join-link instead.</div>
               </div>
+              {currentTypeSlug === 'hackathon' && (
+                <div className="mb-5">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={!!form.allow_team_registration} onChange={(e) => setForm((f) => ({ ...f, allow_team_registration: e.target.checked }))} className="h-4 w-4 rounded border-slate-300 text-gdg-blue focus:ring-gdg-blue/30" />
+                    <span className="text-sm text-slate-700">Allow team registration</span>
+                  </label>
+                  <div className="mt-1 ml-6 text-xs text-slate-400">Off (default): attendees go straight to the individual form. On: they choose between registering as an individual or registering a team.</div>
+                </div>
+              )}
               <div className="mb-5">
                 <label className="ui-label-sentence" htmlFor="w-map">Map Location</label>
                 <input id="w-map" value={form.map_location} onChange={(e) => setForm((f) => ({ ...f, map_location: e.target.value }))} placeholder="e.g. 24.8607,67.0011 or venue name" className={inputCls} />

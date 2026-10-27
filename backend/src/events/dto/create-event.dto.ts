@@ -63,6 +63,10 @@ export class CreateEventDto {
   is_online?: boolean;
 
   @IsOptional()
+  @IsBoolean()
+  allow_team_registration?: boolean;
+
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   tracks?: string[];

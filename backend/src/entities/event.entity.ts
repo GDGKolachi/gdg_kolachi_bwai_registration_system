@@ -48,6 +48,13 @@ export class Event {
   @Column({ type: 'boolean', default: false })
   is_online: boolean;
 
+  /**
+   * Hackathon only. Off (default): attendees go straight to the individual
+   * form. On: they choose between registering alone or as a team.
+   */
+  @Column({ type: 'boolean', default: false })
+  allow_team_registration: boolean;
+
   @Column({ type: 'jsonb', nullable: true })
   tracks: string[] | null;
 
