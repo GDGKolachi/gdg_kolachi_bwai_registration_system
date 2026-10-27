@@ -438,15 +438,6 @@ export default function TeamsManagement() {
                   </div>
 
                   <div className="mb-4 space-y-3 rounded-lg bg-slate-50/70 px-3 py-3 ring-1 ring-slate-200/60">
-                    <label className="flex cursor-pointer items-start gap-2">
-                      <input
-                        type="checkbox"
-                        checked={!!draft.allow_self_registered_teams}
-                        onChange={(e) => setDraft((d) => ({ ...d, allow_self_registered_teams: e.target.checked }))}
-                        className="mt-0.5 h-4 w-4 rounded border-slate-300 text-gdg-blue focus:ring-gdg-blue/30"
-                      />
-                      <span className="text-sm text-slate-700">Allow public team registration</span>
-                    </label>
                     <div>
                       <label className="flex cursor-pointer items-start gap-2">
                         <input

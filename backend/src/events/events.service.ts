@@ -55,7 +55,7 @@ export class EventsService {
     return {
       min_team_size: cfg?.min_team_size ?? 2,
       max_team_size: cfg?.max_team_size ?? 4,
-      allow_self_registered_teams: cfg?.allow_self_registered_teams ?? true,
+      allow_self_registered_teams: event.allow_team_registration === true,
     };
   }
 
