@@ -22,5 +22,8 @@ export function validateEventForm(data) {
   if (data.credits_enabled && !claim) errors.credits_claim_url = 'A claim link is required to send the credits email';
   else if (claim && !isHttpsUrl(claim)) errors.credits_claim_url = 'Must be a valid https:// link';
   if (video && !isHttpsUrl(video)) errors.credits_video_url = 'Must be a valid https:// link';
+  const meeting = data.meeting_url?.trim();
+  if (data.is_online && data.meeting_reminder_enabled && !meeting) errors.meeting_url = 'Add the meeting link so the reminder can include it';
+  else if (meeting && !isHttpsUrl(meeting)) errors.meeting_url = 'Must be a valid https:// link';
   return errors;
 }

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
+import { adminEventApi } from '../admin-event-api';
 import { useAdminEvents, useCreateEvent, useUpdateEvent, useDeleteEvent } from '../admin-event-repository';
 import { validateEventForm } from '../admin-event-service';
 import { useActiveEventTypes } from '../../event-types/event-types-repository';
@@ -27,6 +28,10 @@ const emptyForm = {
   credits_enabled: false,
   credits_claim_url: DEFAULT_CREDITS_CLAIM_URL,
   credits_video_url: DEFAULT_CREDITS_VIDEO_URL,
+  meeting_url: '',
+  meeting_details: '',
+  meeting_reminder_enabled: true,
+  meeting_reminder_minutes: 30,
 };
 
 const badgeColors = {
@@ -76,6 +81,83 @@ function ChipInput({ label, items, onChange, placeholder }) {
         />
         <button type="button" className="ui-btn-secondary" onClick={add}>Add</button>
       </div>
+    </div>
+  );
+}
+
+function formatSentAt(iso) {
+  return new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+}
+
+/**
+ * Online-only settings: the meeting itself (link + free-text details that go
+ * in every email) and the automatic "starting soon" reminder.
+ */
+function OnlineMeetingSection({ form, setForm, errors, editingId, inputCls }) {
+  const [busy, setBusy] = useState(null);
+
+  const run = async (kind) => {
+    if (kind === 'now' && !confirm('Email the join reminder to every shortlisted/confirmed attendee who has not checked in yet? Save any changes first.')) return;
+    setBusy(kind);
+    try {
+      if (kind === 'test') {
+        const res = await adminEventApi.sendMeetingReminderTest(editingId);
+        toast.success(res.sent ? `Test reminder sent to ${res.to}` : 'Test reminder could not be sent');
+      } else {
+        const res = await adminEventApi.sendMeetingReminder(editingId);
+        setForm((f) => ({ ...f, meeting_reminder_sent_at: new Date().toISOString(), meeting_reminder_sent_count: res.sent }));
+        toast.success(`Reminder sent to ${res.sent} of ${res.recipients ?? res.sent} attendees`);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to send reminder');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="mb-5 rounded-xl border border-sky-200 bg-sky-50/30 p-4">
+      <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-sky-900">Online session</div>
+      <div className="mb-4">
+        <label className="ui-label-sentence" htmlFor="w-meeting-url">Meeting link</label>
+        <input id="w-meeting-url" type="text" inputMode="url" value={form.meeting_url} onChange={(e) => setForm((f) => ({ ...f, meeting_url: e.target.value }))} placeholder="https://meet.google.com/abc-defg-hij" className={inputCls} />
+        <div className="mt-1 text-xs text-slate-400">Google Meet, Zoom, YouTube Live… Only shortlisted attendees see it, in their emails and on their personal join page.</div>
+        {errors.meeting_url && <div className="mt-1 text-xs font-medium text-gdg-red">{errors.meeting_url}</div>}
+      </div>
+      <div className="mb-4">
+        <label className="ui-label-sentence" htmlFor="w-meeting-details">Meeting details</label>
+        <textarea id="w-meeting-details" value={form.meeting_details} onChange={(e) => setForm((f) => ({ ...f, meeting_details: e.target.value }))} rows={4} placeholder={'Meeting ID: abc-defg-hij\nPasscode: 123456\nDial-in: +1 555 0100\n7:00 PM Talk 1 · 8:00 PM Talk 2'} className={`${inputCls} resize-y`} />
+        <div className="mt-1 text-xs text-slate-400">Meeting ID, passcode, dial-in, agenda. Shown as written (line breaks kept) in the emails and on the join page.</div>
+      </div>
+      <label className="flex items-start gap-2 cursor-pointer">
+        <input type="checkbox" checked={!!form.meeting_reminder_enabled} onChange={(e) => setForm((f) => ({ ...f, meeting_reminder_enabled: e.target.checked }))} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-gdg-blue focus:ring-gdg-blue/30" />
+        <span className="text-sm text-slate-700">
+          Email a reminder{' '}
+          <select value={form.meeting_reminder_minutes} onChange={(e) => setForm((f) => ({ ...f, meeting_reminder_minutes: Number(e.target.value) }))} className="mx-1 rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-sm">
+            {[15, 30, 45, 60, 120].map((m) => <option key={m} value={m}>{m} minutes</option>)}
+          </select>
+          before it starts
+        </span>
+      </label>
+      <div className="mt-1 ml-6 text-xs text-slate-400">
+        Goes once to every shortlisted/confirmed attendee, with the meeting details and their personal &quot;Check in &amp; join&quot; link. Date and time are Pakistan time (PKT).
+        Attendees can check themselves in from 15 minutes before the start until 4 hours after.
+      </div>
+      {editingId && (
+        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-sky-100 pt-3">
+          <span className="mr-auto text-xs text-slate-500">
+            {form.meeting_reminder_sent_at
+              ? <>Reminder sent {formatSentAt(form.meeting_reminder_sent_at)} to <strong>{form.meeting_reminder_sent_count}</strong> attendees.</>
+              : 'Reminder not sent yet.'}
+          </span>
+          <button type="button" className="ui-btn-secondary !px-3 !py-1.5 text-xs" disabled={!!busy} onClick={() => run('test')}>
+            {busy === 'test' ? 'Sending…' : 'Send test to me'}
+          </button>
+          <button type="button" className="ui-btn-secondary !px-3 !py-1.5 text-xs" disabled={!!busy} onClick={() => run('now')}>
+            {busy === 'now' ? 'Sending…' : 'Send reminder now'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -133,6 +215,12 @@ export default function EventCrud() {
       credits_enabled: w.credits_enabled ?? false,
       credits_claim_url: w.credits_claim_url ?? '',
       credits_video_url: w.credits_video_url ?? '',
+      meeting_url: w.meeting_url ?? '',
+      meeting_details: w.meeting_details ?? '',
+      meeting_reminder_enabled: w.meeting_reminder_enabled ?? false,
+      meeting_reminder_minutes: w.meeting_reminder_minutes ?? 30,
+      meeting_reminder_sent_at: w.meeting_reminder_sent_at ?? null,
+      meeting_reminder_sent_count: w.meeting_reminder_sent_count ?? 0,
     });
     setErrors({});
     setShowModal(true);
@@ -159,7 +247,13 @@ export default function EventCrud() {
         credits_enabled: !!form.credits_enabled,
         credits_claim_url: form.credits_claim_url?.trim() || null,
         credits_video_url: form.credits_video_url?.trim() || null,
+        meeting_url: form.is_online ? form.meeting_url?.trim() || null : null,
+        meeting_details: form.is_online ? form.meeting_details?.trim() || null : null,
+        meeting_reminder_enabled: form.is_online && !!form.meeting_reminder_enabled,
+        meeting_reminder_minutes: Number(form.meeting_reminder_minutes) || 30,
       };
+      delete payload.meeting_reminder_sent_at;
+      delete payload.meeting_reminder_sent_count;
       if (editingId) {
         await updateMutation.mutateAsync({ id: editingId, data: payload });
         toast.success('Event updated');
@@ -317,6 +411,9 @@ export default function EventCrud() {
                 </label>
                 <div className="mt-1 ml-6 text-xs text-slate-400">When checked, shortlisting emails will skip the QR ticket and show a join-link instead.</div>
               </div>
+              {form.is_online && (
+                <OnlineMeetingSection form={form} setForm={setForm} errors={errors} editingId={editingId} inputCls={inputCls} />
+              )}
               {currentTypeSlug === 'hackathon' && (
                 <div className="mb-5">
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -434,6 +531,7 @@ export default function EventCrud() {
                 </label>
                 <div className="mt-1 ml-6 text-xs text-slate-400">
                   The email goes out when someone&apos;s QR code is scanned at check-in. Desk check-in by name does not send it; use the &quot;Send credits email&quot; button there.
+                  {form.is_online && ' Online events: it also goes out when an attendee checks in from their personal join link, and the join page shows the credits link straight away.'}
                 </div>
                 <div className="mt-4">
                   <label className="ui-label-sentence" htmlFor="w-credits-claim">Claim link</label>

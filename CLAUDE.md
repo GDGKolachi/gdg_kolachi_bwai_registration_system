@@ -22,6 +22,7 @@
 - Hackathon: solo or captain-submitted team registration (`POST /registrations/team`); shortlisting, then spot acknowledgement (`GET /registrations/:id/acknowledge`, deadline + admin lock + expired email), team deposit/payment confirmation.
 - Status transitions validated in `AdminService.VALID_TRANSITIONS`.
 - Check-in: QR scan / desk search / mobile / hackathon scan. Hackathon check-in auto-assigns the attendee to a team (`TeamAssignmentService.assignAtCheckin`, scoring by domain match + role gaps/overflow), with rebalance/lock/move/swap admin tools.
+- Online events (`backend/src/online`): meeting_url/meeting_details go in every email as a personal "Check in & join" link (`/join/:token`, HMAC-signed registration id); `OnlineReminderScheduler` emails seated attendees `meeting_reminder_minutes` (default 30) before start (times read as `EVENT_UTC_OFFSET`, default +05:00); self check-in opens 15 min before, closes 4 h after, marks attended and queues the credits email.
 - Cloud credits (`docs/cloud-credits.md`, `cloud-credits-event-day.md`): QR-scan check-in queues an idempotent email (in-process sender, rate-limited, retries/backoff) with video + claim link + "I've redeemed" confirm page `/credits/:token`; admins can resend/bulk-send/confirm on behalf.
 
 ## Backend module map

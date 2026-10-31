@@ -10,6 +10,7 @@ import TeamLookup from './features/teams-public/views/team-lookup';
 import TeamDeposit from './features/teams-public/views/team-deposit';
 import CreditsResend from './features/credits-public/views/credits-resend';
 import CreditsConfirm from './features/credits-public/views/credits-confirm';
+import OnlineJoin from './features/online-join/views/online-join';
 import Login from './features/admin/auth/views/login';
 import DashboardHome from './features/admin/dashboard/views/dashboard-home';
 import EventCrud from './features/admin/event-management/views/event-crud';
@@ -74,6 +75,7 @@ function App() {
         {/* `resend` is a literal segment; keep it before the :token route. */}
         <Route path="/credits/resend" element={<CreditsResend />} />
         <Route path="/credits/:token" element={<CreditsConfirm />} />
+        <Route path="/join/:token" element={<OnlineJoin />} />
       </Route>
       <Route path="/admin/login" element={<Login />} />
       <Route

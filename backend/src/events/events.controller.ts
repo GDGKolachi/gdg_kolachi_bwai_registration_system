@@ -4,10 +4,20 @@ import { EventsService } from './events.service';
 
 // The claim link is universal (anyone holding it can claim), so the public
 // event endpoints must not hand it out; admins read it from /admin/events.
+// The meeting link and details go only to seated attendees (emails and their
+// personal join page), and the reminder bookkeeping is admin-only.
+const PRIVATE_FIELDS = [
+  'credits_claim_url',
+  'credits_video_url',
+  'meeting_url',
+  'meeting_details',
+  'meeting_reminder_sent_at',
+  'meeting_reminder_sent_count',
+];
+
 function withoutCreditsSecrets<T extends Record<string, any>>(event: T) {
   const rest: Record<string, any> = { ...event };
-  delete rest.credits_claim_url;
-  delete rest.credits_video_url;
+  for (const field of PRIVATE_FIELDS) delete rest[field];
   return rest;
 }
 

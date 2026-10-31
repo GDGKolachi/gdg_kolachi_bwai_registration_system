@@ -14,7 +14,8 @@ export type CreditSource =
   | 'qr_scan'
   | 'hackathon_scan'
   | 'admin'
-  | 'volunteer_qr';
+  | 'volunteer_qr'
+  | 'self_checkin';
 
 /** Minimum gap between self-service resends for the same person. */
 export const RESEND_COOLDOWN_MINUTES = 2;
@@ -145,6 +146,12 @@ export class CreditsService {
       );
       return { status: 'queue_error' };
     }
+  }
+
+  /** `<origin>/credits/<token>` for the registration's credits row, or null when there is none. */
+  async confirmUrlFor(registrationId: string): Promise<string | null> {
+    const row = await this.getRow(registrationId);
+    return row ? `${siteOrigin()}/credits/${row.token}` : null;
   }
 
   /** Email status of the registration's credits row, or `not_queued`. */

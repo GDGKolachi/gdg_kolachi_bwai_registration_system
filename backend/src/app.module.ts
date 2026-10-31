@@ -13,6 +13,7 @@ import { EmailModule } from './email/email.module';
 import { SeedModule } from './seed/seed.module';
 import { TeamsModule } from './teams/teams.module';
 import { CreditsModule } from './credits/credits.module';
+import { OnlineModule } from './online/online.module';
 import { Admin } from './entities/admin.entity';
 import { Event } from './entities/event.entity';
 import { EventType } from './entities/event-type.entity';
@@ -67,6 +68,7 @@ import { CreditRedemption } from './entities/credit-redemption.entity';
     SeedModule,
     TeamsModule,
     CreditsModule,
+    OnlineModule,
   ],
   providers: [
     {
