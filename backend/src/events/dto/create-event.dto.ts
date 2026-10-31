@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsArray, IsBoolean, IsUUID, IsUrl, ValidateIf, ValidateNested, Min } from 'class-validator';
+import { IsString, IsNumber, IsInt, Max, IsOptional, IsArray, IsBoolean, IsUUID, IsUrl, ValidateIf, ValidateNested, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class SpeakerDto {
@@ -95,4 +95,23 @@ export class CreateEventDto {
   @ValidateIf((_o, v) => v !== undefined && v !== null && v !== '')
   @IsUrl({ protocols: ['https'], require_protocol: true })
   credits_video_url?: string | null;
+
+  // Online meeting. https only; null or '' clears the link.
+  @ValidateIf((_o, v) => v !== undefined && v !== null && v !== '')
+  @IsUrl({ protocols: ['https'], require_protocol: true })
+  meeting_url?: string | null;
+
+  @IsOptional()
+  @IsString()
+  meeting_details?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  meeting_reminder_enabled?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(5)
+  @Max(240)
+  meeting_reminder_minutes?: number;
 }

@@ -77,6 +77,26 @@ export class Event {
   @Column({ type: 'varchar', nullable: true })
   credits_video_url: string | null;
 
+  /** Online events: join link and free-text details (meeting ID, passcode, agenda). Never served publicly. */
+  @Column({ type: 'varchar', nullable: true })
+  meeting_url: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  meeting_details: string | null;
+
+  /** Automatic "starting soon" email, sent once, meeting_reminder_minutes before the start. */
+  @Column({ type: 'boolean', default: false })
+  meeting_reminder_enabled: boolean;
+
+  @Column({ type: 'int', default: 30 })
+  meeting_reminder_minutes: number;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  meeting_reminder_sent_at: Date | null;
+
+  @Column({ type: 'int', default: 0 })
+  meeting_reminder_sent_count: number;
+
   @CreateDateColumn()
   created_at: Date;
 

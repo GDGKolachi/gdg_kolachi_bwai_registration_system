@@ -1,6 +1,17 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Resend } from 'resend';
 import * as QRCode from 'qrcode';
+import { emailLayout } from './email-layout';
+import { formatTime12h, joinUrl } from '../online/online.util';
+import { onlineJoinBlock, renderMeetingReminderEmail } from '../online/online-email.template';
+
+/** Online-meeting fields an email may need; all optional so in-person events pass as before. */
+type OnlineFields = {
+  is_online?: boolean;
+  meeting_url?: string | null;
+  meeting_details?: string | null;
+  credits_enabled?: boolean;
+};
 
 @Injectable()
 export class EmailService {
@@ -23,21 +34,17 @@ export class EmailService {
   }
 
   private emailWrapper(bgColor: string, headerText: string, bodyHtml: string): string {
-    return `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
-        <div style="background: ${bgColor}; color: white; padding: 24px; text-align: center;">
-          <h1 style="margin: 0; font-size: 22px;">GDG Kolachi - Build with AI</h1>
-          <p style="margin: 8px 0 0; font-size: 16px; opacity: 0.9;">${headerText}</p>
-        </div>
-        <div style="padding: 30px; background: #f9f9f9;">
-          ${bodyHtml}
-        </div>
-        <div style="padding: 16px; background: #202124; color: #9AA0A6; text-align: center; font-size: 12px;">
-          <p style="margin: 0;">GDG Kolachi - Build with AI Workshop Series</p>
-          <p style="margin: 4px 0 0;">This is an automated message. Please do not reply.</p>
-        </div>
-      </div>
-    `;
+    return emailLayout(bgColor, headerText, bodyHtml);
+  }
+
+  /** The join card for an online attendee: personal check-in link, meeting details, fallback link. */
+  private onlineJoinHtml(event: OnlineFields, registrationId: string): string {
+    return onlineJoinBlock({
+      joinUrl: joinUrl(registrationId),
+      meetingUrl: event.meeting_url,
+      meetingDetails: event.meeting_details,
+      creditsEnabled: !!event.credits_enabled,
+    });
   }
 
   private getDayName(dateStr: string): string {
@@ -57,9 +64,9 @@ export class EmailService {
     return `
       <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4285F4;">
         <h3 style="margin: 0 0 12px; color: #202124;">${event.title}</h3>
-        <p style="margin: 4px 0;"><strong>📅 Day:</strong> ${dayName}, AM</p>
+        <p style="margin: 4px 0;"><strong>📅 Day:</strong> ${dayName}</p>
         <p style="margin: 4px 0;"><strong>📅 Date:</strong> ${event.date}</p>
-        <p style="margin: 4px 0;"><strong>🕐 Time:</strong> ${event.time}</p>
+        <p style="margin: 4px 0;"><strong>🕐 Time:</strong> ${formatTime12h(event.time)}</p>
         <p style="margin: 4px 0;"><strong>${venueLabel}:</strong> ${venueHtml}</p>
       </div>
     `;
@@ -79,7 +86,7 @@ export class EmailService {
   async sendShortlistedEmail(
     email: string,
     name: string,
-    event: { title: string; date: string; time: string; venue: string; special_instructions?: string; is_online?: boolean },
+    event: { title: string; date: string; time: string; venue: string; special_instructions?: string } & OnlineFields,
     registrationId: string,
     qrData: string,
   ) {
@@ -104,10 +111,12 @@ export class EmailService {
     `;
 
     const importantBlock = isOnline ? `
+      ${this.onlineJoinHtml(event, registrationId)}
       <div style="background: #E8F5E9; padding: 16px; border-radius: 8px; margin: 20px 0;">
         <p style="margin: 0; color: #2E7D32;"><strong>💻 This is an online event</strong></p>
         <ul style="margin: 8px 0 0; color: #2E7D32; padding-left: 20px;">
-          <li>Join using the link in the event details above</li>
+          <li>Keep this email: the button above is your personal join link</li>
+          <li>We will email you a reminder shortly before the session starts</li>
           <li>Be ready a few minutes before the scheduled time</li>
         </ul>
       </div>
@@ -174,7 +183,7 @@ export class EmailService {
     recipients: Array<{
       email: string;
       name: string;
-      event: { title: string; date: string; time: string; venue: string; special_instructions?: string; is_online?: boolean };
+      event: { title: string; date: string; time: string; venue: string; special_instructions?: string } & OnlineFields;
       registrationId: string;
       qrData: string;
     }>,
@@ -242,7 +251,7 @@ export class EmailService {
             ${this.eventDetailsBlock(r.event)}
             ${customBlock}
             ${instructionsBlock}
-            ${ticketBlock}
+            ${isOnline ? this.onlineJoinHtml(r.event, r.registrationId) : ticketBlock}
             ${acknowledgeBlock}
             <p style="color: #5F6368; font-size: 13px; margin: 20px 0 0;">See you there! 🎉</p>
           `);
@@ -357,6 +366,64 @@ export class EmailService {
     return { sent: sentCount, failedEmails };
   }
 
+  /**
+   * The automatic "starting soon" email for an online session (see
+   * OnlineReminderScheduler). Sent through Resend's batch API, 100 per call,
+   * so a thousand attendees take ten calls instead of a thousand and the
+   * email still lands before the session starts.
+   */
+  async sendMeetingReminderBatch(
+    recipients: Array<{ email: string; name: string; registrationId: string }>,
+    event: {
+      title: string; venue?: string | null; special_instructions?: string | null;
+      startsAtText: string; minutesUntilStart: number | null;
+    } & OnlineFields,
+  ) {
+    if (!this.resend) {
+      this.logger.warn('Resend not configured, skipping meeting reminder batch');
+      return { sent: 0, failed: recipients.length };
+    }
+
+    const batchSize = 100;
+    let sent = 0;
+    let failed = 0;
+    for (let i = 0; i < recipients.length; i += batchSize) {
+      const chunk = recipients.slice(i, i + batchSize);
+      const messages = chunk.map((r) => {
+        const msg = renderMeetingReminderEmail({
+          name: r.name,
+          eventTitle: event.title,
+          startsAtText: event.startsAtText,
+          minutesUntilStart: event.minutesUntilStart,
+          venue: event.venue,
+          specialInstructions: event.special_instructions,
+          joinUrl: joinUrl(r.registrationId),
+          meetingUrl: event.meeting_url,
+          meetingDetails: event.meeting_details,
+          creditsEnabled: !!event.credits_enabled,
+        });
+        return { from: this.from, to: [r.email], subject: msg.subject, html: msg.html, text: msg.text };
+      });
+
+      try {
+        const { error } = await this.resend.batch.send(messages);
+        if (error) {
+          failed += chunk.length;
+          this.logger.error(`Meeting reminder batch failed for ${i}–${i + chunk.length}`, error);
+        } else {
+          sent += chunk.length;
+          this.logger.log(`Meeting reminder batch sent ${chunk.length} emails for "${event.title}"`);
+        }
+      } catch (err) {
+        failed += chunk.length;
+        this.logger.error(`Meeting reminder batch exception for ${i}–${i + chunk.length}`, err);
+      }
+      // Stay under Resend's default 2 requests/second.
+      if (i + batchSize < recipients.length) await new Promise((r) => setTimeout(r, 600));
+    }
+    return { sent, failed };
+  }
+
   private escapeHtml(s: string): string {
     return s
       .replace(/&/g, '&amp;')
@@ -460,7 +527,7 @@ export class EmailService {
     recipients: Array<{
       email: string;
       name: string;
-      event: { title: string; date: string; time: string; venue: string; special_instructions?: string; is_online?: boolean };
+      event: { title: string; date: string; time: string; venue: string; special_instructions?: string } & OnlineFields;
       registrationId: string;
       qrData: string;
     }>,
@@ -490,10 +557,12 @@ export class EmailService {
           `;
 
           const importantBlock = isOnline ? `
+            ${this.onlineJoinHtml(r.event, r.registrationId)}
             <div style="background: #E8F5E9; padding: 16px; border-radius: 8px; margin: 20px 0;">
               <p style="margin: 0; color: #2E7D32;"><strong>💻 This is an online event</strong></p>
               <ul style="margin: 8px 0 0; color: #2E7D32; padding-left: 20px;">
-                <li>Join using the link in the event details above</li>
+                <li>Keep this email: the button above is your personal join link</li>
+                <li>We will email you a reminder shortly before the session starts</li>
                 <li>Be ready a few minutes before the scheduled time</li>
               </ul>
             </div>

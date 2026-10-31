@@ -37,7 +37,7 @@ export class CreditRedemption {
   @Column({ type: 'varchar', length: 64, unique: true })
   token: string;
 
-  /** `qr_scan` | `hackathon_scan` | `admin` | `volunteer_qr` */
+  /** `qr_scan` | `hackathon_scan` | `admin` | `volunteer_qr` | `self_checkin` (online join link) */
   @Column({ type: 'varchar' })
   source: string;
 

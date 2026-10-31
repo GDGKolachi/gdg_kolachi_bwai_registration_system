@@ -7,4 +7,6 @@ export const adminEventApi = {
   delete: (id) => api.delete(`/admin/events/${id}`).then(res => res.data),
   lockAcknowledgements: (id) => api.post(`/admin/events/${id}/lock-acknowledgements`).then(res => res.data),
   unlockAcknowledgements: (id) => api.post(`/admin/events/${id}/unlock-acknowledgements`).then(res => res.data),
+  sendMeetingReminder: (id) => api.post(`/admin/online/events/${id}/reminder`).then(res => res.data),
+  sendMeetingReminderTest: (id) => api.post(`/admin/online/events/${id}/reminder/test`).then(res => res.data),
 };
