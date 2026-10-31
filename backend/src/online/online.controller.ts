@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument -- untyped request user */
 import {
+  Body,
   Controller,
   Get,
   HttpCode,
@@ -15,6 +16,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { ORGANIZER_ROLES } from '../common/enums/admin-role.enum';
 import { OnlineService } from './online.service';
+import { TestReminderDto } from './dto';
 
 // Everyone opens the reminder within the same few minutes, often behind one
 // office or campus IP, so the limits are generous. The link is signed, so
@@ -54,10 +56,17 @@ export class OnlineAdminController {
     return this.online.sendReminder(id, { force: true });
   }
 
-  /** One copy to the signed-in admin. */
+  /** One copy to the address the admin typed, or to the signed-in admin when none is given. */
   @Post('events/:id/reminder/test')
   @HttpCode(200)
-  sendTest(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {
-    return this.online.sendTestReminder(id, req.user?.email);
+  sendTest(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: TestReminderDto,
+    @Req() req: any,
+  ) {
+    return this.online.sendTestReminder(
+      id,
+      dto?.email?.trim() || req.user?.email,
+    );
   }
 }

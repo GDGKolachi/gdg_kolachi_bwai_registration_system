@@ -8,5 +8,5 @@ export const adminEventApi = {
   lockAcknowledgements: (id) => api.post(`/admin/events/${id}/lock-acknowledgements`).then(res => res.data),
   unlockAcknowledgements: (id) => api.post(`/admin/events/${id}/unlock-acknowledgements`).then(res => res.data),
   sendMeetingReminder: (id) => api.post(`/admin/online/events/${id}/reminder`).then(res => res.data),
-  sendMeetingReminderTest: (id) => api.post(`/admin/online/events/${id}/reminder/test`).then(res => res.data),
+  sendMeetingReminderTest: (id, email) => api.post(`/admin/online/events/${id}/reminder/test`, { email }).then(res => res.data),
 };

@@ -4,6 +4,7 @@ import { adminEventApi } from '../admin-event-api';
 import { useAdminEvents, useCreateEvent, useUpdateEvent, useDeleteEvent } from '../admin-event-repository';
 import { validateEventForm } from '../admin-event-service';
 import { useActiveEventTypes } from '../../event-types/event-types-repository';
+import { useCurrentUser } from '../../auth/use-current-user';
 import { DEFAULT_CREDITS_CLAIM_URL, DEFAULT_CREDITS_VIDEO_URL } from './credits-defaults';
 
 const emptyForm = {
@@ -95,14 +96,22 @@ function formatSentAt(iso) {
  */
 function OnlineMeetingSection({ form, setForm, errors, editingId, inputCls }) {
   const [busy, setBusy] = useState(null);
+  const { user } = useCurrentUser();
+  const [testOpen, setTestOpen] = useState(false);
+  const [testEmail, setTestEmail] = useState(user?.email ?? '');
 
   const run = async (kind) => {
     if (kind === 'now' && !confirm('Email the join reminder to every shortlisted/confirmed attendee who has not checked in yet? Save any changes first.')) return;
     setBusy(kind);
     try {
       if (kind === 'test') {
-        const res = await adminEventApi.sendMeetingReminderTest(editingId);
-        toast.success(res.sent ? `Test reminder sent to ${res.to}` : 'Test reminder could not be sent');
+        const res = await adminEventApi.sendMeetingReminderTest(editingId, testEmail.trim());
+        if (res.sent) {
+          toast.success(`Test reminder sent to ${res.to}`);
+          setTestOpen(false);
+        } else {
+          toast.error('Test reminder could not be sent');
+        }
       } else {
         const res = await adminEventApi.sendMeetingReminder(editingId);
         setForm((f) => ({ ...f, meeting_reminder_sent_at: new Date().toISOString(), meeting_reminder_sent_count: res.sent }));
@@ -150,12 +159,37 @@ function OnlineMeetingSection({ form, setForm, errors, editingId, inputCls }) {
               ? <>Reminder sent {formatSentAt(form.meeting_reminder_sent_at)} to <strong>{form.meeting_reminder_sent_count}</strong> attendees.</>
               : 'Reminder not sent yet.'}
           </span>
-          <button type="button" className="ui-btn-secondary !px-3 !py-1.5 text-xs" disabled={!!busy} onClick={() => run('test')}>
-            {busy === 'test' ? 'Sending…' : 'Send test to me'}
+          <button type="button" className="ui-btn-secondary !px-3 !py-1.5 text-xs" disabled={!!busy} onClick={() => setTestOpen((o) => !o)}>
+            Send test email
           </button>
           <button type="button" className="ui-btn-secondary !px-3 !py-1.5 text-xs" disabled={!!busy} onClick={() => run('now')}>
             {busy === 'now' ? 'Sending…' : 'Send reminder now'}
           </button>
+          {testOpen && (
+            <div className="flex w-full items-center gap-2">
+              <input
+                type="email"
+                value={testEmail}
+                onChange={(e) => setTestEmail(e.target.value)}
+                onKeyDown={(e) => {
+                  // Enter would submit the whole event form.
+                  if (e.key === 'Enter') { e.preventDefault(); if (/^\S+@\S+\.\S+$/.test(testEmail.trim())) run('test'); }
+                }}
+                placeholder="you@example.com"
+                aria-label="Send the test reminder to"
+                className={`${inputCls} flex-1 !py-1.5 text-sm`}
+                autoFocus
+              />
+              <button
+                type="button"
+                className="ui-btn-primary !px-3 !py-1.5 text-xs"
+                disabled={!!busy || !/^\S+@\S+\.\S+$/.test(testEmail.trim())}
+                onClick={() => run('test')}
+              >
+                {busy === 'test' ? 'Sending…' : 'Send test'}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

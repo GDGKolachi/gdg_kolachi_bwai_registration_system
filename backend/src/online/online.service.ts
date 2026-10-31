@@ -155,7 +155,9 @@ export class OnlineService {
    */
   async sendTestReminder(eventId: string, to: string) {
     if (!to)
-      throw new BadRequestException('Your account has no email address.');
+      throw new BadRequestException(
+        'Enter an email address to send the test to.',
+      );
     const event = await this.loadEvent(eventId);
     const result = await this.email.sendMeetingReminderBatch(
       [
