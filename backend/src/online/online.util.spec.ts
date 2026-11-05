@@ -8,10 +8,8 @@ import {
   parseTime,
   verifyJoinToken,
 } from './online.util';
-import {
-  meetingReminderSubject,
-  renderMeetingReminderEmail,
-} from './online-email.template';
+import { renderEmail } from '../email/templates/render';
+import { startsIn } from '../email/templates/email-types';
 
 const REG = '3f2c1a9e-8b7d-4c6e-9f10-1a2b3c4d5e6f';
 
@@ -80,40 +78,48 @@ describe('online.util', () => {
 });
 
 describe('meeting reminder email', () => {
-  const base = {
-    name: 'Ayesha <b>',
-    eventTitle: 'Forward Deployed',
-    startsAtText: 'Saturday, 31 October 2026 · 7:00 PM PKT',
-    minutesUntilStart: 30,
+  const data = (minutesUntilStart: number | null, credits = true) => ({
+    name: 'Ayesha<b>',
+    event: {
+      title: 'Forward Deployed',
+      date: '2026-10-31',
+      time: '19:00',
+      venue: 'Online (Google Meet)',
+      is_online: true,
+      meeting_url: 'https://meet.google.com/abc-defg-hij',
+      meeting_details: 'Passcode: 1234',
+      credits_enabled: credits,
+    },
     joinUrl: 'https://example.com/join/abc',
-    meetingUrl: 'https://meet.google.com/abc-defg-hij',
-    meetingDetails: 'Passcode: 1234',
-    creditsEnabled: true,
-  };
+    startsAtText: 'Saturday, 31 October 2026 · 7:00 PM PKT',
+    minutesUntilStart,
+  });
 
-  it('picks the subject from the time left', () => {
-    expect(meetingReminderSubject('X', 30)).toBe(
-      '⏰ Starting in 30 minutes: X',
+  it('says when it starts', () => {
+    expect(startsIn(30)).toBe('in 30 minutes');
+    expect(startsIn(0)).toBe('now');
+    expect(startsIn(600)).toBe('soon');
+    expect(renderEmail('meeting_reminder', data(30)).subject).toBe(
+      '⏰ Forward Deployed starts in 30 minutes',
     );
-    expect(meetingReminderSubject('X', 0)).toBe('🔴 Starting now: X');
-    expect(meetingReminderSubject('X', 600)).toBe('🔔 Reminder: X');
+    expect(renderEmail('meeting_reminder', data(0)).subject).toBe(
+      '⏰ Forward Deployed starts now',
+    );
   });
 
   it('contains the join link, meeting details and credits note, escaped', () => {
-    const { html, text } = renderMeetingReminderEmail(base);
+    const { html, text } = renderEmail('meeting_reminder', data(30));
     expect(html).toContain('https://example.com/join/abc');
     expect(html).toContain('Passcode: 1234');
     expect(html).toContain('Google Cloud credits');
-    expect(html).toContain('Ayesha &lt;b&gt;');
-    expect(html).not.toContain('Ayesha <b>');
-    expect(text).toContain(
-      'Check in & join the session: https://example.com/join/abc',
-    );
+    expect(html).toContain('Ayesha&lt;b&gt;');
+    expect(html).not.toContain('Ayesha<b>');
+    expect(text).toContain('https://example.com/join/abc');
   });
 
   it('leaves the credits note out when credits are off', () => {
-    expect(
-      renderMeetingReminderEmail({ ...base, creditsEnabled: false }).html,
-    ).not.toContain('Google Cloud credits');
+    expect(renderEmail('meeting_reminder', data(30, false)).html).not.toContain(
+      'Google Cloud credits',
+    );
   });
 });

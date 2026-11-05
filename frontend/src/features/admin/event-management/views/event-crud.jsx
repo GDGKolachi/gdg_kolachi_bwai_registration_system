@@ -4,6 +4,8 @@ import { adminEventApi } from '../admin-event-api';
 import { useAdminEvents, useCreateEvent, useUpdateEvent, useDeleteEvent } from '../admin-event-repository';
 import { validateEventForm } from '../admin-event-service';
 import { useActiveEventTypes } from '../../event-types/event-types-repository';
+import { useCurrentUser } from '../../auth/use-current-user';
+import { useEmailTemplates } from '../../email-templates/email-templates-repository';
 import { DEFAULT_CREDITS_CLAIM_URL, DEFAULT_CREDITS_VIDEO_URL } from './credits-defaults';
 
 const emptyForm = {
@@ -32,6 +34,7 @@ const emptyForm = {
   meeting_details: '',
   meeting_reminder_enabled: true,
   meeting_reminder_minutes: 30,
+  email_theme: '',
 };
 
 const badgeColors = {
@@ -95,14 +98,22 @@ function formatSentAt(iso) {
  */
 function OnlineMeetingSection({ form, setForm, errors, editingId, inputCls }) {
   const [busy, setBusy] = useState(null);
+  const { user } = useCurrentUser();
+  const [testOpen, setTestOpen] = useState(false);
+  const [testEmail, setTestEmail] = useState(user?.email ?? '');
 
   const run = async (kind) => {
     if (kind === 'now' && !confirm('Email the join reminder to every shortlisted/confirmed attendee who has not checked in yet? Save any changes first.')) return;
     setBusy(kind);
     try {
       if (kind === 'test') {
-        const res = await adminEventApi.sendMeetingReminderTest(editingId);
-        toast.success(res.sent ? `Test reminder sent to ${res.to}` : 'Test reminder could not be sent');
+        const res = await adminEventApi.sendMeetingReminderTest(editingId, testEmail.trim());
+        if (res.sent) {
+          toast.success(`Test reminder sent to ${res.to}`);
+          setTestOpen(false);
+        } else {
+          toast.error('Test reminder could not be sent');
+        }
       } else {
         const res = await adminEventApi.sendMeetingReminder(editingId);
         setForm((f) => ({ ...f, meeting_reminder_sent_at: new Date().toISOString(), meeting_reminder_sent_count: res.sent }));
@@ -150,12 +161,37 @@ function OnlineMeetingSection({ form, setForm, errors, editingId, inputCls }) {
               ? <>Reminder sent {formatSentAt(form.meeting_reminder_sent_at)} to <strong>{form.meeting_reminder_sent_count}</strong> attendees.</>
               : 'Reminder not sent yet.'}
           </span>
-          <button type="button" className="ui-btn-secondary !px-3 !py-1.5 text-xs" disabled={!!busy} onClick={() => run('test')}>
-            {busy === 'test' ? 'Sending…' : 'Send test to me'}
+          <button type="button" className="ui-btn-secondary !px-3 !py-1.5 text-xs" disabled={!!busy} onClick={() => setTestOpen((o) => !o)}>
+            Send test email
           </button>
           <button type="button" className="ui-btn-secondary !px-3 !py-1.5 text-xs" disabled={!!busy} onClick={() => run('now')}>
             {busy === 'now' ? 'Sending…' : 'Send reminder now'}
           </button>
+          {testOpen && (
+            <div className="flex w-full items-center gap-2">
+              <input
+                type="email"
+                value={testEmail}
+                onChange={(e) => setTestEmail(e.target.value)}
+                onKeyDown={(e) => {
+                  // Enter would submit the whole event form.
+                  if (e.key === 'Enter') { e.preventDefault(); if (/^\S+@\S+\.\S+$/.test(testEmail.trim())) run('test'); }
+                }}
+                placeholder="you@example.com"
+                aria-label="Send the test reminder to"
+                className={`${inputCls} flex-1 !py-1.5 text-sm`}
+                autoFocus
+              />
+              <button
+                type="button"
+                className="ui-btn-primary !px-3 !py-1.5 text-xs"
+                disabled={!!busy || !/^\S+@\S+\.\S+$/.test(testEmail.trim())}
+                onClick={() => run('test')}
+              >
+                {busy === 'test' ? 'Sending…' : 'Send test'}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -165,6 +201,7 @@ function OnlineMeetingSection({ form, setForm, errors, editingId, inputCls }) {
 export default function EventCrud() {
   const { data: events, isLoading } = useAdminEvents();
   const { data: eventTypes } = useActiveEventTypes();
+  const { data: emailConfig } = useEmailTemplates();
   const createMutation = useCreateEvent();
   const updateMutation = useUpdateEvent();
   const deleteMutation = useDeleteEvent();
@@ -221,6 +258,7 @@ export default function EventCrud() {
       meeting_reminder_minutes: w.meeting_reminder_minutes ?? 30,
       meeting_reminder_sent_at: w.meeting_reminder_sent_at ?? null,
       meeting_reminder_sent_count: w.meeting_reminder_sent_count ?? 0,
+      email_theme: w.email_theme ?? '',
     });
     setErrors({});
     setShowModal(true);
@@ -251,6 +289,7 @@ export default function EventCrud() {
         meeting_details: form.is_online ? form.meeting_details?.trim() || null : null,
         meeting_reminder_enabled: form.is_online && !!form.meeting_reminder_enabled,
         meeting_reminder_minutes: Number(form.meeting_reminder_minutes) || 30,
+        email_theme: form.email_theme || null,
       };
       delete payload.meeting_reminder_sent_at;
       delete payload.meeting_reminder_sent_count;
@@ -545,6 +584,18 @@ export default function EventCrud() {
                   <div className="mt-1 text-xs text-slate-400">An unlisted YouTube link works well. Leave empty to leave the video out of the email.</div>
                   {errors.credits_video_url && <div className="mt-1 text-xs font-medium text-gdg-red">{errors.credits_video_url}</div>}
                 </div>
+              </div>
+              <div className="mb-5">
+                <label className="ui-label-sentence" htmlFor="w-email-theme">Email theme</label>
+                <select id="w-email-theme" value={form.email_theme} onChange={(e) => setForm((f) => ({ ...f, email_theme: e.target.value }))} className={inputCls}>
+                  <option value="">
+                    Default{emailConfig ? ` (${emailConfig.themes.find((t) => t.id === emailConfig.theme)?.name ?? emailConfig.theme})` : ''}
+                  </option>
+                  {(emailConfig?.themes ?? [{ id: 'devfest-2026', name: 'DevFest 2026' }, { id: 'build-with-ai', name: 'Build with AI (classic)' }]).map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+                <div className="mt-1 text-xs text-slate-400">How this event&apos;s emails look. The words are edited under Email Templates.</div>
               </div>
               <div className="mb-5">
                 <label className="flex items-start gap-2 cursor-pointer">
