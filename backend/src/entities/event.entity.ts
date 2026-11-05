@@ -97,6 +97,10 @@ export class Event {
   @Column({ type: 'int', default: 0 })
   meeting_reminder_sent_count: number;
 
+  /** Email theme for this event's emails; null uses the global setting. */
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  email_theme: string | null;
+
   @CreateDateColumn()
   created_at: Date;
 

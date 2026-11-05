@@ -109,6 +109,11 @@ export class CreateEventDto {
   @IsBoolean()
   meeting_reminder_enabled?: boolean;
 
+  // null / '' = use the global email theme.
+  @IsOptional()
+  @IsString()
+  email_theme?: string | null;
+
   @IsOptional()
   @IsInt()
   @Min(5)

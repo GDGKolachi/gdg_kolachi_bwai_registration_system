@@ -14,6 +14,7 @@ import {
   checkinWindow,
   eventStartsAt,
   formatStart,
+  joinUrl,
   verifyJoinToken,
 } from './online.util';
 
@@ -60,6 +61,10 @@ export class OnlineService {
     const startsAt = eventStartsAt(event.date, event.time);
     return {
       title: event.title,
+      date: event.date,
+      time: event.time,
+      is_online: true,
+      email_theme: event.email_theme,
       venue: event.venue,
       special_instructions: event.special_instructions,
       meeting_url: event.meeting_url,
@@ -86,6 +91,7 @@ export class OnlineService {
       email: r.email,
       name: r.name,
       registrationId: r.id,
+      joinUrl: joinUrl(r.id),
     }));
   }
 
@@ -165,6 +171,7 @@ export class OnlineService {
           email: to,
           name: 'Organizer (test)',
           registrationId: '00000000-0000-0000-0000-000000000000',
+          joinUrl: joinUrl('00000000-0000-0000-0000-000000000000'),
         },
       ],
       this.reminderContent(event),

@@ -8,19 +8,10 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import * as fs from 'fs';
-import * as path from 'path';
 import { CREDITS_MAILER } from './credits.mailer';
-import type {
-  CreditsEmailMessage,
-  CreditsMailer,
-  CreditsSendResult,
-} from './credits.mailer';
-import {
-  renderCreditsEmail,
-  firstNameOf,
-  CREDITS_THUMB_CID,
-} from './credits-email.template';
+import type { CreditsMailer, CreditsSendResult } from './credits.mailer';
+import { EmailTemplatesService } from '../email/email-templates.service';
+import { buildAttachments } from '../email/templates/attachments';
 import {
   MAX_EMAIL_ATTEMPTS,
   backoffMs,
@@ -50,36 +41,8 @@ export class CreditsSender implements OnModuleInit, OnModuleDestroy {
   constructor(
     @InjectDataSource() private readonly db: DataSource,
     @Inject(CREDITS_MAILER) private readonly mailer: CreditsMailer,
+    private readonly templates: EmailTemplatesService,
   ) {}
-
-  private thumbnail: Buffer | null | undefined;
-
-  /** Loaded once (lazily). Missing file: warn and send without the image. */
-  private thumbnailAttachments(): Pick<CreditsEmailMessage, 'attachments'> {
-    if (this.thumbnail === undefined) {
-      try {
-        this.thumbnail = fs.readFileSync(
-          path.join(__dirname, 'assets', 'credits-video-thumb.png'),
-        );
-      } catch (err) {
-        this.thumbnail = null;
-        this.logger.warn(
-          `Credits video thumbnail missing, emails go out without it: ${(err as Error).message}`,
-        );
-      }
-    }
-    return this.thumbnail
-      ? {
-          attachments: [
-            {
-              filename: 'credits-video-thumb.png',
-              content: this.thumbnail,
-              contentId: CREDITS_THUMB_CID,
-            },
-          ],
-        }
-      : {};
-  }
 
   onModuleInit() {
     if (process.env.CREDITS_WORKER_ENABLED === 'false') {
@@ -189,7 +152,7 @@ export class CreditsSender implements OnModuleInit, OnModuleDestroy {
     spacingMs: number,
   ): Promise<CreditsSendResult> {
     const [row] = await this.rows(
-      `SELECT cr.token, r.deleted_at, a.name, a.email, e.title, e.credits_claim_url, e.credits_video_url
+      `SELECT cr.token, r.deleted_at, a.name, a.email, e.title, e.credits_claim_url, e.credits_video_url, e.email_theme
          FROM credit_redemptions cr
          JOIN registrations r ON r.id = cr.registration_id
          JOIN attendees a ON a.id = r.attendee_id
@@ -213,15 +176,20 @@ export class CreditsSender implements OnModuleInit, OnModuleDestroy {
       };
 
     const origin = siteOrigin();
-    const message = renderCreditsEmail({
-      firstName: firstNameOf(row.name),
-      eventTitle: row.title,
-      claimUrl: `${origin}/api/public/credits/${row.token}/claim`,
-      videoUrl: row.credits_video_url
-        ? `${origin}/api/public/credits/${row.token}/video`
-        : null,
-      confirmUrl: `${origin}/credits/${row.token}`,
-    });
+    const message = await this.templates.render(
+      'credits',
+      {
+        name: row.name,
+        eventTitle: row.title,
+        claimUrl: `${origin}/api/public/credits/${row.token}/claim`,
+        videoUrl: row.credits_video_url
+          ? `${origin}/api/public/credits/${row.token}/video`
+          : null,
+        confirmUrl: `${origin}/credits/${row.token}`,
+      },
+      { email_theme: row.email_theme },
+    );
+    const attachments = await buildAttachments(message.attachments);
     await this.waitForSendSlot(spacingMs);
     return this.mailer.send(
       {
@@ -229,7 +197,7 @@ export class CreditsSender implements OnModuleInit, OnModuleDestroy {
         subject: message.subject,
         html: message.html,
         text: message.text,
-        ...(row.credits_video_url ? this.thumbnailAttachments() : {}),
+        ...(attachments.length ? { attachments } : {}),
       },
       { idempotencyKey: `credits-${claim.id}-${claim.email_generation}` },
     );

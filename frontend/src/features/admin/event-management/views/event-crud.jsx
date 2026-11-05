@@ -5,6 +5,7 @@ import { useAdminEvents, useCreateEvent, useUpdateEvent, useDeleteEvent } from '
 import { validateEventForm } from '../admin-event-service';
 import { useActiveEventTypes } from '../../event-types/event-types-repository';
 import { useCurrentUser } from '../../auth/use-current-user';
+import { useEmailTemplates } from '../../email-templates/email-templates-repository';
 import { DEFAULT_CREDITS_CLAIM_URL, DEFAULT_CREDITS_VIDEO_URL } from './credits-defaults';
 
 const emptyForm = {
@@ -33,6 +34,7 @@ const emptyForm = {
   meeting_details: '',
   meeting_reminder_enabled: true,
   meeting_reminder_minutes: 30,
+  email_theme: '',
 };
 
 const badgeColors = {
@@ -199,6 +201,7 @@ function OnlineMeetingSection({ form, setForm, errors, editingId, inputCls }) {
 export default function EventCrud() {
   const { data: events, isLoading } = useAdminEvents();
   const { data: eventTypes } = useActiveEventTypes();
+  const { data: emailConfig } = useEmailTemplates();
   const createMutation = useCreateEvent();
   const updateMutation = useUpdateEvent();
   const deleteMutation = useDeleteEvent();
@@ -255,6 +258,7 @@ export default function EventCrud() {
       meeting_reminder_minutes: w.meeting_reminder_minutes ?? 30,
       meeting_reminder_sent_at: w.meeting_reminder_sent_at ?? null,
       meeting_reminder_sent_count: w.meeting_reminder_sent_count ?? 0,
+      email_theme: w.email_theme ?? '',
     });
     setErrors({});
     setShowModal(true);
@@ -285,6 +289,7 @@ export default function EventCrud() {
         meeting_details: form.is_online ? form.meeting_details?.trim() || null : null,
         meeting_reminder_enabled: form.is_online && !!form.meeting_reminder_enabled,
         meeting_reminder_minutes: Number(form.meeting_reminder_minutes) || 30,
+        email_theme: form.email_theme || null,
       };
       delete payload.meeting_reminder_sent_at;
       delete payload.meeting_reminder_sent_count;
@@ -579,6 +584,18 @@ export default function EventCrud() {
                   <div className="mt-1 text-xs text-slate-400">An unlisted YouTube link works well. Leave empty to leave the video out of the email.</div>
                   {errors.credits_video_url && <div className="mt-1 text-xs font-medium text-gdg-red">{errors.credits_video_url}</div>}
                 </div>
+              </div>
+              <div className="mb-5">
+                <label className="ui-label-sentence" htmlFor="w-email-theme">Email theme</label>
+                <select id="w-email-theme" value={form.email_theme} onChange={(e) => setForm((f) => ({ ...f, email_theme: e.target.value }))} className={inputCls}>
+                  <option value="">
+                    Default{emailConfig ? ` (${emailConfig.themes.find((t) => t.id === emailConfig.theme)?.name ?? emailConfig.theme})` : ''}
+                  </option>
+                  {(emailConfig?.themes ?? [{ id: 'devfest-2026', name: 'DevFest 2026' }, { id: 'build-with-ai', name: 'Build with AI (classic)' }]).map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+                <div className="mt-1 text-xs text-slate-400">How this event&apos;s emails look. The words are edited under Email Templates.</div>
               </div>
               <div className="mb-5">
                 <label className="flex items-start gap-2 cursor-pointer">

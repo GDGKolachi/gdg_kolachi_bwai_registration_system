@@ -25,6 +25,8 @@ import { TeamFormationConfig } from './entities/team-formation-config.entity';
 import { Team } from './entities/team.entity';
 import { TeamMember } from './entities/team-member.entity';
 import { CreditRedemption } from './entities/credit-redemption.entity';
+import { EmailTemplate } from './entities/email-template.entity';
+import { EmailSetting } from './entities/email-setting.entity';
 
 @Module({
   imports: [
@@ -52,6 +54,8 @@ import { CreditRedemption } from './entities/credit-redemption.entity';
         Team,
         TeamMember,
         CreditRedemption,
+        EmailTemplate,
+        EmailSetting,
       ],
       migrations: [__dirname + '/migrations/*{.ts,.js}'],
       migrationsRun: true,
