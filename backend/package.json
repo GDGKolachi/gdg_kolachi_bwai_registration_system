@@ -22,7 +22,8 @@
     "migration:generate": "npm run typeorm -- migration:generate",
     "migration:run": "npm run typeorm -- migration:run",
     "migration:revert": "npm run typeorm -- migration:revert",
-    "seed:teamtest": "ts-node -r tsconfig-paths/register src/cli/seed-hackathon-testdata.ts"
+    "seed:teamtest": "ts-node -r tsconfig-paths/register src/cli/seed-hackathon-testdata.ts",
+    "email:samples": "ts-node -r tsconfig-paths/register src/cli/email-samples.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

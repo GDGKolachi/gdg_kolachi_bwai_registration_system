@@ -130,6 +130,7 @@ export class TeamsService {
         subject: (opts.subject || '').trim() || `${eventTitle} — a message for ${label}`,
         message,
         event: opts.includeEventDetails === false ? null : team.event || null,
+        themeEvent: team.event,
         roster: opts.includeRoster === false ? [] : live.map(r => ({
           name: r.attendee?.name || 'Member',
           email: r.attendee?.email || '',
@@ -203,6 +204,7 @@ export class TeamsService {
         deadline,
         submitUrl: `${appUrl}/teams/${team.id}/deposit`,
         deposit: TEAM_DEPOSIT,
+        event: team.event,
       });
 
       if (!result?.sent) {

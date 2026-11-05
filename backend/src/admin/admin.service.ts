@@ -511,7 +511,7 @@ export class AdminService {
     }
 
     const ELIGIBLE = new Set(['shortlisted', 'confirmed']);
-    const eligible: Array<{ email: string; name: string; event: { title: string } }> = [];
+    const eligible: Array<{ email: string; name: string; event: { title: string; email_theme?: string | null } }> = [];
     const failed: { id: string; error: string }[] = [];
 
     for (const id of registrationIds) {
@@ -538,7 +538,7 @@ export class AdminService {
       eligible.push({
         email: registration.attendee.email,
         name: registration.attendee.name,
-        event: { title: registration.event.title },
+        event: { title: registration.event.title, email_theme: registration.event.email_theme },
       });
     }
 
@@ -658,7 +658,7 @@ export class AdminService {
       throw new BadRequestException('At least one registration ID is required');
     }
 
-    const eligible: Array<{ email: string; name: string; event: { title: string } }> = [];
+    const eligible: Array<{ email: string; name: string; event: { title: string; email_theme?: string | null } }> = [];
     const failed: { id: string; error: string }[] = [];
     const statusUpdated: string[] = [];
 
@@ -686,7 +686,7 @@ export class AdminService {
       eligible.push({
         email: registration.attendee.email,
         name: registration.attendee.name,
-        event: { title: registration.event.title },
+        event: { title: registration.event.title, email_theme: registration.event.email_theme },
       });
     }
 

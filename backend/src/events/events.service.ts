@@ -6,6 +6,7 @@ import { Registration } from '../entities/registration.entity';
 import { TeamFormationConfig } from '../entities/team-formation-config.entity';
 import { normalizeCreditsFields } from '../credits/credits.util';
 import { normalizeMeetingFields } from '../online/online.util';
+import { normalizeEmailTheme } from '../email/templates/themes';
 
 @Injectable()
 export class EventsService {
@@ -63,6 +64,7 @@ export class EventsService {
   async create(data: Partial<Event>) {
     normalizeCreditsFields(data);
     normalizeMeetingFields(data);
+    normalizeEmailTheme(data);
     const event = this.eventRepo.create(data);
     return this.eventRepo.save(event);
   }
@@ -80,6 +82,7 @@ export class EventsService {
     }
     normalizeCreditsFields(data);
     normalizeMeetingFields(data);
+    normalizeEmailTheme(data);
     await this.eventRepo.update(id, data);
     return this.findOne(id);
   }
